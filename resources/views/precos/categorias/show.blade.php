@@ -13,7 +13,12 @@
         <span class="inline-flex items-center gap-1.5 rounded-md bg-surface border border-hairline px-3 py-1.5">
             <i class="fa-solid fa-ruler text-brand-orange"></i> Unidade: <span class="font-medium text-brand-ink">{{ $categoria->unidade?->label() ?? 'Não definida' }}</span>
         </span>
-        <span class="text-xs">A unidade é editada no <a href="{{ route('fornecedor-categorias.edit', $categoria) }}" class="text-brand-orange-deep hover:underline">cadastro da categoria</a>.</span>
+        @if ($categoria->preco_interno !== null)
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-surface border border-hairline px-3 py-1.5">
+                <i class="fa-solid fa-lock text-brand-orange"></i> Preço Interno: <span class="font-medium text-brand-ink">R$ {{ $money($categoria->preco_interno) }}</span>
+            </span>
+        @endif
+        <span class="text-xs">A unidade e o preço interno são editados no <a href="{{ route('fornecedor-categorias.edit', $categoria) }}" class="text-brand-orange-deep hover:underline">cadastro da categoria</a>.</span>
     </div>
 
     {{-- Registros de preço --}}

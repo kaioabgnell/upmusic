@@ -9,7 +9,10 @@
         <div class="flex-1 min-w-0 flex flex-col">
             {{-- Cabeçalho --}}
             <div class="flex items-center justify-between px-5 h-16 border-b border-hairline shrink-0">
-                <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : (form.title || 'Card')"></h3>
+                <div class="flex items-center gap-2 min-w-0">
+                    <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : (form.title || 'Card')"></h3>
+                    <span x-show="concludedAt" class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-ink text-white"><i class="fa-solid fa-circle-check mr-1"></i>Concluído</span>
+                </div>
                 <button type="button" @click="closePanel()" class="text-steel hover:text-brand-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
@@ -152,7 +155,7 @@
                                             </div>
                                             <div class="max-h-48 overflow-y-auto space-y-0.5">
                                                 <template x-for="f in filteredFornecedores" :key="f.id">
-                                                    <button type="button" @click="form.fornecedor_id = f.id; fornecedorOpen = false" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left">
+                                                    <button type="button" @click="form.fornecedor_id = f.id; fornecedorOpen = false; loadFornecedorHistory(f.id)" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left">
                                                         <span class="flex-1 truncate text-brand-ink" x-text="f.name"></span>
                                                         <span class="text-[11px] text-steel shrink-0" x-text="f.document"></span>
                                                         <i x-show="Number(form.fornecedor_id) === f.id" class="fa-solid fa-check text-brand-orange text-xs"></i>
@@ -179,11 +182,56 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-sm font-medium text-brand-ink">Valor previsto</label>
+                                    <div class="flex items-center gap-1.5">
+                                        <label class="text-sm font-medium text-brand-ink">Valor previsto</label>
+                                        {{-- Histórico de preços do fornecedor selecionado (últimos 5 registros). --}}
+                                        <div x-show="form.fornecedor_id" x-data="{ historyOpen: false }" @mouseenter="historyOpen = true; positionFornecedorHistoryTooltip($event)" @mouseleave="historyOpen = false">
+                                            <i class="fa-solid fa-clock-rotate-left text-steel hover:text-brand-orange cursor-default text-xs"></i>
+                                            {{-- position:fixed (não absolute) para escapar do overflow-y-auto do corpo do painel e ficar
+                                                 por cima de tudo, sem forçar scroll/quebrar o layout do modal. --}}
+                                            <div x-show="historyOpen" x-cloak
+                                                 x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                                                 class="fixed z-50 w-64 bg-white border border-hairline rounded-xl shadow-lg p-3"
+                                                 :style="`top: ${fornecedorHistoryPos.top}px; left: ${fornecedorHistoryPos.left}px;`">
+                                                <p class="text-xs font-semibold text-brand-ink mb-2 truncate" x-text="`Histórico — ${selectedFornecedor?.name ?? ''}`"></p>
+
+                                                <template x-if="fornecedorHistoryLoading && !fornecedorHistory">
+                                                    <p class="text-xs text-steel"><i class="fa-solid fa-spinner fa-spin"></i> Carregando...</p>
+                                                </template>
+
+                                                <template x-if="fornecedorHistory && fornecedorHistory.records.length === 0">
+                                                    <p class="text-xs text-steel">Sem histórico de preços para este fornecedor.</p>
+                                                </template>
+
+                                                <template x-if="fornecedorHistory && fornecedorHistory.records.length > 0">
+                                                    <div>
+                                                        <ul class="space-y-1 mb-2">
+                                                            <template x-for="(r, i) in fornecedorHistory.records" :key="i">
+                                                                <li class="flex items-center justify-between text-xs">
+                                                                    <span class="text-steel" x-text="r.reference_date_br"></span>
+                                                                    <span class="font-medium text-brand-ink" x-text="'R$ ' + r.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                                                                </li>
+                                                            </template>
+                                                        </ul>
+                                                        <div class="border-t border-hairline pt-2 flex items-center justify-between text-xs">
+                                                            <span class="text-steel">Média</span>
+                                                            <span class="font-semibold text-brand-ink" x-text="'R$ ' + fornecedorHistory.average.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                                                        </div>
+                                                        <div class="mt-1 flex items-center gap-1.5 text-xs" :class="{ 'text-red-600': fornecedorHistory.trend === 'alta', 'text-green-600': fornecedorHistory.trend === 'baixa', 'text-steel': fornecedorHistory.trend === 'estavel' }">
+                                                            <i class="fa-solid" :class="{ 'fa-arrow-trend-up': fornecedorHistory.trend === 'alta', 'fa-arrow-trend-down': fornecedorHistory.trend === 'baixa', 'fa-minus': fornecedorHistory.trend === 'estavel' }"></i>
+                                                            <span x-text="{ alta: 'Evolução (alta)', baixa: 'Redução (baixa)', estavel: 'Estável' }[fornecedorHistory.trend]"></span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
-                                        <input type="text" inputmode="decimal" x-model="form.estimated_value" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        <input type="text" inputmode="decimal" x-model="form.estimated_value" x-mask:dynamic="$money($input, ',')" @blur="checkEstimatedValueVsPrecoInterno()" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
+                                    {{-- Aviso comparando com o Preço Interno da categoria do fornecedor selecionado — calculado ao sair do campo. --}}
+                                    <p x-show="estimatedValueCheck" x-cloak class="mt-1 text-xs" :class="estimatedValueCheck?.above ? 'text-red-600' : 'text-green-600'" x-text="estimatedValueCheck?.message"></p>
                                 </div>
                                 <div>
                                     <label class="text-sm font-medium text-brand-ink">Valor realizado</label>
@@ -194,51 +242,64 @@
                                 </div>
                             </div>
 
-                            {{-- Campos configuráveis do quadro --}}
-                            @if (count($fields))
-                                <div class="border-t border-hairline pt-4 space-y-4">
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-steel">Campos do quadro</p>
-                                    @foreach ($fields as $f)
-                                        @php $fid = $f['id']; @endphp
-                                        <div>
-                                            <label class="text-sm font-medium text-brand-ink">
-                                                {{ $f['label'] }}@if ($f['required'])<span class="text-red-600">*</span>@endif
-                                            </label>
-                                            @switch($f['type'])
-                                                @case('textarea')
-                                                    <textarea x-model="form.fields[{{ $fid }}]" rows="2" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm"></textarea>
-                                                    @break
-                                                @case('select')
-                                                    <select x-model="form.fields[{{ $fid }}]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
-                                                        <option value="">— Selecione —</option>
-                                                        @foreach ($f['options'] as $opt)
-                                                            <option value="{{ $opt }}">{{ $opt }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    @break
-                                                @case('checkbox')
-                                                    <div class="mt-1"><input type="checkbox" x-model="form.fields[{{ $fid }}]" class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"></div>
-                                                    @break
-                                                @case('date')
-                                                    <input type="date" x-model="form.fields[{{ $fid }}]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
-                                                    @break
-                                                @case('number')
-                                                    <input type="number" step="any" x-model="form.fields[{{ $fid }}]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
-                                                    @break
-                                                @default
-                                                    <input type="text" x-model="form.fields[{{ $fid }}]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
-                                            @endswitch
-                                            <p class="text-xs text-red-600 mt-1" x-show="errors['fields.{{ $fid }}']" x-text="errors['fields.{{ $fid }}']?.[0]"></p>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
+                            {{-- Campos configuráveis do quadro — dirigido por cfg.fields (não por Blade), já que o
+                                 mesmo modal é usado tanto no Kanban de um quadro quanto na listagem global de
+                                 cards, onde os campos variam por card (quadro de origem diferente a cada vez). --}}
+                            <div x-show="cfg.fields.length" class="border-t border-hairline pt-4 space-y-4">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-steel">Campos do quadro</p>
+                                <template x-for="f in cfg.fields" :key="f.id">
+                                    <div>
+                                        <label class="text-sm font-medium text-brand-ink">
+                                            <span x-text="f.label"></span><span x-show="f.required" class="text-red-600">*</span>
+                                        </label>
+                                        <template x-if="f.type === 'textarea'">
+                                            <textarea x-model="form.fields[f.id]" rows="2" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm"></textarea>
+                                        </template>
+                                        <template x-if="f.type === 'select'">
+                                            <select x-model="form.fields[f.id]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                                <option value="">— Selecione —</option>
+                                                <template x-for="opt in f.options" :key="opt">
+                                                    <option :value="opt" x-text="opt"></option>
+                                                </template>
+                                            </select>
+                                        </template>
+                                        <template x-if="f.type === 'checkbox'">
+                                            <div class="mt-1"><input type="checkbox" x-model="form.fields[f.id]" class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"></div>
+                                        </template>
+                                        <template x-if="f.type === 'date'">
+                                            <input type="date" x-model="form.fields[f.id]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        </template>
+                                        <template x-if="f.type === 'number'">
+                                            <input type="number" step="any" x-model="form.fields[f.id]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        </template>
+                                        <template x-if="!['textarea', 'select', 'checkbox', 'date', 'number'].includes(f.type)">
+                                            <input type="text" x-model="form.fields[f.id]" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        </template>
+                                        <p class="text-xs text-red-600 mt-1" x-show="errors['fields.' + f.id]" x-text="errors['fields.' + f.id]?.[0]"></p>
+                                    </div>
+                                </template>
+                            </div>
 
                             {{-- Seções apenas de card existente --}}
                             <template x-if="mode === 'view' && cardId">
                                 <div class="space-y-5">
-                                    {{-- Transferência / Conclusão (só na etapa Final do quadro) --}}
-                                    <div x-show="isFinalColumn" class="border-t border-hairline pt-4 rounded-lg bg-brand-orange/5 p-3 -mx-1 space-y-3">
+                                    {{-- Card concluído: só a opção de reabrir e enviar para um quadro. --}}
+                                    <div x-show="concludedAt" class="border-t border-hairline pt-4 rounded-lg bg-brand-orange/5 p-3 -mx-1">
+                                        <p class="text-xs text-steel mb-2">Concluído em <span x-text="concludedAt"></span><template x-if="concludedBy"> por <span x-text="concludedBy"></span></template></p>
+                                        <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-rotate-left text-brand-orange mr-1"></i> Reabrir e enviar para um quadro</p>
+                                        <div class="flex gap-2">
+                                            <select x-model="transferBoardId" class="flex-1 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                                <option value="">— Selecione o quadro —</option>
+                                                <template x-for="b in cfg.boards" :key="b.id">
+                                                    <option :value="b.id" x-text="b.name"></option>
+                                                </template>
+                                            </select>
+                                            <button type="button" @click="doReopen()" :disabled="!transferBoardId" class="rounded-md bg-brand-orange px-3 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep disabled:opacity-40">Reabrir</button>
+                                        </div>
+                                    </div>
+
+                                    {{-- Transferência / Conclusão (card ativo, só na etapa Final do quadro) --}}
+                                    <div x-show="!concludedAt && isFinalColumn" class="border-t border-hairline pt-4 rounded-lg bg-brand-orange/5 p-3 -mx-1 space-y-3">
                                         <div>
                                             <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-arrow-right-arrow-left text-brand-orange mr-1"></i> Enviar para outro departamento</p>
                                             <div class="flex gap-2">

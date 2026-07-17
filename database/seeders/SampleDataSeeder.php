@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Empresa;
 use App\Models\Fornecedor;
-use App\Models\Service;
+use App\Models\FornecedorCategoria;
 use Illuminate\Database\Seeder;
 
 class SampleDataSeeder extends Seeder
@@ -21,23 +21,16 @@ class SampleDataSeeder extends Seeder
         }
 
         $fornecedores = [
-            ['type' => 'PJ', 'name' => 'Limpa Tudo Serviços Ltda', 'document' => '04.252.011/0001-10', 'category' => 'Limpeza'],
-            ['type' => 'PJ', 'name' => 'Segura Bem Segurança Ltda', 'document' => '33.000.167/0001-01', 'category' => 'Segurança'],
-            ['type' => 'PF', 'name' => 'Carlos Sonorização', 'document' => '529.982.247-25', 'category' => 'Som'],
+            ['type' => 'PJ', 'name' => 'Limpa Tudo Serviços Ltda', 'document' => '04.252.011/0001-10', 'categoria' => 'Limpeza'],
+            ['type' => 'PJ', 'name' => 'Segura Bem Segurança Ltda', 'document' => '33.000.167/0001-01', 'categoria' => 'Segurança'],
+            ['type' => 'PF', 'name' => 'Carlos Sonorização', 'document' => '529.982.247-25', 'categoria' => 'Som'],
         ];
         foreach ($fornecedores as $f) {
+            $f['fornecedor_categoria_id'] = FornecedorCategoria::where('nome', $f['categoria'])->value('id');
+            unset($f['categoria']);
             // Armazena apenas dígitos, como no cadastro validado.
             $f['document'] = \App\Support\Br::digits($f['document']);
             Fornecedor::firstOrCreate(['document' => $f['document']], $f);
-        }
-
-        $services = [
-            ['name' => 'Limpeza de evento', 'category' => 'Limpeza', 'unit' => 'diária'],
-            ['name' => 'Segurança de evento', 'category' => 'Segurança', 'unit' => 'diária'],
-            ['name' => 'Locação de som', 'category' => 'Som', 'unit' => 'diária'],
-        ];
-        foreach ($services as $s) {
-            Service::firstOrCreate(['name' => $s['name']], $s);
         }
     }
 }

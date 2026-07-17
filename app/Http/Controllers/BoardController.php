@@ -3,17 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Enums\CardPriority;
-use App\Domain\Enums\PessoaTipo;
 use App\Http\Requests\StoreBoardRequest;
 use App\Http\Requests\UpdateBoardRequest;
 use App\Models\Board;
 use App\Models\CardTemplate;
-use App\Models\Empresa;
-use App\Models\Event;
-use App\Models\Fornecedor;
 use App\Models\Setor;
 use App\Models\User;
-use App\Support\Br;
+use App\Services\CardFormOptionsService;
 use App\Support\CardPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +36,7 @@ class BoardController extends Controller
         return view('boards.index', compact('boards'));
     }
 
-    public function show(Request $request, Board $board)
+    public function show(Request $request, Board $board, CardFormOptionsService $options)
     {
         $this->authorize('view', $board);
 
@@ -73,18 +69,8 @@ class BoardController extends Controller
             'columns' => $columns,
             'fields' => $fields,
             'filters' => $filters,
-            'empresas' => Empresa::active()->orderBy('corporate_name')->get(['id', 'corporate_name']),
-            'fornecedores' => Fornecedor::active()->orderBy('name')->get(['id', 'name', 'type', 'document'])
-                ->map(fn ($f) => [
-                    'id' => $f->id,
-                    'name' => $f->name,
-                    'document' => $f->type === PessoaTipo::PF ? Br::formatCpf($f->document) : Br::formatCnpj($f->document),
-                ])
-                ->values(),
-            'events' => Event::active()->orderByDesc('start_date')->get(['id', 'name']),
-            'assignees' => User::where('active', true)->orderBy('name')->get(['id', 'name', 'avatar_path'])
-                ->map(fn ($u) => (object) ['id' => $u->id, 'name' => $u->name, 'avatar_url' => $u->avatar_url])
-                ->values(),
+            ...$options->globalOptions(),
+            'boards' => Board::active()->orderBy('name')->get(['id', 'name']),
             'transferBoards' => Board::active()->where('id', '!=', $board->id)->orderBy('name')->get(['id', 'name']),
             'priorities' => CardPriority::options(),
             'boardTemplates' => CardTemplate::query()->where('active', true)->where('board_id', $board->id)

@@ -85,7 +85,10 @@ class Br
             return null;
         }
 
-        if (is_numeric($value)) {
+        // Só pula o parsing BR para float/int genuínos (ex.: valor já calculado em PHP). Uma
+        // string como "90.000" (BR para noventa mil) também passaria em is_numeric() — mas o "."
+        // ali é separador de milhar, não decimal — então strings sempre passam pelo parsing abaixo.
+        if (is_float($value) || is_int($value)) {
             return (float) $value;
         }
 

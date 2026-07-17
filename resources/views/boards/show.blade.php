@@ -15,6 +15,7 @@
                 anexoBase: '{{ url('anexos') }}',
                 empresaQuick: '{{ route('empresas.quick') }}',
                 fornecedorQuick: '{{ route('fornecedores.quick') }}',
+                fornecedorPriceHistory: '{{ url('fornecedores') }}',
                 kanbanData: '{{ route('boards.kanban.data', $board) }}',
             },
             initialFilters: {{ Illuminate\Support\Js::from($filters) }},

@@ -409,6 +409,309 @@ Trocar com `/model sonnet` ou `/model opus` ao iniciar cada bloco.
 > reaproveitou o mesmo registro (idempotente) e limpar o valor removeu-o; registro manual via
 > `/precos/registros` OK; rota antiga `/precos/servicos` retorna 404. `pint` (211 arquivos) e `npm run build`
 > limpos.
+- [x] Evolução de preços (`/precos/evolucao`): select de **Fornecedor** (default: primeiro em ordem
+      alfabética) para restringir a série do gráfico principal a um fornecedor específico da categoria.
+- [x] Evolução de preços: nova seção **"Comparar fornecedores"** — seleciona 2+ fornecedores da mesma
+      categoria e compara os preços num gráfico de linhas (uma cor fixa por fornecedor, legenda, tooltip
+      por ponto e tabela com data/fornecedor/preço), com seletor de **período** (3 meses / 6 meses / 1 ano
+      — default / todo o período).
+
+> `PriceHistoryController::index()` ganhou `fornecedor_id` (default: primeiro alfabético da categoria,
+> reancorado se a categoria mudar) e `compare_ids[]`/`period` para a comparação. Novo
+> `PriceHistoryService::compareFornecedores()` retorna a série de cada fornecedor dentro do período.
+> Paleta categórica de 8 cores (skill `dataviz`) validada via `validate_palette.js` (todos os checks OK;
+> o WARN de contraste em 3 tons exige rótulo visível/tabela — já coberto pela legenda em texto + tabela
+> completa). Cor por fornecedor é fixa pela posição alfabética dentro da categoria (não pela ordem de
+> seleção), então o mesmo fornecedor mantém a mesma cor em qualquer combinação. Gráfico é SVG estático
+> (mesmo padrão do gráfico principal já existente) com tooltip nativo (`<title>`) por ponto; todos os
+> valores também ficam na tabela abaixo, sem depender de hover.
+> Validado por HTTP: sem seleção mostra "selecione 2 ou mais"; com 2 fornecedores mostra as 2 polylines,
+> legenda com nomes corretos e cores estáveis independente da ordem de seleção na URL; período "1 ano"
+> (default) exclui corretamente um registro de teste com 2 anos de idade, que só aparece com "todo o
+> período"; fornecedor de outra categoria enviado no filtro é ignorado sem erro; `npm run build` era
+> necessário (classes novas não estavam no bundle) — rebuildado e reconfirmado.
+- [x] Evolução de preços: correção de bug (gráficos SVG feitos à mão não alinhavam datas/linhas de forma
+      confiável) — ambos os gráficos (evolução de um fornecedor e comparação entre fornecedores) migrados
+      para **Chart.js** (`type: 'time'` com `chartjs-adapter-date-fns`), eixo X por data real, eixo Y por
+      valor (BRL), tooltip com dado por ponto. Layout: "Comparar fornecedores" saiu de seção sempre visível
+      e virou aba **"Comparação"**, junto de uma aba **"Evolução"**, alternadas por um toggle abaixo do
+      título (mesmo padrão visual do toggle Kanban/Lista de `boards/show.blade.php`).
+
+> `chart.js` + `chartjs-adapter-date-fns` (+ `date-fns`) instalados via npm e registrados globalmente em
+> `resources/js/app.js` (`window.Chart`, módulos `LineController/LineElement/PointElement/LinearScale/
+> TimeScale/Legend/Tooltip/Filler`). `precos/evolucao.blade.php`: `<canvas>` substitui os `<polyline>` SVG;
+> dados repassados como `{x: data ISO, y: preço}` direto do `@php` da view (controller/service inalterados).
+> Gráfico de comparação usa `interaction: { mode: 'index', intersect: false }` (um tooltip mostrando todas
+> as séries no ponto) e legenda nativa do Chart.js (paleta e cor fixa por fornecedor mantidas). Abas
+> controladas por Alpine (`x-data="{ view: 'evolucao' }"`); troca de aba dispara `.resize()` nos dois charts
+> (canvas dentro de `x-show` renderiza com largura 0 se não for redimensionado ao aparecer).
+> Validado por HTTP: categoria com 2 fornecedores e datas não-uniformes (01/06/08/10/16 jul) — JSON embutido
+> no `<script>` confirma pontos `{x,y}` corretos e cor por fornecedor estável pela ordem alfabética; select
+> de fornecedor continua default no primeiro alfabético; categoria sem fornecedores e categoria inexistente
+> (404) preservam os empty states; classes Tailwind novas (`gap-1.5`, `h-8`, `.rounded`, `px-3`, `shrink-0`)
+> conferidas no bundle após `npm run build` (JS subiu para ~444 kB com Chart.js). `pint --dirty` limpo.
+- [x] Correção de 2 bugs no Chart.js recém-introduzido: (1) `window.Chart is not a constructor` — `app.js`
+      carrega como `<script type="module">` (sempre adiado), então o `<script>` inline da view rodava antes
+      de `window.Chart` existir; envolvido em `document.addEventListener('DOMContentLoaded', ...)`. (2)
+      gráfico de "Comparar fornecedores" mostrava datas vazias (ex.: um ano inteiro) quando o período
+      selecionado era maior que o intervalo real dos registros — o eixo X usava os limites do **filtro**
+      de período (`periodStart`/`periodEnd`) em vez do intervalo real dos dados retornados.
+
+> Fix 2: `$effectiveStart`/`$periodEnd` (limites do filtro) trocados por `$compareChartStart`/
+> `$compareChartEnd`, calculados a partir do min/max real de `$compareAllPoints` (já filtrado pelo período).
+> O filtro de período continua decidindo quais registros entram na comparação; o eixo do gráfico passou a
+> refletir só o intervalo que tem registro.
+> Validado por HTTP: `?period=1y` (default) com registros só entre 01/07 e 16/07/2026 — eixo do gráfico
+> embutido no `<script>` confirmado como `min: '2026-07-01'` / `max: '2026-07-16'` (antes: `min` caía em
+> 17/07/2025, um ano atrás). `npm run build` e `pint --dirty` limpos.
+- [x] Correção de mais 2 bugs no "Comparar fornecedores": (1) clicar em **"Comparar"** fazia um submit GET
+      que recarregava a página e voltava para a aba **Evolução**, perdendo a aba Comparação. (2) o eixo X do
+      gráfico mostrava **horários** (ex. "12:00") em vez de só datas.
+
+> Fix 1: o estado `view` do Alpine (antes local ao `<div>` das abas) subiu para um `x-data` que envolve
+> também o formulário de filtro do topo; inicializado a partir de `request('view', 'evolucao')`. O form de
+> filtro (categoria/fornecedor) ganhou `<input type="hidden" name="view" :value="view">` (reflete a aba
+> atual em qualquer submit); o form de "Comparar" ganhou `<input type="hidden" name="view" value="comparacao">`
+> fixo, já que esse submit sempre deve pousar na aba Comparação.
+> Fix 2: `time.unit` das duas escalas X forçado para `'day'` — sem isso, o auto-detecção de granularidade do
+> Chart.js podia escolher uma unidade menor (hora/minuto), e como `displayFormats` só cobria dia/semana/mês/
+> trimestre/ano, a unidade não coberta caía no formato padrão do adaptador (que inclui hora).
+> Regressão pega no processo: `$compareChartStart`/`$compareChartEnd` (novos, do fix anterior) podem ser
+> `null` quando não há dados de comparação (ex.: página padrão com só 1 fornecedor selecionado), mas o
+> `<script>` chamava `->format()` incondicionalmente — 500 (`Call to a member function format() on null`).
+> Corrigido com `?->format(...)`; inofensivo porque nesse cenário o `<canvas id="comparar-chart">` nem existe
+> no DOM, então o `if (compararCanvas)` do JS nunca chega a usar esses valores.
+> Validado por HTTP: submit do form "Comparar" com `view=comparacao` na URL — `x-data="{ view: 'comparacao' }"`
+> confirmado no HTML; troca de fornecedor no filtro do topo preserva a aba via `:value="view"`; ambas as
+> escalas X confirmadas com `time: { unit: 'day', ... }`; página padrão (`?categoria_id=1`, sem comparação) e
+> categoria sem fornecedores voltaram a responder 200 (antes do fix do null-safe, ambas davam 500). `npm run
+> build` e `pint --dirty` limpos.
+- [x] Card panel (`boards/partials/card-panel.blade.php`): ao selecionar um **Fornecedor**, um ícone ao lado
+      do rótulo "Valor previsto" mostra em tooltip os **últimos 5 preços** daquele fornecedor (data +
+      valor), a **média** e a **tendência** (evolução/alta ou redução/baixa, comparando o mais recente com
+      o mais antigo da janela de 5). Atualiza ao trocar de fornecedor.
+
+> Novo `PriceHistoryService::lastForFornecedor(Fornecedor $fornecedor, int $limit = 5)`: busca direto em
+> `$fornecedor->priceRecords()` (não depende de categoria selecionada em tela nenhuma), retorna
+> `records`/`average`/`trend` (`alta`/`baixa`/`estavel`, ou tudo `null`/vazio sem histórico). Novo endpoint
+> JSON `GET fornecedores/{fornecedor}/preco-historico` (`FornecedorController::priceHistory`, mesma
+> convenção de `fornecedores/quick` — sem prefixo `/api`, disponível a qualquer autenticado). `kanban.js`:
+> `fornecedorHistoryCache` (por `fornecedor_id`, evita refetch ao reabrir o mesmo fornecedor),
+> `loadFornecedorHistory()` chamado ao selecionar fornecedor no dropdown, ao abrir um card existente
+> (`openCard`) e após cadastro rápido (`quickFornecedor`); cache invalidado após `save()` (o salvamento pode
+> criar/atualizar um registro de preço via hook `SyncCardPriceRecord`, o que tornaria o histórico
+> cacheado desatualizado). Tooltip é um popover próprio (hover), não reaproveita o tooltip genérico de texto
+> já existente no quadro (que é single-line/plain-text).
+> Validado por HTTP: fornecedor com 4 registros (700/650/500/600, datas 01–16/07) → `average: 612.5`,
+> `trend: "baixa"` (600 < 700); fornecedor com 2 registros (400→800) → `trend: "alta"`; fornecedor sem
+> registros → `records: []`, `average`/`trend` `null`; fornecedor inexistente → 404 (route model binding).
+> Markup confirmado na página do quadro (`cfg.urls.fornecedorPriceHistory`, `loadFornecedorHistory` no
+> clique do fornecedor, blocos do tooltip); classe Tailwind nova (`top-full`) conferida no bundle. `npm run
+> build` e `pint --dirty` limpos.
+- [x] Correção de 2 bugs no tooltip de histórico de preços do fornecedor (recém-criado): (1) a URL montada
+      em `loadFornecedorHistory()` esquecia o sufixo `/preco-historico` — chamava `GET fornecedores/{id}`
+      (rota inexistente para esse verbo, só PUT/DELETE) e caía sempre em 405, então o `catch` preenchia o
+      cache com histórico vazio e o tooltip mostrava "Sem histórico" mesmo para fornecedor com registros.
+      (2) o popover usava `position: absolute` dentro do corpo do painel (`overflow-y-auto`), então era
+      cortado/forçava scroll em vez de aparecer por cima de tudo.
+
+> Fix 1: `` `${cfg.urls.fornecedorPriceHistory}/${fornecedorId}` `` → `` `.../${fornecedorId}/preco-historico` ``.
+> Fix 2: popover trocado de `absolute` (relativo ao ícone, preso ao overflow do painel) para `fixed`
+> (relativo ao viewport, mesma ideia do tooltip genérico de `boards/show.blade.php`) — novo
+> `positionFornecedorHistoryTooltip(event)` em `kanban.js` calcula `top`/`left` via
+> `getBoundingClientRect()` do ícone no `@mouseenter`, guardado em `fornecedorHistoryPos`; o popover usa
+> `:style` com esses valores e `z-50`, escapando do `overflow-y-auto` do corpo do card.
+> Validado por HTTP: bundle JS confirmado com a string `preco-historico` na URL montada; `GET
+> fornecedores/5/preco-historico` (fornecedor com 4 registros) segue retornando 200 com os dados corretos;
+> markup confirmado com `class="fixed z-50 ..."` e `:style` ligado a `fornecedorHistoryPos`; classe
+> Tailwind `.fixed{position:fixed}` conferida no bundle. `npm run build` e `pint --dirty` limpos.
+- [x] Painel (`dashboard.blade.php`) reorganizado em 3 blocos + busca de cards em destaque: **Vencendo hoje**
+      (novo, com selo de contagem e borda vermelha para destacar urgência), **Meus quadros** (já existia) e
+      **Atualizados recentemente** (já existia). Campo de busca acima das estatísticas envia para
+      `/cards?search=...` (mesmo parâmetro do filtro de "Todos os cards").
+
+> `DashboardController::index()` ganhou `$dueTodayCards`: `Card::whereIn('board_id', $boardIds)
+> ->whereNull('concluded_at')->whereDate('due_date', today())`, ordenado por prioridade
+> (`orderByRaw("field(priority, 'alta', 'media', 'baixa')")`) — mesma regra de acesso a quadros já usada por
+> `$boards`/`$recentCards` (admin/coordenador vê tudo; demais só quadros do pivot `user_board`), sem filtrar
+> por responsável (mesma escolha já feita em `$recentCards`). View: busca é um `<form method="GET"
+> action="{{ route('cards.index') }}">` com `<input name="search">` — mesmo nome de parâmetro que
+> `CardController::index()` já usa para o `LIKE` no título. Bloco "Vencendo hoje" fica acima do grid de
+> quadros/recentes (2 colunas), com destaque visual (borda superior vermelha, ícone, badge de contagem,
+> badge de prioridade por card) para ficar com "dados de mais relevância em destaque"; estado vazio com
+> mensagem de alívio ("Nenhum card vence hoje").
+> Validado por HTTP: card de teste com `due_date` de hoje e prioridade alta apareceu no bloco (ordenado
+> antes de um card seed de prioridade baixa, confirmando o `ORDER BY` de prioridade); contagem do selo
+> refletiu 2 → 1 ao excluir o card de teste; busca `?search=TESTE` em `/cards` encontrou o card de teste
+> criado a partir do dashboard; estado vazio confirmado ao zerar temporariamente o `due_date` do card seed
+> restante (restaurado ao valor original depois). `npm run build` e `pint --dirty` limpos.
+- [x] Ajuste de layout do painel: os 3 blocos ("Vencendo hoje" / "Meus quadros" / "Atualizados recentemente")
+      passaram de empilhados (bloco 1 largura total + bloco 2/3 em 2 colunas) para **3 colunas lado a lado**
+      (`grid grid-cols-1 lg:grid-cols-3`), cada uma com o mesmo cartão-contêiner (cabeçalho + lista com
+      `divide-y` e `max-h-[28rem] overflow-y-auto`) para altura visual consistente entre as colunas — "Meus
+      quadros" deixou de ser um grid de tiles 2×N e virou lista de linhas (ícone + nome + setor/contagem),
+      no mesmo estilo das outras duas colunas.
+> Validado por HTTP: markup confirma o grid único `lg:grid-cols-3` envolvendo as 3 colunas; classe Tailwind
+> de valor arbitrário `max-h-[28rem]` conferida no bundle CSS; coluna "Meus quadros" renderizando como lista
+> de linhas com ícone/cor do quadro. `npm run build` e `pint --dirty` limpos.
+- [x] Listagem de quadros (`boards/index.blade.php`): a área `p-5 flex-1` do card (título, ícone, descrição,
+      contagem de etapas/cards) virou um único `<a>` para `boards.show` — clicar em qualquer ponto dessa
+      região (não só no título) abre o quadro. Botões do rodapé ("Abrir"/"Configurar"/"Editar"/"Excluir")
+      continuam como ações separadas, sem mudança.
+> Validado por HTTP: `<a href=".../quadros/{id}" class="block p-5 flex-1 hover:bg-surface/40 ...">` envolve
+> corretamente todo o conteúdo do card (tags balanceadas, sem `<a>`/`<button>` aninhado dentro — o rodapé com
+> os links de ação fica fora, em irmão separado); classe nova `hover:bg-surface/40` conferida no bundle CSS.
+> `npm run build` e `pint --dirty` limpos.
+- [x] Unificação do modal de card: a listagem global **"Todos os cards"** (`cards/index.blade.php`) usava um
+      slide-over somente leitura (`cards/partials/detail-panel.blade.php`) bem mais simples que o modal do
+      Kanban. Os dois agora usam **o mesmo componente** (`boards/partials/card-panel.blade.php` +
+      novo `resources/js/card-panel.js`) — edição completa (título, descrição, Empresa, Fornecedor com
+      histórico de preços, Evento, valores, campos configuráveis do quadro, prioridade/responsável/
+      vencimento, anexos, comentários, histórico) nos dois lugares, com uma única fonte de verdade: alterar
+      o modal agora vale para ambas as telas.
+
+> `card-panel.js` (novo) extrai toda a lógica compartilhada de `kanban.js` (form, abas, quick-pickers,
+> histórico de preços do fornecedor, salvar/excluir/comentar/anexar/transferir/concluir/reabrir/mover) como
+> uma factory `cardPanel()`; `kanban.js` e o novo `cards-hub.js` fazem `{ ...cardPanel(), ...próprio }` e só
+> definem os hooks opcionais (`afterCardSaved`, `afterCardRemoved`, `afterCardMoved`, `afterCardTransferred`,
+> `afterCardConcluded`, `afterCardReopened`, `afterCardOpened`, `bumpCardCount`) chamados nos pontos de
+> mutação: no Kanban eles atualizam o array reativo `columns` (sem reload); na listagem global, como a
+> tabela é paginada e renderizada no servidor, eles simplesmente recarregam a página.
+> Como a listagem global não é de um único quadro, `afterCardOpened` (só em `cards-hub.js`) busca sob
+> demanda, por card: `cfg.transferBoards` (todos os quadros acessíveis exceto o do card, calculado de
+> `cfg.boards`) e `columns` para a rail "Mover para fase" (reaproveitando `GET quadros/{board}/kanban`, já
+> existente — sem rota nova). Os campos configuráveis do quadro deixaram de ser renderizados via Blade
+> (`@foreach`/`@switch` em `$fields`, fixo por página) e passaram a ser 100% Alpine (`x-for`/`x-if` sobre
+> `cfg.fields`), porque agora variam por card aberto — `openCard()` (compartilhado) sempre repõe
+> `cfg.fields = c.board_fields` a partir do JSON do próprio card (`CardController::cardJson()` ganhou
+> `required` nesse array, que faltava).
+> Novo `App\Services\CardFormOptionsService::globalOptions()` (empresas/fornecedores/eventos/responsáveis —
+> cadastros globais, não por quadro) reaproveitado por `BoardController::show()` e `CardController::index()`,
+> eliminando a duplicação das 4 queries entre os dois controllers.
+> Card concluído ganhou tratamento próprio no modal compartilhado (antes só existia no slide-over antigo):
+> selo "Concluído" no cabeçalho, bloco "Reabrir e enviar para um quadro" (`doReopen()`, novo, mesmo padrão de
+> `doTransfer()`) no lugar do bloco de transferência/conclusão quando `concludedAt` está presente.
+> `cards/partials/detail-panel.blade.php` removido (não usado por mais nada).
+> Validado por HTTP: criado card de teste com 3 campos configuráveis (textarea/select/checkbox) no quadro
+> "Orçamentos" — `GET cards/{id}` confirma `board_fields` com `required` e `field_values` corretos; ciclo
+> completo testado via API real (mesmos endpoints que os métodos compartilhados chamam): criar → editar
+> (PUT) → mover → comentar → mover para coluna final → concluir → `GET` confirma `concluded_at`/`concluded_by`
+> → reabrir em outro quadro → mover para coluna final do novo quadro → transferir para um terceiro quadro —
+> todos 200/201 com as mensagens esperadas. Página `/cards` renderiza `cardsHub({...})` com
+> `empresas`/`fornecedores`/`events`/`assignees`/`boards` embutidos (mesmo formato de `boards/show.blade.php`,
+> via o novo service); `/quadros/{id}` inalterado na aparência, `kanban({...})` com a mesma config de antes.
+> Bundle JS confirmado com os hooks/símbolos novos presentes. Dados de teste (card, campos do quadro)
+> removidos ao final. `npm run build` e `pint --dirty` (8 arquivos) limpos.
+- [x] Correção crítica: a unificação acima (`{ ...cardPanel(), ...próprio }` em `kanban.js`/`cards-hub.js`)
+      quebrava os dois componentes por completo — Kanban parava de mostrar qualquer item
+      (`Cannot read properties of undefined (reading 'find')` em `isFinalColumn`) e, em cascata, toda a
+      página passava a lançar `ReferenceError` para qualquer propriedade (`viewMode`, `search`, `filters`,
+      `columns`, etc. — literalmente tudo).
+
+> Causa raiz: `{ ...cardPanel() }` (spread) **avalia os getters na hora da cópia** e copia só o valor
+> resultante — não preserva o getter como acessor. `card-panel.js` tem vários `get` (computeds:
+> `isFinalColumn`, `previousColumns`, `selectedAssignee` etc.); no instante do spread, esses getters rodam
+> com `this` apontando para o objeto solto devolvido por `cardPanel()` — que ainda não tem `columns`/`cfg`
+> (essas só existem depois de mescladas com o próprio objeto do host). `this.columns.find(...)` lança
+> imediatamente, a função factory (`kanban(config)`/`cardsHub(config)`) nunca termina de construir seu
+> objeto de retorno, e o `x-data` inteiro falha — daí o Alpine não ter NENHUM escopo de dados e todo o
+> resto da página (mesmo propriedades sem relação nenhuma, tipo `viewMode`) virar `ReferenceError`.
+> Fix: troca de spread por mesclagem de **descritores de propriedade**
+> (`Object.defineProperties(alvo, Object.getOwnPropertyDescriptors(origem))`), que copia o getter em si
+> (não o valor avaliado) — `card-panel.js` exporta `cardPanel(own)` (não mais um objeto solto pra espalhar);
+> `kanban.js`/`cards-hub.js` chamam `return cardPanel({ ...seu próprio estado/métodos... })` no lugar de
+> `return { ...cardPanel(), ... }`.
+> Validado: reprodução isolada em Node confirma que o padrão antigo lança exatamente o erro reportado, e
+> que o novo não lança; simulação completa do ciclo de vida real (`kanban(config)` → leitura de todos os
+> getters antes do `init()` → `init()` roda e popula `columns` → getters lidos de novo) sem exceções, para
+> `kanban.js` e `cards-hub.js`. Validado por HTTP de ponta a ponta de novo (criar card com campos
+> configuráveis, `GET cards/{id}`, listagem global mostrando o card e o `openCard()` correto) — tudo OK.
+> `npm run build` e `pint --dirty` limpos.
+
+**Campo "Preço Interno" na categoria de fornecedor + linha de referência nos gráficos de preço.**
+> Novo campo opcional `preco_interno` (decimal 15,2) em `fornecedor_categorias` (migration
+> `2026_07_18_000006_...`), editável em `fornecedor-categorias/create` e `edit` (input com máscara de
+> dinheiro BR via `x-mask:dynamic="$money($input, ',')"`, mesmo padrão do card-panel), validado/parseado
+> via `Br::money()` nos Form Requests (Store/UpdateFornecedorCategoriaRequest). Exibido em
+> `precos/categorias/show.blade.php` como badge "Preço Interno: R$ ...". Nos dois gráficos Chart.js de
+> `precos/evolucao.blade.php` (Evolução e Comparação), quando a categoria selecionada tem preço interno
+> cadastrado, um dataset extra tracejado (preto, sem pontos) é adicionado percorrendo toda a extensão do
+> eixo X do gráfico (dois pontos: primeira e última data da série) — funciona como linha de referência
+> fixa. Legenda passa a aparecer nos dois gráficos quando essa linha está presente (antes só a
+> Comparação tinha legenda).
+> Validado por HTTP: criado `preco_interno` via PUT no cadastro (formato BR "1.234,56" → persistido como
+> `1234.56`), conferido o badge na tela de categoria, e conferido o payload JSON embutido nos dois
+> gráficos (`evolucaoDatasets.push(...)`/`datasets.push(...)`) com os pontos corretos cobrindo a mesma
+> janela de datas da série real. Dado de teste revertido para `null` ao final. `pint --dirty` e
+> `npm run build` limpos.
+
+**Coluna "Preço Interno" na listagem de categorias de fornecedor.**
+> `fornecedor-categorias/index.blade.php`: nova coluna entre "Unidade" e "Fornecedores" mostrando
+> `R$ 1.234,56` (ou "—" quando não cadastrado). Sem mudança no controller — `preco_interno` já vem no
+> model, sem seleção restrita de colunas. Validado por HTTP (valor de teste `999.90` renderizado como
+> "R$ 999,90"), revertido ao final. `pint --dirty` limpo.
+
+**Aviso de "Valor previsto" vs. Preço Interno no modal de card.**
+> No modal de card compartilhado (`boards/partials/card-panel.blade.php` + `card-panel.js`), ao sair do
+> campo "Valor previsto" (`@blur`, não em tempo real — pedido explícito do usuário), o sistema compara o
+> valor digitado com o Preço Interno da categoria do fornecedor selecionado no card e mostra uma mensagem
+> logo abaixo do input: "Valor acima do Preço Interno da categoria (R$ ...)" em vermelho, ou "Valor dentro
+> do Preço Interno da categoria (R$ ...)" em verde. Sem round-trip AJAX: `preco_interno` é estático por
+> categoria (ao contrário do histórico de preços do fornecedor, que é uma série temporal e já usa
+> `fornecedorPriceHistory`/`loadFornecedorHistory`), então foi embutido diretamente em `cfg.fornecedores`
+> (`CardFormOptionsService::globalOptions()` agora faz eager-load de `categoria:id,preco_interno` e mapeia
+> `preco_interno` — usado tanto pelo Kanban quanto pela listagem "Todos os cards", que compartilham essa
+> config). `card-panel.js` ganhou `parseMoneyBR()` (inverso de `moneyFromDecimal`, converte a string
+> mascarada BR de volta a número) e `checkEstimatedValueVsPrecoInterno()`, chamado só no `@blur` do
+> input — o resultado fica em `estimatedValueCheck` (`{ above, message }` ou `null`), resetado ao
+> abrir/criar um card. `quickFornecedor()` também passou a inicializar `preco_interno: null` no fornecedor
+> recém-criado (sem categoria ainda).
+> Validado: lógica de parsing/comparação replicada e testada isoladamente em Node (casos "1.234,56",
+> "850,00", "900", vazio, `null`, valor igual ao preço interno — tudo correto). Validado por HTTP que
+> `cfg.fornecedores` do quadro carrega `"preco_interno":850` para um fornecedor com categoria configurada.
+> Dado de teste revertido ao final. `pint --dirty` e `npm run build` limpos.
+
+**Correção crítica: `Br::money()` truncava valores BR sem casa decimal digitada (ex.: "90.000" virava 90,00).**
+> Causa raiz: `Br::money()` tinha um atalho `if (is_numeric($value)) return (float) $value;` antes do
+> parsing BR. Uma string como `"90.000"` (BR para noventa mil) também é um numeric string válido em PHP
+> (`is_numeric("90.000")` é `true`, porque o PHP interpreta o "." como ponto decimal) — então o atalho
+> disparava e devolvia `90.0` em vez de `90000.0`. Isso afetava qualquer valor BR com separador de milhar
+> e sem parte decimal digitada: "Valor previsto"/"Valor realizado" no card, "Preço Interno" na categoria,
+> lançamentos financeiros, registros de preço, submissões do formulário externo — todos os callers de
+> `Br::money()` (`app/Http/Requests/Store|UpdateCardRequest`, `Store|UpdateFornecedorCategoriaRequest`,
+> `FinancialEntryController`, `FinancialPlanController`, `PriceRecordController`,
+> `ProcessExternalSubmission`).
+> Fix: trocado `is_numeric($value)` por `is_float($value) || is_int($value)` — só pula o parsing BR
+> quando o valor já chega como float/int genuíno (ex.: calculado em PHP), nunca para uma string, já que
+> toda string vinda de request é sempre texto digitado pelo usuário no input mascarado, nunca um float cru.
+> Validado: `Br::money('90.000')` → `90000.0`, `Br::money('10.000')` → `10000.0`, `Br::money('900,00')` →
+> `900.0`, `Br::money('1.234,56')` → `1234.56`, `Br::money(90.5)` (float genuíno) → `90.5` — tudo correto.
+> Validado por HTTP real (Puppeteer + Chrome headless): criado card com "Valor previsto" = "90.000" via
+> o modal real, confirmado no banco que `estimated_value` persistiu como `90000.00` (não `90.00`), e que
+> reabrir o card reexibe corretamente "90.000,00".
+>
+> Nesse mesmo ciclo de depuração, confirmou-se (também via Puppeteer real, não só leitura de código) que
+> o `@blur="checkEstimatedValueVsPrecoInterno()"` funciona corretamente — o problema relatado era o
+> bundle do navegador estar desatualizado em relação ao código-fonte (edição em `resources/js/` exige
+> `npm run build` — Blade/PHP aplicam na hora, JS bundlado não).
+>
+> **Incidente à parte, causado durante essa investigação**: rodar `php artisan test` usou o MESMO banco
+> do `.env` (`upmusic_local`, não existe `.env.testing`/config de teste separado) — `RefreshDatabase`
+> apagou todas as tabelas do banco de desenvolvimento. A suíte já falhava antes de qualquer teste rodar,
+> por um bug de ordenação de migrations pré-existente e nunca notado: `add_event_id_to_external_forms_table`
+> (datada `2026_07_16`) referencia `events` via FK, mas `create_events_table` é `2026_07_17` — roda DEPOIS.
+> Isso nunca dava erro no dia a dia porque as migrations eram aplicadas incrementalmente (uma de cada vez,
+> conforme os arquivos eram criados), só se manifestando numa migration 100% do zero. Corrigido renomeando
+> o arquivo para `2026_07_17_000004_add_event_id_to_external_forms_table.php` (depois de `create_events_table`).
+> Restaurado com `php artisan migrate:fresh --seed`. Isso expôs mais um bug pré-existente e não relacionado:
+> `database/seeders/SampleDataSeeder.php` ainda usava a coluna `category` (string) em `Fornecedor` e o
+> model `App\Models\Service` — ambos removidos há tempos pelo refactor de banco de preços/categorias
+> (`fornecedor_categoria_id` FK + tabelas `services`/`service_prices` dropadas). Corrigido para popular
+> `fornecedor_categoria_id` via `FornecedorCategoria::where('nome', ...)` e removida a seção de `Service`.
+> Nenhum dado de produção existia a perder (ambiente `upmusic_local` é só dev local, populado via seed) —
+> mas fica o alerta: **nunca rodar `php artisan test` neste projeto sem antes configurar um banco de teste
+> separado** (`.env.testing` com SQLite `:memory:` ou um schema MySQL dedicado), já que o `phpunit.xml`
+> tem a config de sqlite comentada e o projeto não tem `.env.testing`.
 
 ---
 

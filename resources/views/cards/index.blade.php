@@ -6,7 +6,24 @@
 <x-app-layout>
     <x-slot name="header"><h2 class="text-lg font-semibold text-brand-ink">Todos os cards</h2></x-slot>
 
-    <div x-data="cardsHub({ cardsBase: '{{ url('cards') }}', anexoBase: '{{ url('anexos') }}' })">
+    <div x-data="cardsHub({
+            urls: {
+                cardBase: '{{ url('cards') }}',
+                anexoBase: '{{ url('anexos') }}',
+                empresaQuick: '{{ route('empresas.quick') }}',
+                fornecedorQuick: '{{ route('fornecedores.quick') }}',
+                fornecedorPriceHistory: '{{ url('fornecedores') }}',
+                boardKanbanData: '{{ url('quadros') }}',
+            },
+            fields: [],
+            columns: [],
+            empresas: {{ Illuminate\Support\Js::from($empresas) }},
+            fornecedores: {{ Illuminate\Support\Js::from($fornecedores) }},
+            events: {{ Illuminate\Support\Js::from($events) }},
+            assignees: {{ Illuminate\Support\Js::from($assignees) }},
+            boards: {{ Illuminate\Support\Js::from($boards) }},
+            transferBoards: [],
+         })">
         <x-page-header title="Todos os cards" subtitle="Busca centralizada de cards em todos os quadros, com status e conclusão." icon="fa-layer-group" />
 
         <form method="GET" class="flex flex-wrap items-center gap-2 mb-4">
@@ -93,6 +110,6 @@
             </x-data-table>
         @endif
 
-        @include('cards.partials.detail-panel')
+        @include('boards.partials.card-panel')
     </div>
 </x-app-layout>

@@ -9,6 +9,7 @@ use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
 use App\Rules\Cnpj;
 use App\Rules\Cpf;
+use App\Services\PriceHistoryService;
 use App\Support\Br;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -107,5 +108,13 @@ class FornecedorController extends Controller
             'name' => $fornecedor->name,
             'document' => $fornecedor->type === PessoaTipo::PF ? Br::formatCpf($fornecedor->document) : Br::formatCnpj($fornecedor->document),
         ], 201);
+    }
+
+    /**
+     * Últimos 5 preços do fornecedor, para o tooltip de histórico no painel do card.
+     */
+    public function priceHistory(Fornecedor $fornecedor, PriceHistoryService $service)
+    {
+        return response()->json($service->lastForFornecedor($fornecedor));
     }
 }

@@ -12,11 +12,12 @@ class FornecedorCategoria extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['nome', 'unidade', 'active'];
+    protected $fillable = ['nome', 'unidade', 'preco_interno', 'active'];
 
     protected $casts = [
         'active' => 'boolean',
         'unidade' => UnidadeMedida::class,
+        'preco_interno' => 'decimal:2',
     ];
 
     public function fornecedores(): HasMany

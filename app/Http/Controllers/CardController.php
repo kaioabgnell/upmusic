@@ -15,7 +15,7 @@ use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
 use App\Models\CardAttachment;
-use App\Models\Empresa;
+use App\Services\CardFormOptionsService;
 use App\Support\CardPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +25,7 @@ class CardController extends Controller
     /**
      * Listagem global de cards (todos os quadros, todos os status). Ver specs/07/12.
      */
-    public function index(Request $request)
+    public function index(Request $request, CardFormOptionsService $options)
     {
         $user = $request->user();
         $isManager = $user->isAdmin() || $user->isCoordenador();
@@ -58,7 +58,7 @@ class CardController extends Controller
             'cards' => $cards,
             'boards' => $boards,
             'columns' => $columns,
-            'empresas' => Empresa::active()->orderBy('corporate_name')->get(['id', 'corporate_name']),
+            ...$options->globalOptions(),
             'filters' => $request->only(['search', 'empresa_id', 'board_id', 'board_column_id', 'status']),
         ]);
     }
@@ -274,6 +274,7 @@ class CardController extends Controller
                 'id' => $f->id,
                 'label' => $f->label,
                 'type' => $f->type->value,
+                'required' => (bool) $f->required,
                 'options' => $f->options ?? [],
             ]) ?? [],
             'field_values' => $card->fieldValues->mapWithKeys(fn ($v) => [$v->board_field_id => $v->value]),

@@ -22,7 +22,7 @@
             @foreach ($boards as $board)
                 <div class="bg-white border border-hairline rounded-xl overflow-hidden flex flex-col">
                     <div class="h-1.5" style="background: {{ $board->color }}"></div>
-                    <div class="p-5 flex-1">
+                    <a href="{{ route('boards.show', $board) }}" class="block p-5 flex-1 hover:bg-surface/40 transition-colors">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3 min-w-0">
                                 <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg text-white shrink-0" style="background: {{ $board->color }}">
@@ -46,7 +46,7 @@
                             <span><i class="fa-solid fa-list-check mr-1"></i>{{ $board->columns_count }} etapas</span>
                             <span><i class="fa-solid fa-clipboard-list mr-1"></i>{{ $board->cards_count }} cards</span>
                         </div>
-                    </div>
+                    </a>
 
                     <div class="flex items-center gap-2 px-5 py-3 border-t border-hairline">
                         <a href="{{ route('boards.show', $board) }}"

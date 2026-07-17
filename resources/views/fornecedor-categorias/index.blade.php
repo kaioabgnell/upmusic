@@ -37,6 +37,7 @@
             <x-slot name="head">
                 <th class="px-4 py-3 font-medium">Nome</th>
                 <th class="px-4 py-3 font-medium">Unidade</th>
+                <th class="px-4 py-3 font-medium">Preço Interno</th>
                 <th class="px-4 py-3 font-medium">Fornecedores</th>
                 <th class="px-4 py-3 font-medium">Status</th>
                 <th class="px-4 py-3 font-medium text-right">Ações</th>
@@ -46,6 +47,7 @@
                 <tr class="hover:bg-surface/60">
                     <td class="px-4 py-3 font-medium text-brand-ink">{{ $categoria->nome }}</td>
                     <td class="px-4 py-3 text-steel">{{ $categoria->unidade?->label() ?? '—' }}</td>
+                    <td class="px-4 py-3 text-steel">{{ $categoria->preco_interno !== null ? 'R$ '.number_format((float) $categoria->preco_interno, 2, ',', '.') : '—' }}</td>
                     <td class="px-4 py-3"><x-badge variant="neutral">{{ $categoria->fornecedores_count }}</x-badge></td>
                     <td class="px-4 py-3">
                         <x-badge :variant="$categoria->active ? 'success' : 'danger'">{{ $categoria->active ? 'Ativo' : 'Inativo' }}</x-badge>

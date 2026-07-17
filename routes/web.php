@@ -65,8 +65,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('empresas/buscar', [EmpresaController::class, 'search'])->name('empresas.search');
     Route::post('empresas/quick', [EmpresaController::class, 'quick'])->name('empresas.quick');
 
-    // Fornecedores — cadastro inline disponível a qualquer autenticado (fluxo do card).
+    // Fornecedores — cadastro inline e histórico de preços disponíveis a qualquer autenticado (fluxo do card).
     Route::post('fornecedores/quick', [FornecedorController::class, 'quick'])->name('fornecedores.quick');
+    Route::get('fornecedores/{fornecedor}/preco-historico', [FornecedorController::class, 'priceHistory'])->name('fornecedores.price-history');
 
     // Quadros / Departamentos — ver specs/06.
     Route::get('quadros', [BoardController::class, 'index'])->name('boards.index');

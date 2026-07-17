@@ -23,6 +23,20 @@
         <x-input-error :messages="$errors->get('unidade')" class="mt-1" />
     </div>
 
+    <div>
+        <x-input-label for="preco_interno" value="Preço Interno" />
+        @php
+            $precoInternoAtual = old('preco_interno', $isEdit && $categoria->preco_interno !== null ? number_format((float) $categoria->preco_interno, 2, ',', '.') : '');
+        @endphp
+        <div class="relative mt-1">
+            <span class="absolute inset-y-0 left-3 flex items-center text-sm text-steel">R$</span>
+            <input type="text" inputmode="decimal" id="preco_interno" name="preco_interno" value="{{ $precoInternoAtual }}"
+                   x-data x-mask:dynamic="$money($input, ',')" placeholder="0,00"
+                   class="pl-9 block w-full rounded-md border-gray-300 focus:border-brand-orange focus:ring-brand-orange text-sm">
+        </div>
+        <x-input-error :messages="$errors->get('preco_interno')" class="mt-1" />
+    </div>
+
     <div class="flex items-center gap-2">
         <input type="hidden" name="active" value="0">
         <input type="checkbox" id="active" name="active" value="1"
