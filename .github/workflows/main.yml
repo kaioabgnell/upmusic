@@ -48,7 +48,7 @@ jobs:
       - name: 📂 Deploy Laravel (código da aplicação → fora do document root)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ftp.upmusicevents.com.br
+          server: 69.6.248.207
           username: kaio_dev@upmusicevents.com.br
           password: ${{ secrets.ftp_password }}
           local-dir: ./
@@ -64,7 +64,7 @@ jobs:
       - name: 📂 Deploy arquivos públicos (public → document root do subdomínio)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ftp.upmusicevents.com.br
+          server: 69.6.248.207
           username: kaio_dev@upmusicevents.com.br
           password: ${{ secrets.ftp_password }}
           local-dir: ./public/
