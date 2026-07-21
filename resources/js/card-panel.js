@@ -155,6 +155,16 @@ function cardPanelBase() {
             this.panelOpen = false;
         },
 
+        // "Vencido": o prazo (due_date) é anterior a hoje. Comparação lexical de datas em Y-m-d
+        // (mesmo formato que vem do backend) — evita fuso/parsing. Um card concluído não é marcado
+        // como vencido: o header já mostra "Concluído" e o card não está mais em aberto.
+        get isOverdue() {
+            if (!this.form.due_date || this.concludedAt) return false;
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            return this.form.due_date < todayStr;
+        },
+
         get isFinalColumn() {
             const col = this.columns.find((c) => c.id === Number(this.columnId));
             return col ? col.is_final : false;

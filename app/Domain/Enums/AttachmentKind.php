@@ -7,6 +7,7 @@ enum AttachmentKind: string
     case Geral = 'geral';
     case NotaFiscal = 'nota_fiscal';
     case Comprovante = 'comprovante';
+    case Orcamento = 'orcamento';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum AttachmentKind: string
             self::Geral => 'Geral',
             self::NotaFiscal => 'Nota fiscal',
             self::Comprovante => 'Comprovante',
+            self::Orcamento => 'Orçamento',
         };
     }
 }

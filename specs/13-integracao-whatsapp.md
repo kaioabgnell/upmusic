@@ -5,6 +5,12 @@
 > **Status:** especificação preliminar. Não faz parte do MVP; documentada para planejamento. Não bloqueia
 > as demais entregas.
 
+> **Atenção — custo:** esta abordagem depende da WhatsApp Business Cloud API (Meta) ou de agregadores
+> pagos, portanto tem **custo por conversa/assinatura**. Para o caminho de **custo zero** (compartilhar o
+> PDF do WhatsApp direto para o sistema via PWA + Web Share Target), ver
+> **[16 — Captura Rápida de Orçamentos e NFs](16-captura-rapida-orcamentos-nf.md)**, que substitui esta
+> spec no MVP. Esta permanece como visão futura, para o fluxo conversacional automático de coleta.
+
 ## 1. Objetivo
 
 Automatizar a coleta de dados e notas fiscais de clientes e fornecedores via WhatsApp, complementando o

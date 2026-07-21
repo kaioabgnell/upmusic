@@ -21,6 +21,7 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 13 | [Integração WhatsApp](13-integracao-whatsapp.md) | Automação de coleta (fase futura) | `sonnet` |
 | 14 | [Kanban Reativo e Carregamento Assíncrono](14-kanban-reatividade-assincrona.md) | Melhoria pós-entrega: sem reload + carregamento desacoplado dos cards | `opus` |
 | 15 | [Banco de Preços por Categoria](15-banco-de-precos-por-categoria.md) | Melhoria pós-entrega: histórico de preços por categoria de fornecedor (substitui Serviço+Cliente) | `sonnet` |
+| 16 | [Captura Rápida de Orçamentos e NFs](16-captura-rapida-orcamentos-nf.md) | WhatsApp → Card de custo zero via PWA + Web Share Target (alternativa à spec 13) | `opus` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

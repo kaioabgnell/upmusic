@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Limpa capturas pendentes abandonadas há mais de 7 dias — ver specs/16.
+        $schedule->command('captures:prune')->daily();
     }
 
     /**

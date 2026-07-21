@@ -1,0 +1,71 @@
+on:
+  push:
+    branches:
+      - main
+
+name: 🚀 Deploy Laravel + Frontend
+
+jobs:
+  web-deploy:
+    name: 🎉 Deploy Laravel Project
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Checkout código
+        uses: actions/checkout@v4
+
+      - name: 🐘 Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, ctype, json, bcmath, fileinfo, tokenizer, openssl, pdo, pdo_mysql, curl, dom, pcre
+          coverage: none
+
+      - name: 📦 Instalar dependências do Composer (produção)
+        run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction
+
+      - name: 🛠️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: 🛠️ Instalar dependências Node
+        run: npm ci
+
+      - name: 🏗️ Build assets (Vite)
+        run: npm run build
+
+      # O Document Root do subdomínio app.upmusicevents.com.br, no cPanel, aponta para a pasta inteira
+      # (não para uma subpasta "public"). Por isso o código do Laravel vai para uma pasta IRMÃ
+      # (upmusic-app/), fora da área servida publicamente, e só o CONTEÚDO de public/ vai dentro do
+      # document root — evita expor .env, vendor/, app/ etc. via navegador. O index.php publicado
+      # precisa apontar para os caminhos corretos dentro dessa pasta irmã (ver passo abaixo).
+      - name: 🔧 Ajustar public/index.php para a estrutura fora do document root
+        run: |
+          sed -i "s#__DIR__.'/../vendor/autoload.php'#__DIR__.'/../upmusic-app/vendor/autoload.php'#" public/index.php
+          sed -i "s#__DIR__.'/../bootstrap/app.php'#__DIR__.'/../upmusic-app/bootstrap/app.php'#" public/index.php
+
+      - name: 📂 Deploy Laravel (código da aplicação → fora do document root)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.upmusicevents.com.br
+          username: kaio_dev@upmusicevents.com.br
+          password: ${{ secrets.ftp_password }}
+          local-dir: ./
+          server-dir: /upmusic-app/
+          exclude: |
+            node_modules/**
+            .git/**
+            .github/**
+            public/**
+            tests/**
+            .env
+
+      - name: 📂 Deploy arquivos públicos (public → document root do subdomínio)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.upmusicevents.com.br
+          username: kaio_dev@upmusicevents.com.br
+          password: ${{ secrets.ftp_password }}
+          local-dir: ./public/
+          server-dir: /app.upmusicevents.com.br/

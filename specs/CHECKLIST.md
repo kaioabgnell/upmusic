@@ -713,6 +713,160 @@ Trocar com `/model sonnet` ou `/model opus` ao iniciar cada bloco.
 > separado** (`.env.testing` com SQLite `:memory:` ou um schema MySQL dedicado), já que o `phpunit.xml`
 > tem a config de sqlite comentada e o projeto não tem `.env.testing`.
 
+**Tag "Vencido" no modal de card quando o prazo já passou.**
+> No modal compartilhado (`card-panel.js` + `boards/partials/card-panel.blade.php`), quando o `due_date`
+> do card é anterior a hoje, aparece um badge vermelho "Vencido" no cabeçalho (ao lado do título, no mesmo
+> padrão do badge "Concluído"). Novo getter `get isOverdue` em `card-panel.js`: compara `form.due_date`
+> (formato `Y-m-d`, igual ao que vem do backend) com a data de hoje via comparação lexical de string —
+> sem parsing/fuso. Um card concluído não é marcado como vencido (o header já mostra "Concluído" e o card
+> não está mais em aberto). Como o componente é compartilhado, vale tanto no Kanban quanto em "Todos os
+> cards".
+> Validado por HTTP real (Puppeteer + Chrome headless): card com prazo 3 dias atrás → badge "Vencido"
+> visível (`isOverdue: true`); card com prazo futuro → sem badge; card concluído com prazo vencido →
+> só "Concluído", sem "Vencido" (`isOverdue: false`). Sem erros de console. Dados de teste revertidos ao
+> final. `pint --dirty` e `npm run build` limpos.
+
+**Destaque de card vencido no Kanban (data em vermelho + tooltip "Vencido").**
+> Nos cards do quadro (board e lista), quando o prazo (`due_date`) é anterior a hoje, a data aparece em
+> vermelho/negrito e o card mostra o tooltip "Vencido" ao passar o mouse. Backend: `CardPresenter::compact()`
+> ganhou o estado `overdue` no `due_status` (`match`: `isToday` → today, `isPast` → overdue, `isTomorrow`
+> → tomorrow) — a ordem importa (`isToday` antes de `isPast`, senão hoje cairia em overdue). Front
+> (`kanban.js`): `dueTooltipText` mapeia `overdue: 'Vencido'`; novo helper `dueDateClass(card)` devolve
+> `text-red-600 font-semibold` quando vencido; `dueBadgeMeta` ganhou `overdue: { danger, 'Vencido' }` para
+> o badge da visão Lista. Blade (`boards/show.blade.php`): a data do card (board e lista) aplica
+> `:class="dueDateClass(card)"`. Cards concluídos não entram (são removidos do quadro).
+> Validado por HTTP real (Puppeteer + Chrome headless), board e lista: card vencido (prazo -3d) → data
+> `rgb(220,38,38)` (`text-red-600 font-semibold`) + tooltip/badge "Vencido"; card de hoje → inalterado
+> ("Vence hoje"); card futuro → sem destaque. Sem erros de console. Dados de teste revertidos.
+> `pint --dirty` e `npm run build` limpos.
+
+**Captura Rápida de Orçamentos e NFs — Fase 1 (Backend + Canal B in-app).** Ver [specs/16](16-captura-rapida-orcamentos-nf.md).
+> Implementada a Fase 1 completa: qualquer usuário autenticado ativo consegue enviar um PDF/imagem de
+> orçamento ou NF pela tela "Captura rápida" (sem PWA/Atalho — isso é Fase 2/3) e transformá-lo em card com
+> o anexo já vinculado, em 2 telas.
+> - **Migration** `card_captures` (staging: `user_id`, `board_id`/`card_id` nullable, `kind`, `source`,
+>   `status`, `original_name`, `path`, `mime`, `size`, `suggested_title`).
+> - **Enums**: `AttachmentKind::Orcamento`, `CardOrigin::CapturaRapida` (novos casos nos enums existentes,
+>   sem migration — colunas já são `varchar(20)`); novos `CaptureStatus` e `CaptureSource`.
+> - **Model** `CardCapture` (+ scope `pending()`); **Policy** `CardCapturePolicy` — primeira autorização por
+>   **dono** do projeto (`$capture->user_id === $user->id`), diferente do padrão existente (role/quadro).
+> - **Action** `ProcessQuickCapture`: resolve o quadro, cria o card via `CreateCard` (mesma Action do
+>   restante do sistema, com `$actor` = usuário autenticado, `origin = captura_rapida`), move o arquivo de
+>   staging (`capturas/{user}/...`) para `card-attachments/{card_id}/` e cria o anexo (`kind` Orçamento/NF).
+> - **Form Requests** `QuickUploadRequest` (múltiplos arquivos, mesmos limites de `CardController`:
+>   `max:10240`, `mimes:pdf,jpg,jpeg,png,webp`) e `ConfirmCaptureRequest` (valida `board_id` contra
+>   `canAccessBoard()`, `estimated_value` via `Br::money()`).
+> - **Controller** `CaptureController` (`index`/`upload`/`show`/`preview`/`store`/`destroy`) + rotas em
+>   `routes/web.php` (grupo `auth`+`active`, sem restrição de role — é ferramenta pessoal).
+> - **Views**: Caixa de Entrada (`captures/index.blade.php`, com `x-empty-state`), formulário de
+>   arrastar/soltar (`captures/partials/upload-form.blade.php` — **componente novo**, não existia dropzone
+>   no projeto) e tela de confirmação (`captures/show.blade.php`: prévia do arquivo, tipo, quadro com
+>   default = último usado em sessão, campos opcionais recolhíveis).
+> - **Menu**: item "Captura rápida" no `sidebar.blade.php`.
+> - **Comando agendado** `captures:prune` (diário, via Scheduler já existente) remove capturas `pendente`
+>   com mais de 7 dias e seus arquivos.
+> - **Extra**: `kanban.js` ganhou `openCardFromQueryString()` — ao ser redirecionado do fluxo de captura
+>   para o board (`?abrir_card=ID`), o card criado já abre automaticamente no modal.
+>
+> **Bug encontrado e corrigido durante a validação**: `upload-form.blade.php` usava
+> `$errors->get('arquivos.*')`, que o Laravel agrupa por chave real (`arquivos.0`, `arquivos.1`...) — um
+> array de arrays, incompatível com `x-input-error` (que espera lista simples de strings), causando
+> `500 htmlspecialchars(): Argument #1 ($string) must be of type string, array given`. Corrigido trocando
+> para `$errors->all()` (o form só tem esse campo, então é equivalente e evita o wildcard).
+>
+> Validado por HTTP real de ponta a ponta: upload de 1 arquivo → confirmação → card criado na coluna
+> `is_entry`, `origin=captura_rapida`, anexo com `kind` e `uploaded_by` corretos, `estimated_value` BR
+> parseado certo ("1.500,00" → 1500.00), arquivo movido de staging para `card-attachments/{id}/`, captura
+> marcada `processado`; upload de múltiplos arquivos direciona para a Caixa de Entrada; descarte remove
+> registro e arquivo; **isolamento por dono confirmado** (usuário B recebe 403 ao tentar ver/descartar
+> captura do usuário A); upload de arquivo inválido não cria registro (após corrigir o bug acima); comando
+> `captures:prune` remove só a captura pendente antiga, preservando as recentes, e apaga o arquivo do disco.
+> Dados de teste limpos ao final. `pint --dirty` e `npm run build` limpos.
+>
+> **Fora desta entrega (Fases 2/3, ver spec 16)**: PWA/Web Share Target (Android), Atalho iOS + token
+> Sanctum + URL assinada — nenhuma rota pública/isenta de CSRF foi criada nesta fase.
+
+**Captura Rápida de Orçamentos e NFs — Fase 2 (PWA + Web Share Target no Android).** Ver [specs/16](16-captura-rapida-orcamentos-nf.md#5-como-funciona-o-canal-a-compartilhar-do-whatsapp).
+> Com o upMusic instalado como PWA no Android, ele passa a aparecer na folha de compartilhamento nativa —
+> compartilhar um PDF do WhatsApp abre o app já com o arquivo em staging, sem custo adicional (recursos
+> padrão da web).
+> - **Ícones PWA** (`public/img/pwa-192.png`, `pwa-512.png`, `maskable`) gerados a partir do símbolo da
+>   marca (`favicon-up.png` — três barras laranjas, não a wordmark horizontal) centralizado sobre fundo
+>   preto sólido (mesmo `background_color` do manifest), via script PHP/GD descartável.
+> - **`public/manifest.webmanifest`**: `display: standalone`, cores da marca, e o bloco `share_target`
+>   apontando para `/captura/receber`. Campo de arquivo declarado como `"arquivos[]"` (com colchetes) —
+>   necessário para o PHP bucketizar múltiplos arquivos compartilhados em array (`$_FILES`); sem os
+>   colchetes, PHP mantém só o último arquivo em compartilhamentos com mais de um.
+> - **`public/sw.js`**: Service Worker mínimo (install/activate/fetch) só para satisfazer o critério de
+>   instalabilidade do Chrome/Android — sem cache/offline neste MVP.
+> - **`resources/js/pwa.js`** (novo, importado em `app.js`): registra o Service Worker e controla o banner
+>   "Instalar app" via evento `beforeinstallprompt` (com dispensa persistida em `localStorage`).
+> - **`layouts/app.blade.php`**: `<link rel="manifest">`, `theme-color`, `apple-touch-icon`, e o banner de
+>   instalação abaixo do topbar.
+> - **Backend**: `CaptureController` refatorado — `upload()` (Canal B) e o novo `receive()` (Canal A/Android)
+>   compartilham os métodos privados `storeCaptures()`/`respondToCaptures()`; `receive()` grava
+>   `source = pwa_share`. Rota `POST /captura/receber` **isenta de CSRF**
+>   (`VerifyCsrfToken::$except`) — o POST é disparado pelo sistema operacional, sem token CSRF — mas
+>   continua exigindo sessão autenticada (dentro do grupo `auth`+`active`) e a mesma validação estrita de
+>   upload da Fase 1. Só estaciona arquivo; nenhuma ação destrutiva.
+> Validado por HTTP real: manifest/SW/ícones acessíveis; **POST simulando o Web Share Target sem token
+> CSRF, só com cookie de sessão, funciona** (302, não o `419` de CSRF mismatch); mesmo POST sem sessão
+> redireciona para `/login` (limitação conhecida documentada na spec — sessão expirada perde o arquivo);
+> múltiplos arquivos no share vão para a Caixa de Entrada; capture registrada com `source = pwa_share`;
+> fluxo completo (captura → confirmação → card) sem regressão após o refactor do controller. Dados de teste
+> limpos ao final. `pint --dirty` e `npm run build` limpos.
+>
+> **Fora desta entrega (Fase 3)**: Atalho iOS, token pessoal Sanctum, URL assinada temporária — o Android
+> já está coberto; falta só o iPhone.
+
+**Captura Rápida de Orçamentos e NFs — Fase 3 (Atalho iOS + token Sanctum + URL assinada).** Ver [specs/16](16-captura-rapida-orcamentos-nf.md#52-ios--atalho-da-apple-shortcut) (fecha a spec inteira: Fases 1, 2 e 3 concluídas).
+> Fecha a lacuna do iPhone: o Atalho da Apple (montado e testado em aparelho real nesta sessão — receita
+> completa no Apêndice A da spec e replicada na tela "Configurar iPhone") agora consegue enviar um arquivo
+> ao upMusic **sem nenhuma sessão de navegador**, autenticado só por um token pessoal.
+> - **`CaptureTokenController`** (novo): `edit()` renderiza "Configurar iPhone"; `store()` gera um token
+>   Sanctum (`$user->createToken('captura-ios', ['capture:create'])`, revogando o anterior — só um por
+>   usuário) e devolve o texto puro **uma única vez** via flash de sessão; `destroy()` revoga.
+> - **`CaptureController::receive()`**: passou a diferenciar o request por `$request->user()->currentAccessToken()`
+>   — `null` = autenticado por sessão (Android, `source = pwa_share`), presente = autenticado por token
+>   (iOS, `source = ios_shortcut`). Checa manualmente `tokenCan('capture:create')` só quando há token
+>   (não dá pra usar o middleware `abilities:` do Sanctum direto na rota, porque ele bloquearia as
+>   requisições autenticadas por sessão, que não têm token nenhum). Quando via token, responde `200 JSON
+>   { confirm_url }` com `URL::temporarySignedRoute('captures.show', ...)` (30 min) em vez do redirect
+>   302 usado para sessão.
+> - **`CaptureController::show()`**: quando chega **sem usuário e com assinatura válida**
+>   (`hasValidSignature()`), autentica a aba do Safari como o dono da captura via `Auth::login($capture->user)`
+>   \+ `session()->regenerate()` — um "magic link" de uso único. A partir daí a navegação (inclusive
+>   `captures.store`, que continua dentro do grupo `auth` normal) segue com sessão comum: CSRF, Policy e
+>   tudo mais funcionam sem nenhum código especial adicional.
+> - **Rotas**: `captura/receber` e `capturas/{capture}` (show) saíram do grupo `Route::middleware(['auth','active'])`
+>   porque esse `auth` bloquearia/redirecionaria a requisição antes mesmo do controller rodar a lógica de
+>   token/assinatura. `captura/receber` usa `auth:web,sanctum` (tenta sessão, senão token) +
+>   `throttle:20,1`; `capturas/{capture}` usa só `active` (seguro mesmo sem usuário — é no-op nesse caso).
+>
+> **Bug de rotas encontrado e corrigido durante a validação**: `DELETE capturas/token` retornava `404`
+> porque `DELETE capturas/{capture}` (`captures.destroy`, já existente da Fase 1) tinha sido registrada
+> **antes** — o Laravel tentava casar `{capture}` = `"token"` primeiro, e o route-model-binding implícito
+> falhava com 404 antes de sequer chegar no `CaptureTokenController`. Mesma categoria de bug que o projeto
+> já tinha um comentário alertando para `quadros/{board}` ("rotas literais antes do wildcard") — só que
+> dessa vez o alerta não existia ainda para `capturas/`. Corrigido reordenando: `configurar-iphone`,
+> `capturas/token` (POST/DELETE) agora vêm antes de `capturas/{capture}/...`.
+>
+> Validado por HTTP real, de ponta a ponta, **sem nenhuma sessão pré-existente** (simulando o Atalho do
+> zero absoluto): `POST /captura/receber` com `Authorization: Bearer <token>`, zero cookies, zero CSRF →
+> `200 { confirm_url }`; `GET confirm_url` sem cookies → `200`, sessão nova criada automaticamente
+> (auto-login); `POST criar-card` usando só essa sessão recém-criada (sem token, sem login manual) →
+> `302`, card criado com `origin=captura_rapida`, `created_by`/`uploaded_by` corretos (o dono do token, não
+> quem abriu o link). Também validado: token inválido/revogado → `401 {"message":"Unauthenticated."}`
+> (só com header `Accept: application/json` — documentado na receita do Atalho, senão vira redirect HTML
+> para `/login`); token sem a ability `capture:create` → `403`; assinatura adulterada na URL → `403`;
+> revogar token via "Configurar iPhone" realmente invalida o token (retestado depois da correção do bug de
+> rotas). Dados de teste (cards, capturas, tokens) removidos ao final. `pint --dirty` limpo (sem mudança
+> de JS nesta fase).
+>
+> **Com isso, a spec 16 está com as 3 fases implementadas**: Fase 1 (backend + Captura Rápida in-app,
+> universal), Fase 2 (PWA + Web Share Target no Android) e Fase 3 (Atalho iOS + token). Restam só os itens
+> já marcados como fora de escopo na própria spec (OCR, e-mail inbound, Web Push, app nativo pago).
+
 ---
 
 ### Status por fase

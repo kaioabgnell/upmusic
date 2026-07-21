@@ -24,6 +24,7 @@
             <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Quadros</p>
             <x-nav-item route="boards.index" pattern="boards.*" icon="fa-table-columns" label="Quadros / Processos" />
             <x-nav-item route="cards.index" pattern="cards.index" icon="fa-layer-group" label="Todos os Cards" />
+            <x-nav-item route="captures.index" pattern="captures.*" icon="fa-bolt" label="Captura rápida" />
         </div>
 
         @if ($isManager)

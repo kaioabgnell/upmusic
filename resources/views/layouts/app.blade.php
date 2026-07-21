@@ -9,6 +9,11 @@
 
         <link rel="icon" type="image/x-icon" href="{{ url('img/favicon-up.png')}}">
 
+        {{-- PWA: instalável no Android, aparece na folha de compartilhamento via Web Share Target (specs/16). --}}
+        <link rel="manifest" href="{{ url('manifest.webmanifest') }}">
+        <meta name="theme-color" content="#ff8c1e">
+        <link rel="apple-touch-icon" href="{{ url('img/pwa-192.png') }}">
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
 
@@ -65,6 +70,16 @@
                         </x-dropdown>
                     </div>
                 </header>
+
+                {{-- Banner "Instalar app" — só o Chrome/Android dispara beforeinstallprompt e revela isto
+                     (ver resources/js/pwa.js). Instalar habilita compartilhar direto do WhatsApp (specs/16). --}}
+                <div id="pwa-install-banner" class="hidden bg-brand-ink text-white px-4 sm:px-6 py-2 flex items-center justify-between gap-3 text-sm">
+                    <span class="min-w-0 truncate"><i class="fa-solid fa-mobile-screen-button mr-2"></i>Instale o upMusic para compartilhar arquivos direto do WhatsApp.</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" id="pwa-install-btn" class="rounded-md bg-brand-orange text-brand-ink px-3 py-1 font-semibold hover:bg-brand-orange-deep transition-colors">Instalar</button>
+                        <button type="button" id="pwa-dismiss-btn" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
 
                 <main class="p-4 sm:p-6 lg:p-8">
                     {{ $slot }}

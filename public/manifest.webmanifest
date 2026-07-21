@@ -1,0 +1,24 @@
+{
+    "name": "upMusic",
+    "short_name": "upMusic",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#ff8c1e",
+    "icons": [
+        { "src": "/img/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+        { "src": "/img/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    ],
+    "share_target": {
+        "action": "/captura/receber",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "files": [
+                { "name": "arquivos[]", "accept": ["application/pdf", "image/*"] }
+            ]
+        }
+    }
+}

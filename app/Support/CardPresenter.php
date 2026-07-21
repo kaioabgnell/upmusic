@@ -32,6 +32,7 @@ class CardPresenter
             'due_date' => $card->due_date?->format('d/m/Y'),
             'due_status' => match (true) {
                 $card->due_date?->isToday() => 'today',
+                $card->due_date?->isPast() => 'overdue',
                 $card->due_date?->isTomorrow() => 'tomorrow',
                 default => null,
             },

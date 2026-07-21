@@ -3,6 +3,8 @@
 use App\Http\Controllers\BoardColumnController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\BoardFieldController;
+use App\Http\Controllers\CaptureController;
+use App\Http\Controllers\CaptureTokenController;
 use App\Http\Controllers\CardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
@@ -115,6 +117,25 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('anexos/{attachment}', [CardController::class, 'destroyAttachment'])->name('cards.attachments.destroy');
     Route::get('anexos/{attachment}/download', [CardController::class, 'downloadAttachment'])->name('cards.attachments.download');
 
+    // Captura rápida — qualquer usuário autenticado e ativo (ferramenta pessoal, não cadastro base).
+    // Ver specs/16. Autorização por dono via CardCapturePolicy (não por role/quadro).
+    // `captures.show` fica FORA deste grupo (ver abaixo) — precisa abrir sem sessão prévia via link
+    // assinado (Atalho iOS); `captures.store` fica aqui normalmente: por já rodar depois do auto-login
+    // feito em show(), sempre chega com sessão válida.
+    // Rotas literais (configurar-iphone, upload, token) SEMPRE antes do wildcard `{capture}` — senão o
+    // Laravel tenta casar "token"/"upload" como o parâmetro {capture} e falha o binding com 404.
+    Route::get('capturas', [CaptureController::class, 'index'])->name('captures.index');
+    Route::post('capturas/upload', [CaptureController::class, 'upload'])->name('captures.upload');
+
+    // Configurar iPhone — token pessoal (Sanctum) para o Atalho compartilhar via WhatsApp. Fase 3/specs/16.
+    Route::get('capturas/configurar-iphone', [CaptureTokenController::class, 'edit'])->name('captures.ios.setup');
+    Route::post('capturas/token', [CaptureTokenController::class, 'store'])->name('captures.token.store');
+    Route::delete('capturas/token', [CaptureTokenController::class, 'destroy'])->name('captures.token.destroy');
+
+    Route::get('capturas/{capture}/preview', [CaptureController::class, 'preview'])->name('captures.preview');
+    Route::post('capturas/{capture}/criar-card', [CaptureController::class, 'store'])->name('captures.store');
+    Route::delete('capturas/{capture}', [CaptureController::class, 'destroy'])->name('captures.destroy');
+
     // Importar template — qualquer usuário com acesso ao quadro (autorizado no controller).
     Route::post('templates/{template}/importar', [TemplateController::class, 'import'])->name('templates.import');
 
@@ -165,6 +186,25 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('precos/registros/{priceRecord}', [PriceRecordController::class, 'update'])->name('prices.update');
         Route::delete('precos/registros/{priceRecord}', [PriceRecordController::class, 'destroy'])->name('prices.destroy');
     });
+});
+
+// Captura rápida — Canal A (specs/16, Fases 2-3): as duas rotas abaixo ficam FORA do grupo `auth`
+// padrão porque precisam aceitar identidade de formas que a rota normal não cobre.
+//
+// `captura/receber`: recebe o POST do Web Share Target (Android, sessão) OU do Atalho da Apple (iOS,
+// token pessoal Sanctum, sem sessão de navegador) — por isso `auth:web,sanctum` (tenta sessão, senão
+// token) em vez do `auth` simples do grupo acima. Isenta de CSRF (ver VerifyCsrfToken::$except) porque o
+// POST é disparado pelo SO/Atalho, nunca por um form Blade.
+Route::post('captura/receber', [CaptureController::class, 'receive'])
+    ->middleware(['auth:web,sanctum', 'active', 'throttle:20,1'])
+    ->name('captures.receive');
+
+// `capturas/{capture}` (confirmação): o Atalho abre esta URL assinada no Safari sem sessão prévia —
+// `auth` bloquearia a requisição antes mesmo do controller rodar a lógica de auto-login via assinatura,
+// então a rota fica fora do grupo e a autorização real acontece dentro do controller (sessão OU
+// assinatura válida). `active` é seguro aqui mesmo sem usuário: é um no-op para requests sem sessão.
+Route::middleware('active')->group(function () {
+    Route::get('capturas/{capture}', [CaptureController::class, 'show'])->name('captures.show');
 });
 
 require __DIR__.'/auth.php';

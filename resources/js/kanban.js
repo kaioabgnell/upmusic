@@ -39,7 +39,18 @@ export default function kanban(config) {
             };
             // Shell inicial: colunas já vêm do servidor (sem cards); os cards chegam no fetchCards().
             this.columns = this.cfg.columns.map((c) => ({ ...c, cards: [] }));
-            this.fetchCards();
+            this.fetchCards().then(() => this.openCardFromQueryString());
+        },
+
+        // Após criar um card fora do Kanban (ex.: Captura Rápida), o redirect inclui ?abrir_card=ID
+        // para já abrir o modal de detalhe assim que os cards carregarem (specs/16).
+        openCardFromQueryString() {
+            const id = new URLSearchParams(window.location.search).get('abrir_card');
+            if (!id) return;
+            this.openCard(Number(id));
+            const url = new URL(window.location.href);
+            url.searchParams.delete('abrir_card');
+            window.history.replaceState({}, '', url);
         },
 
         // ---- Tooltip (estilo Bootstrap, escapa containers com scroll) --------
@@ -117,11 +128,17 @@ export default function kanban(config) {
         },
 
         dueTooltipText(card) {
-            return { today: 'O prazo vence hoje', tomorrow: 'O prazo vence amanhã' }[card.due_status] || '';
+            return { overdue: 'Vencido', today: 'O prazo vence hoje', tomorrow: 'O prazo vence amanhã' }[card.due_status] || '';
+        },
+
+        // Classe do texto da data no card: vermelho/negrito quando o prazo já passou (vencido).
+        dueDateClass(card) {
+            return card.due_status === 'overdue' ? 'text-red-600 font-semibold' : '';
         },
 
         dueBadgeMeta(card) {
             const map = {
+                overdue: { variant: 'danger', label: 'Vencido' },
                 today: { variant: 'danger', label: 'Vence hoje' },
                 tomorrow: { variant: 'orange', label: 'Vence amanhã' },
             };

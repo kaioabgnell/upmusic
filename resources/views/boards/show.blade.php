@@ -165,7 +165,7 @@
                                 <p x-show="card.event" class="text-xs text-steel mt-1"><i class="fa-solid fa-calendar-days mr-1"></i><span x-text="truncate(card.event, 28)"></span></p>
                                 <div class="flex items-center justify-between mt-2.5 text-xs text-steel">
                                     <div class="flex items-center gap-2">
-                                        <span x-show="card.due_date"><i class="fa-regular fa-calendar mr-0.5"></i><span x-text="card.due_date"></span></span>
+                                        <span x-show="card.due_date" :class="dueDateClass(card)"><i class="fa-regular fa-calendar mr-0.5"></i><span x-text="card.due_date"></span></span>
                                         <span x-show="card.attachments_count"><i class="fa-solid fa-paperclip"></i> <span x-text="card.attachments_count"></span></span>
                                         <span x-show="card.comments_count"><i class="fa-regular fa-comment"></i> <span x-text="card.comments_count"></span></span>
                                     </div>
@@ -255,7 +255,7 @@
                             <td class="px-4 py-3">
                                 <template x-if="card.due_date">
                                     <div class="flex items-center gap-1.5">
-                                        <span class="text-steel" x-text="card.due_date"></span>
+                                        <span :class="dueDateClass(card) || 'text-steel'" x-text="card.due_date"></span>
                                         <span x-show="dueBadgeMeta(card)" :class="badgeClasses(dueBadgeMeta(card)?.variant)" x-text="dueBadgeMeta(card)?.label"></span>
                                     </div>
                                 </template>

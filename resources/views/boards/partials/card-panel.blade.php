@@ -12,6 +12,7 @@
                 <div class="flex items-center gap-2 min-w-0">
                     <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : (form.title || 'Card')"></h3>
                     <span x-show="concludedAt" class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-ink text-white"><i class="fa-solid fa-circle-check mr-1"></i>Concluído</span>
+                    <span x-show="isOverdue" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Vencido</span>
                 </div>
                 <button type="button" @click="closePanel()" class="text-steel hover:text-brand-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>

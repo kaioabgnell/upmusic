@@ -7,6 +7,7 @@ enum CardOrigin: string
     case Manual = 'manual';
     case Template = 'template';
     case ExternalForm = 'external_form';
+    case CapturaRapida = 'captura_rapida';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum CardOrigin: string
             self::Manual => 'Manual',
             self::Template => 'Template',
             self::ExternalForm => 'Formulário externo',
+            self::CapturaRapida => 'Captura rápida',
         };
     }
 }

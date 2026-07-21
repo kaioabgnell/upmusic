@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Board;
 use App\Models\Card;
+use App\Models\CardCapture;
 use App\Models\CardTemplate;
 use App\Models\Empresa;
 use App\Models\Event;
@@ -12,6 +13,7 @@ use App\Models\FornecedorCategoria;
 use App\Models\Setor;
 use App\Models\User;
 use App\Policies\BoardPolicy;
+use App\Policies\CardCapturePolicy;
 use App\Policies\CardPolicy;
 use App\Policies\CardTemplatePolicy;
 use App\Policies\EmpresaPolicy;
@@ -40,6 +42,7 @@ class AuthServiceProvider extends ServiceProvider
         Card::class => CardPolicy::class,
         CardTemplate::class => CardTemplatePolicy::class,
         Event::class => EventPolicy::class,
+        CardCapture::class => CardCapturePolicy::class,
     ];
 
     /**
