@@ -156,10 +156,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('quadros/{board}/kanban', [BoardController::class, 'kanbanData'])->name('boards.kanban.data');
 
     // Link direto de card (specs/18) — mesmo controller/método de boards.show, {card} opcional.
-    Route::get('quadros/{board}/card/{card?}', [BoardController::class, 'show'])->name('boards.show.card');
+    // ->missing(): quadro (ou card) inexistente redireciona para a lista de quadros em vez de 404 cru.
+    Route::get('quadros/{board}/card/{card?}', [BoardController::class, 'show'])->name('boards.show.card')
+        ->missing(fn () => redirect()->route('boards.index'));
 
     // Wildcard de exibição por último para não capturar as rotas literais acima.
-    Route::get('quadros/{board}', [BoardController::class, 'show'])->name('boards.show');
+    Route::get('quadros/{board}', [BoardController::class, 'show'])->name('boards.show')
+        ->missing(fn () => redirect()->route('boards.index'));
 
     // Cadastros base (Admin/Coordenador) — ver specs/05.
     Route::middleware('role:admin,coordenador')->group(function () {
