@@ -867,6 +867,37 @@ Trocar com `/model sonnet` ou `/model opus` ao iniciar cada bloco.
 > universal), Fase 2 (PWA + Web Share Target no Android) e Fase 3 (Atalho iOS + token). Restam só os itens
 > já marcados como fora de escopo na própria spec (OCR, e-mail inbound, Web Push, app nativo pago).
 
+**Menu de ações do card (3 pontos): Duplicar, Arquivar e Excluir movido para dentro do menu.**
+> No cabeçalho do modal de card (`card-panel.blade.php`), ao lado do botão de fechar, novo menu suspenso
+> (ícone de 3 pontos verticais, mesmo padrão Alpine hand-rolled já usado em Responsável/Vencimento/
+> Prioridade/Fornecedor) com "Duplicar Card", "Arquivar"/"Desarquivar" e "Excluir" — este último removido
+> do rodapé do modal, que agora só tem Fechar/Salvar.
+> - **Arquivamento**: segue o mesmo padrão de `concluded_at`/`concluded_by` (não um enum de status) —
+>   migration adiciona `archived_at`/`archived_by` (FK `users`, nullable) em `cards`; `Card` ganhou
+>   `archivedBy()` e `scopeArchived()`; `ArchiveCard`/`UnarchiveCard` (novas Actions, espelham
+>   `ConcludeCard`/`ReopenCard`) registram movimentação (`MovementType::Archival`/`Unarchival`, novos casos).
+>   Card arquivado some do Kanban (`BoardController::kanbanData()` ganhou `whereNull('archived_at')`, ao
+>   lado do `whereNull('concluded_at')` já existente) mas continua visível/gerenciável em "Todos os cards"
+>   (novo filtro de status "Arquivados" + badge cinza).
+> - **Duplicação**: nova Action `DuplicateCard` compõe `CreateCard` — copia campos fixos e valores dos
+>   campos configuráveis (via `fieldValues`), mantém o card na mesma coluna do original, título vira
+>   `"{original} [CÓPIA]"` (truncado para caber no limite de 180 caracteres da coluna). Não copia anexos,
+>   comentários, histórico nem estado de conclusão/arquivamento.
+> - **Rotas**: `POST cards/{card}/duplicar`, `/arquivar`, `/desarquivar` — autorização via
+>   `authorize('update', $card)`, mesmo padrão de concluir/reabrir/transferir (`CardPolicy` não ganhou
+>   métodos novos).
+> - **JS**: `card-panel.js` ganhou `archivedAt`/`archivedBy`/`actionsMenuOpen` e os métodos
+>   `duplicate()`/`doArchive()`/`doUnarchive()` (confirmação via SweetAlert2 em duplicar/arquivar, sem
+>   confirmação em desarquivar — mesmo padrão de `doConclude()`); `kanban.js` ganhou
+>   `afterCardArchived()`/`afterCardDuplicated()` para atualizar o array reativo sem reload;
+>   `cards-hub.js` ganhou os três hooks equivalentes, todos via reload de página (padrão já existente ali).
+>
+> Validado por HTTP real (card de teste criado via tinker, removido ao final): duplicar → card novo na
+> mesma coluna com "[CÓPIA]" no título; arquivar → some do `GET quadros/{id}/kanban`, segunda tentativa de
+> arquivar retorna `422`; desarquivar → volta a aparecer no Kanban, movimentação `unarchival` registrada
+> corretamente no histórico; excluir (agora só acessível pelo menu) segue funcionando via soft delete.
+> `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase

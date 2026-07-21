@@ -61,5 +61,17 @@ export default function cardsHub(config) {
         afterCardReopened() {
             window.location.reload();
         },
+
+        afterCardDuplicated() {
+            window.location.reload();
+        },
+
+        afterCardArchived() {
+            window.location.reload();
+        },
+
+        afterCardUnarchived() {
+            window.location.reload();
+        },
     });
 }

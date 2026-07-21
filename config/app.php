@@ -20,6 +20,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | Hash curto do commit git da build atual (ex.: "a1b2c3d"), exibido no rodapé da sidebar. Ver
+    | App\Support\AppVersion e .github/workflows/main.yml — atualiza sozinho a cada deploy.
+    |
+    */
+
+    'version' => \App\Support\AppVersion::current(),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

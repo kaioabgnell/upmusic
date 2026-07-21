@@ -55,6 +55,7 @@
                 <option value="">Todos os status</option>
                 <option value="active" @selected(($filters['status'] ?? '') === 'active')>Ativos</option>
                 <option value="concluded" @selected(($filters['status'] ?? '') === 'concluded')>Concluídos</option>
+                <option value="archived" @selected(($filters['status'] ?? '') === 'archived')>Arquivados</option>
             </x-form.select>
             <button type="submit" class="h-9 rounded-md border border-hairline px-4 text-sm font-medium text-brand-ink hover:bg-surface"><i class="fa-solid fa-filter"></i> Filtrar</button>
             @if (array_filter($filters ?? []))
@@ -85,7 +86,9 @@
                         <td class="px-4 py-3 font-medium text-brand-ink">{{ $card->title }}</td>
                         <td class="px-4 py-3 text-steel">{{ $card->board?->name }}</td>
                         <td class="px-4 py-3">
-                            @if ($card->concluded_at)
+                            @if ($card->archived_at)
+                                <x-badge variant="neutral" icon="fa-box-archive">Arquivado</x-badge>
+                            @elseif ($card->concluded_at)
                                 <x-badge variant="dark" icon="fa-circle-check">Concluído</x-badge>
                             @else
                                 <x-badge variant="orange">{{ $card->column?->name }}</x-badge>

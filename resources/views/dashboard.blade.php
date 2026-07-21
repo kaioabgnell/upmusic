@@ -26,20 +26,6 @@
         </div>
     </form>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        @foreach ($stats as $stat)
-            <div class="bg-white border border-hairline rounded-xl p-5 flex items-center gap-4">
-                <span class="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-brand-orange/15 text-brand-orange-deep">
-                    <i class="fa-solid {{ $stat['icon'] }}"></i>
-                </span>
-                <div>
-                    <p class="text-sm text-steel">{{ $stat['label'] }}</p>
-                    <p class="text-xl font-semibold text-brand-ink">{{ $stat['value'] }}</p>
-                </div>
-            </div>
-        @endforeach
-    </div>
-
     {{-- 3 colunas lado a lado: vencendo hoje / meus quadros / atualizados recentemente. --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Coluna 1: vencendo hoje — o dado mais urgente, com destaque visual (borda vermelha + selo). --}}

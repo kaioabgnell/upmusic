@@ -6,8 +6,9 @@
  * Cada host chama `cardPanel({ ...seu próprio estado/métodos... })` e define, se precisar, "hooks"
  * opcionais chamados nos pontos de mutação (`afterCardOpened`, `afterCardSaved`, `afterCardRemoved`,
  * `afterCardMoved`, `afterCardTransferred`, `afterCardConcluded`, `afterCardReopened`,
- * `bumpCardCount`) — o Kanban usa esses hooks para atualizar seu array reativo de colunas/cards sem
- * reload; a listagem global simplesmente recarrega a página.
+ * `afterCardDuplicated`, `afterCardArchived`, `afterCardUnarchived`, `bumpCardCount`) — o Kanban usa
+ * esses hooks para atualizar seu array reativo de colunas/cards sem reload; a listagem global
+ * simplesmente recarrega a página.
  *
  * IMPORTANTE: a mesclagem usa `Object.getOwnPropertyDescriptors` + `Object.defineProperties`, não
  * `{ ...a, ...b }` — o objeto abaixo tem várias propriedades `get` (computeds). Um spread comum
@@ -25,7 +26,11 @@ function cardPanelBase() {
         columnId: null,
         concludedAt: null,
         concludedBy: null,
+        archivedAt: null,
+        archivedBy: null,
         tab: 'detalhes', // 'detalhes' | 'comentarios' | 'historico'
+
+        actionsMenuOpen: false,
 
         form: {},
         errors: {},
@@ -97,9 +102,12 @@ function cardPanelBase() {
             this.columnId = columnId;
             this.concludedAt = null;
             this.concludedBy = null;
+            this.archivedAt = null;
+            this.archivedBy = null;
             this.form = this.blankForm(columnId);
             this.errors = {};
             this.comments = []; this.attachments = []; this.movements = [];
+            this.actionsMenuOpen = false;
             this.assigneeOpen = false; this.assigneeSearch = ''; this.dueOpen = false; this.priorityOpen = false;
             this.fornecedorOpen = false; this.fornecedorSearch = '';
             this.estimatedValueCheck = null;
@@ -112,6 +120,7 @@ function cardPanelBase() {
             this.panelOpen = true;
             this.loading = true;
             this.errors = {};
+            this.actionsMenuOpen = false;
             this.assigneeOpen = false; this.assigneeSearch = ''; this.dueOpen = false; this.priorityOpen = false;
             this.fornecedorOpen = false; this.fornecedorSearch = '';
             this.estimatedValueCheck = null;
@@ -125,6 +134,8 @@ function cardPanelBase() {
                 this.columnId = c.board_column_id;
                 this.concludedAt = c.concluded_at;
                 this.concludedBy = c.concluded_by;
+                this.archivedAt = c.archived_at;
+                this.archivedBy = c.archived_by;
                 this.cfg.fields = c.board_fields;
                 const fields = {};
                 this.cfg.fields.forEach((f) => {
@@ -302,6 +313,54 @@ function cardPanelBase() {
                 this.afterCardRemoved?.(this.cardId);
                 window.upAlerts.notifySuccess('Card excluído.');
                 this.closePanel();
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
+        async duplicate() {
+            const confirmed = await window.upAlerts.confirmAction({
+                title: 'Duplicar card?',
+                text: 'Uma cópia será criada na mesma coluna, com "[CÓPIA]" no título.',
+                confirmText: 'Duplicar',
+                icon: 'question',
+            });
+            if (!confirmed) return;
+            try {
+                const card = await this.api(this.cardUrl(this.cardId, '/duplicar'), 'POST');
+                this.afterCardDuplicated?.(card);
+                window.upAlerts.notifySuccess('Card duplicado.');
+                this.closePanel();
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
+        async doArchive() {
+            const confirmed = await window.upAlerts.confirmAction({
+                title: 'Arquivar card?',
+                text: 'O card deixará de aparecer no quadro. Você poderá desarquivá-lo depois em "Todos os cards".',
+                confirmText: 'Arquivar',
+                icon: 'question',
+            });
+            if (!confirmed) return;
+            try {
+                const r = await this.api(this.cardUrl(this.cardId, '/arquivar'), 'POST');
+                this.afterCardArchived?.();
+                window.upAlerts.notifySuccess(r.message || 'Card arquivado.');
+                this.closePanel();
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
+        async doUnarchive() {
+            try {
+                const r = await this.api(this.cardUrl(this.cardId, '/desarquivar'), 'POST');
+                this.archivedAt = null;
+                this.archivedBy = null;
+                this.afterCardUnarchived?.();
+                window.upAlerts.notifySuccess(r.message || 'Card desarquivado.');
             } catch (e) {
                 window.upAlerts.notifyError(e.message);
             }

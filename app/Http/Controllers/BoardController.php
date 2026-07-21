@@ -94,6 +94,7 @@ class BoardController extends Controller
                 $q->with(['empresa:id,corporate_name,trade_name', 'event:id,name', 'assignee:id,name,avatar_path'])
                     ->withCount(['attachments', 'comments'])
                     ->whereNull('concluded_at')
+                    ->whereNull('archived_at')
                     ->when($filters['empresa_id'], fn ($q, $v) => $q->where('empresa_id', $v))
                     ->when($filters['event_id'], fn ($q, $v) => $q->where('event_id', $v))
                     ->when($filters['assignee_id'], fn ($q, $v) => $q->where('assignee_id', $v))

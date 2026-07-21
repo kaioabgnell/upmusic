@@ -235,6 +235,14 @@ export default function kanban(config) {
             this.removeCardFromColumns(this.cardId);
         },
 
+        afterCardArchived() {
+            this.removeCardFromColumns(this.cardId);
+        },
+
+        afterCardDuplicated(card) {
+            this.upsertCardInColumns(card);
+        },
+
         // ---- Drag and drop ---------------------------------------------------
         initSortable() {
             this.destroySortable();

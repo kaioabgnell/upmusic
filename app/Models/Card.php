@@ -17,7 +17,7 @@ class Card extends Model
     protected $fillable = [
         'board_id', 'board_column_id', 'empresa_id', 'fornecedor_id', 'event_id', 'assignee_id', 'created_by',
         'title', 'description', 'estimated_value', 'actual_value', 'due_date',
-        'priority', 'origin', 'position', 'concluded_at', 'concluded_by',
+        'priority', 'origin', 'position', 'concluded_at', 'concluded_by', 'archived_at', 'archived_by',
     ];
 
     protected $casts = [
@@ -28,6 +28,7 @@ class Card extends Model
         'origin' => CardOrigin::class,
         'position' => 'integer',
         'concluded_at' => 'datetime',
+        'archived_at' => 'datetime',
     ];
 
     public function board(): BelongsTo
@@ -70,6 +71,11 @@ class Card extends Model
         return $this->belongsTo(User::class, 'concluded_by');
     }
 
+    public function archivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archived_by');
+    }
+
     public function scopeActive($query)
     {
         return $query->whereNull('concluded_at');
@@ -78,6 +84,11 @@ class Card extends Model
     public function scopeConcluded($query)
     {
         return $query->whereNotNull('concluded_at');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
     }
 
     public function fieldValues(): HasMany

@@ -62,6 +62,6 @@
 
     {{-- Rodapé --}}
     <div class="px-5 py-4 border-t border-white/10 text-[11px] text-white/40">
-        UpMusic &middot; v0.1
+        UpMusic &middot; v{{ config('app.version') }}
     </div>
 </aside>

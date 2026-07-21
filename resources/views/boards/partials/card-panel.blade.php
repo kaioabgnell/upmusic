@@ -2,19 +2,46 @@
 <div x-show="panelOpen" x-cloak class="fixed inset-0 z-40 flex items-center justify-center p-4" x-transition.opacity>
     <div class="absolute inset-0 bg-black/40" @click="closePanel()"></div>
 
-    <div class="relative bg-white shadow-xl rounded-lg overflow-hidden flex w-full max-w-4xl max-h-[90vh]"
+    <div class="relative bg-white shadow-xl rounded-lg overflow-hidden flex flex-col md:flex-row w-full max-w-4xl max-h-[90vh]"
          x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
 
         {{-- Coluna principal --}}
-        <div class="flex-1 min-w-0 flex flex-col">
+        {{-- min-h-0: sem isso, um item flex tem min-height:auto (baseado no conteúdo) por padrão, o
+             que anula o overflow-y-auto do "Corpo" mais abaixo quando o modal empilha em coluna no
+             mobile — o conteúdo cresce livremente em vez de rolar, "sumindo" com rodapé/anexos. --}}
+        <div class="flex-1 min-w-0 min-h-0 flex flex-col">
             {{-- Cabeçalho --}}
             <div class="flex items-center justify-between px-5 h-16 border-b border-hairline shrink-0">
                 <div class="flex items-center gap-2 min-w-0">
                     <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : (form.title || 'Card')"></h3>
                     <span x-show="concludedAt" class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-ink text-white"><i class="fa-solid fa-circle-check mr-1"></i>Concluído</span>
+                    <span x-show="archivedAt" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-gray-200 text-gray-700"><i class="fa-solid fa-box-archive mr-1"></i>Arquivado</span>
                     <span x-show="isOverdue" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Vencido</span>
                 </div>
-                <button type="button" @click="closePanel()" class="text-steel hover:text-brand-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <div class="flex items-center gap-1 shrink-0">
+                    <div class="relative" x-show="mode === 'view' && cardId" x-cloak @click.outside="actionsMenuOpen = false">
+                        <button type="button" @click="actionsMenuOpen = !actionsMenuOpen" class="w-8 h-8 inline-flex items-center justify-center rounded-md text-steel hover:bg-surface hover:text-brand-ink" title="Mais ações">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div x-show="actionsMenuOpen" x-cloak x-transition
+                             class="absolute right-0 top-full mt-1 w-48 bg-white border border-hairline rounded-md shadow-lg z-10 py-1">
+                            <button type="button" @click="actionsMenuOpen = false; duplicate()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
+                                <i class="fa-regular fa-clone w-4 text-steel"></i> Duplicar Card
+                            </button>
+                            <button type="button" x-show="!archivedAt" @click="actionsMenuOpen = false; doArchive()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
+                                <i class="fa-solid fa-box-archive w-4 text-steel"></i> Arquivar
+                            </button>
+                            <button type="button" x-show="archivedAt" x-cloak @click="actionsMenuOpen = false; doUnarchive()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
+                                <i class="fa-solid fa-box-open w-4 text-steel"></i> Desarquivar
+                            </button>
+                            <div class="border-t border-hairline my-1"></div>
+                            <button type="button" @click="actionsMenuOpen = false; remove()" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                <i class="fa-solid fa-trash w-4"></i> Excluir
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" @click="closePanel()" class="text-steel hover:text-brand-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
             </div>
 
             {{-- Loading --}}
@@ -127,7 +154,7 @@
                                 <textarea x-model="form.description" rows="2" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm"></textarea>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="text-sm font-medium text-brand-ink flex items-center justify-between">
                                         Empresa
@@ -347,6 +374,27 @@
                                             </label>
                                         </div>
                                     </div>
+
+                                    {{-- Mover card para fase (mobile): no desktop isso vive na rail lateral (<aside>
+                                         abaixo, oculta aqui via md:hidden) — no mobile não há espaço para uma coluna
+                                         lateral, então o mesmo conteúdo aparece aqui, abaixo de tudo (depois dos anexos). --}}
+                                    <div x-show="previousColumns.length || nextColumns.length" x-cloak class="md:hidden border-t border-hairline pt-4">
+                                        <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-arrows-left-right text-steel mr-1.5"></i> Mover card para fase</p>
+                                        <div class="space-y-2">
+                                            <template x-for="col in previousColumns" :key="'prev-mobile-' + col.id">
+                                                <button type="button" @click="moveToColumn(col.id)" class="w-full flex items-center justify-between gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-transform hover:scale-[1.02]" :style="columnPillStyle(col.color)">
+                                                    <span class="truncate" x-text="col.name"></span>
+                                                    <i class="fa-solid fa-arrow-right text-xs shrink-0"></i>
+                                                </button>
+                                            </template>
+                                            <template x-for="col in nextColumns" :key="'next-mobile-' + col.id">
+                                                <button type="button" @click="moveToColumn(col.id)" class="w-full flex items-center justify-between gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-transform hover:scale-[1.02]" :style="columnPillStyle(col.color)">
+                                                    <span class="truncate" x-text="col.name"></span>
+                                                    <i class="fa-solid fa-arrow-right text-xs shrink-0"></i>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -393,19 +441,17 @@
             </div>
 
             {{-- Rodapé --}}
-            <div x-show="!loading" class="flex items-center justify-between gap-2 px-5 py-4 border-t border-hairline shrink-0">
-                <button type="button" x-show="mode === 'view' && cardId" @click="remove()" class="text-sm text-red-600 hover:underline"><i class="fa-solid fa-trash"></i> Excluir</button>
-                <div class="flex items-center gap-2 ml-auto">
-                    <button type="button" @click="closePanel()" class="rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">Fechar</button>
-                    <button type="button" @click="save()" :disabled="saving" class="inline-flex items-center gap-2 rounded-md bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep disabled:opacity-50">
-                        <i class="fa-solid fa-floppy-disk"></i> <span x-text="saving ? 'Salvando...' : 'Salvar'"></span>
-                    </button>
-                </div>
+            <div x-show="!loading" class="flex items-center justify-end gap-2 px-5 py-4 border-t border-hairline shrink-0">
+                <button type="button" @click="closePanel()" class="rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">Fechar</button>
+                <button type="button" @click="save()" :disabled="saving" class="inline-flex items-center gap-2 rounded-md bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep disabled:opacity-50">
+                    <i class="fa-solid fa-floppy-disk"></i> <span x-text="saving ? 'Salvando...' : 'Salvar'"></span>
+                </button>
             </div>
         </div>
 
-        {{-- Rail direita: Mover card para fase --}}
-        <aside x-show="!loading && mode === 'view' && cardId && (previousColumns.length || nextColumns.length)" class="w-64 shrink-0 border-l border-hairline flex flex-col bg-surface/40">
+        {{-- Rail direita: Mover card para fase (só desktop — no mobile, o mesmo conteúdo aparece
+             embutido no formulário, logo abaixo dos anexos; ver bloco "md:hidden" acima). --}}
+        <aside x-show="!loading && mode === 'view' && cardId && (previousColumns.length || nextColumns.length)" class="hidden md:flex md:w-64 md:shrink-0 border-l border-hairline flex-col bg-surface/40">
             <div class="flex items-center h-16 px-4 border-b border-hairline shrink-0">
                 <p class="text-sm font-semibold text-brand-ink truncate"><i class="fa-solid fa-arrows-left-right text-steel mr-1.5"></i> Mover card para fase</p>
             </div>

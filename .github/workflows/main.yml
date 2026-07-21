@@ -14,6 +14,12 @@ jobs:
       - name: 🚚 Checkout código
         uses: actions/checkout@v4
 
+      # Gera o número de versão exibido no rodapé da sidebar (App\Support\AppVersion). O servidor não
+      # tem .git (deploy é só FTP), então esse valor precisa vir pronto do CI, que é quem tem acesso ao
+      # git — atualiza sozinho a cada push, sem precisar bumpar nada manualmente.
+      - name: 🏷️ Gerar arquivo de versão (hash curto do commit)
+        run: echo -n "$(git rev-parse --short HEAD)" > .version
+
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:

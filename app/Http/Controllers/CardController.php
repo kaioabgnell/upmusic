@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Cards\ArchiveCard;
 use App\Actions\Cards\ConcludeCard;
 use App\Actions\Cards\CreateCard;
+use App\Actions\Cards\DuplicateCard;
 use App\Actions\Cards\MoveCard;
 use App\Actions\Cards\ReopenCard;
 use App\Actions\Cards\TransferCard;
+use App\Actions\Cards\UnarchiveCard;
 use App\Actions\Cards\UpdateCard;
 use App\Domain\Enums\AttachmentKind;
 use App\Http\Requests\StoreCardRequest;
@@ -48,8 +51,9 @@ class CardController extends Controller
             ->when($request->filled('empresa_id'), fn ($q) => $q->where('empresa_id', $request->integer('empresa_id')))
             ->when($request->filled('board_id'), fn ($q) => $q->where('board_id', $request->integer('board_id')))
             ->when($request->filled('board_column_id'), fn ($q) => $q->where('board_column_id', $request->integer('board_column_id')))
-            ->when($request->input('status') === 'active', fn ($q) => $q->whereNull('concluded_at'))
+            ->when($request->input('status') === 'active', fn ($q) => $q->whereNull('concluded_at')->whereNull('archived_at'))
             ->when($request->input('status') === 'concluded', fn ($q) => $q->whereNotNull('concluded_at'))
+            ->when($request->input('status') === 'archived', fn ($q) => $q->whereNotNull('archived_at'))
             ->orderByDesc('updated_at')
             ->paginate(15)
             ->withQueryString();
@@ -167,6 +171,37 @@ class CardController extends Controller
         return response()->json(['ok' => true, 'message' => "Card reaberto em {$toBoard->name}."]);
     }
 
+    public function duplicate(Card $card, DuplicateCard $action)
+    {
+        $this->authorize('update', $card);
+
+        $duplicate = $action->execute($card, request()->user());
+
+        return response()->json(CardPresenter::compact($duplicate), 201);
+    }
+
+    public function archive(Card $card, ArchiveCard $action)
+    {
+        $this->authorize('update', $card);
+
+        abort_if($card->archived_at, 422, 'Este card já está arquivado.');
+
+        $action->execute($card, request()->user());
+
+        return response()->json(['ok' => true, 'message' => 'Card arquivado.']);
+    }
+
+    public function unarchive(Card $card, UnarchiveCard $action)
+    {
+        $this->authorize('update', $card);
+
+        abort_unless($card->archived_at, 422, 'Este card não está arquivado.');
+
+        $action->execute($card, request()->user());
+
+        return response()->json(['ok' => true, 'message' => 'Card desarquivado.']);
+    }
+
     public function storeComment(Request $request, Card $card)
     {
         $this->authorize('view', $card);
@@ -241,6 +276,7 @@ class CardController extends Controller
             'event:id,name',
             'assignee:id,name',
             'concludedBy:id,name',
+            'archivedBy:id,name',
             'fieldValues',
             'comments.user:id,name',
             'attachments.uploader:id,name',
@@ -270,6 +306,8 @@ class CardController extends Controller
             'origin' => $card->origin->value,
             'concluded_at' => $card->concluded_at?->format('d/m/Y H:i'),
             'concluded_by' => $card->concludedBy?->name,
+            'archived_at' => $card->archived_at?->format('d/m/Y H:i'),
+            'archived_by' => $card->archivedBy?->name,
             'board_fields' => $card->board?->fields->map(fn ($f) => [
                 'id' => $f->id,
                 'label' => $f->label,
@@ -290,12 +328,12 @@ class CardController extends Controller
                 'type_label' => $m->type->label(),
                 'from' => match ($m->type->value) {
                     'board' => $m->fromBoard?->name,
-                    'reopening' => null,
+                    'reopening', 'unarchival' => null,
                     default => $m->fromColumn?->name,
                 },
                 'to' => match ($m->type->value) {
                     'board' => $m->toBoard?->name,
-                    'conclusion' => null,
+                    'conclusion', 'archival' => null,
                     'reopening' => $m->toBoard && $m->toColumn ? "{$m->toBoard->name} / {$m->toColumn->name}" : $m->toColumn?->name,
                     default => $m->toColumn?->name,
                 },

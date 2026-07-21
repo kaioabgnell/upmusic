@@ -114,6 +114,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('cards/{card}/enviar-departamento', [CardController::class, 'transfer'])->name('cards.transfer');
     Route::post('cards/{card}/concluir', [CardController::class, 'conclude'])->name('cards.conclude');
     Route::post('cards/{card}/reabrir', [CardController::class, 'reopen'])->name('cards.reopen');
+    Route::post('cards/{card}/duplicar', [CardController::class, 'duplicate'])->name('cards.duplicate');
+    Route::post('cards/{card}/arquivar', [CardController::class, 'archive'])->name('cards.archive');
+    Route::post('cards/{card}/desarquivar', [CardController::class, 'unarchive'])->name('cards.unarchive');
     Route::post('cards/{card}/comentarios', [CardController::class, 'storeComment'])->name('cards.comments.store');
     Route::post('cards/{card}/anexos', [CardController::class, 'storeAttachment'])->name('cards.attachments.store');
     Route::delete('anexos/{attachment}', [CardController::class, 'destroyAttachment'])->name('cards.attachments.destroy');
