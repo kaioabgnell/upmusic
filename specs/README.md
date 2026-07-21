@@ -23,6 +23,7 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 15 | [Banco de Preços por Categoria](15-banco-de-precos-por-categoria.md) | Melhoria pós-entrega: histórico de preços por categoria de fornecedor (substitui Serviço+Cliente) | `sonnet` |
 | 16 | [Captura Rápida de Orçamentos e NFs](16-captura-rapida-orcamentos-nf.md) | WhatsApp → Card de custo zero via PWA + Web Share Target (alternativa à spec 13) | `opus` |
 | 17 | [Fluxo de Aprovação de Etapas](17-fluxo-de-aprovacao-de-etapas.md) | Melhoria pós-entrega: coluna com aprovador(es) dedicado(s) — aprovado avança, reprovado arquiva | `opus` |
+| 18 | [Link Direto e Compartilhamento de Card](18-link-direto-e-compartilhamento-de-card.md) | Melhoria pós-entrega: URL própria por card (`/quadros/{board}/card/{card}`), exibição do `#ID` e botão "Compartilhar Card" | `sonnet` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

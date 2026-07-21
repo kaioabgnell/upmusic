@@ -17,8 +17,10 @@
                 fornecedorQuick: '{{ route('fornecedores.quick') }}',
                 fornecedorPriceHistory: '{{ url('fornecedores') }}',
                 kanbanData: '{{ route('boards.kanban.data', $board) }}',
+                boardShowBase: '{{ url('quadros/'.$board->id) }}',
             },
             initialFilters: {{ Illuminate\Support\Js::from($filters) }},
+            initialOpenCardId: {{ Illuminate\Support\Js::from($openCardId) }},
             columns: {{ Illuminate\Support\Js::from($columns) }},
             fields: {{ Illuminate\Support\Js::from($fields) }},
             empresas: {{ Illuminate\Support\Js::from($empresas) }},
@@ -158,7 +160,7 @@
                                  :data-tooltip="dueTooltipText(card)"
                                  @mouseenter="dueTooltipText(card) && showTooltip($event)" @mouseleave="hideTooltip()">
                                 <div class="flex items-start justify-between gap-2">
-                                    <p class="text-sm font-medium text-brand-ink leading-snug" x-text="card.title"></p>
+                                    <p class="text-sm font-medium text-brand-ink leading-snug" x-text="'#' + card.id + ' - ' + card.title"></p>
                                     <span class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" :class="priorityMeta(card.priority).classes" x-text="priorityMeta(card.priority).label"></span>
                                 </div>
                                 <p x-show="card.empresa" class="text-xs text-steel mt-1.5"><i class="fa-solid fa-building mr-1"></i><span x-text="truncate(card.empresa, 28)"></span></p>
@@ -228,7 +230,7 @@
                     </template>
                     <template x-for="card in flatCards" :key="card.id">
                         <tr class="hover:bg-surface/60 cursor-pointer" @click="openCard(card.id)">
-                            <td class="px-4 py-3 font-medium text-brand-ink" x-text="card.title"></td>
+                            <td class="px-4 py-3 font-medium text-brand-ink" x-text="'#' + card.id + ' - ' + card.title"></td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center gap-1.5 text-steel">
                                     <span class="w-2 h-2 rounded-full shrink-0" :style="`background: ${card.column_color || '#c7c7c7'}`"></span>

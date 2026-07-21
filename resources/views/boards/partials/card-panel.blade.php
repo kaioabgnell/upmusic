@@ -13,7 +13,7 @@
             {{-- Cabeçalho --}}
             <div class="flex items-center justify-between px-5 h-16 border-b border-hairline shrink-0">
                 <div class="flex items-center gap-2 min-w-0">
-                    <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : (form.title || 'Card')"></h3>
+                    <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : ('#' + cardId + ' - ' + (form.title || 'Card'))"></h3>
                     <span x-show="concludedAt" class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-ink text-white"><i class="fa-solid fa-circle-check mr-1"></i>Concluído</span>
                     <span x-show="archivedAt" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-gray-200 text-gray-700"><i class="fa-solid fa-box-archive mr-1"></i>Arquivado</span>
                     <span x-show="isOverdue" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Vencido</span>
@@ -33,6 +33,9 @@
                             </button>
                             <button type="button" x-show="archivedAt" x-cloak @click="actionsMenuOpen = false; doUnarchive()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
                                 <i class="fa-solid fa-box-open w-4 text-steel"></i> Desarquivar
+                            </button>
+                            <button type="button" @click="actionsMenuOpen = false; shareCard()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
+                                <i class="fa-solid fa-share-nodes w-4 text-steel"></i> Compartilhar Card
                             </button>
                             <div class="border-t border-hairline my-1"></div>
                             <button type="button" @click="actionsMenuOpen = false; remove()" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">

@@ -39,11 +39,16 @@ export default function kanban(config) {
             };
             // Shell inicial: colunas já vêm do servidor (sem cards); os cards chegam no fetchCards().
             this.columns = this.cfg.columns.map((c) => ({ ...c, cards: [] }));
-            this.fetchCards().then(() => this.openCardFromQueryString());
+            this.fetchCards().then(() => {
+                this.openCardFromQueryString();
+                this.openCardFromRoute();
+            });
         },
 
         // Após criar um card fora do Kanban (ex.: Captura Rápida), o redirect inclui ?abrir_card=ID
-        // para já abrir o modal de detalhe assim que os cards carregarem (specs/16).
+        // para já abrir o modal de detalhe assim que os cards carregarem (specs/16). Uso único: o
+        // parâmetro é removido da URL logo depois de abrir — diferente do link direto abaixo, que
+        // mantém a URL apontando para o card (ver afterCardOpened).
         openCardFromQueryString() {
             const id = new URLSearchParams(window.location.search).get('abrir_card');
             if (!id) return;
@@ -51,6 +56,13 @@ export default function kanban(config) {
             const url = new URL(window.location.href);
             url.searchParams.delete('abrir_card');
             window.history.replaceState({}, '', url);
+        },
+
+        // Link direto do card (specs/18): /quadros/{board}/card/{id} já chega com o card pra abrir
+        // (injetado pelo servidor via cfg.initialOpenCardId) — aqui a URL permanece como está.
+        openCardFromRoute() {
+            if (!this.cfg.initialOpenCardId) return;
+            this.openCard(Number(this.cfg.initialOpenCardId));
         },
 
         // ---- Tooltip (estilo Bootstrap, escapa containers com scroll) --------
@@ -203,6 +215,19 @@ export default function kanban(config) {
                     return;
                 }
             }
+        },
+
+        // ---- Link direto do card (specs/18) ------------------------------------
+        // Ao abrir um card, a URL passa a refletir /quadros/{board}/card/{id} (copiável/compartilhável);
+        // ao fechar o modal (ou abrir "Novo card"), volta para /quadros/{board}. Preserva a query string
+        // de filtros já presente na barra de endereço (não usa filterQueryString() — são mecanismos
+        // independentes, ver specs/18 §4.2).
+        afterCardOpened(c) {
+            window.history.replaceState({}, '', `${this.cfg.urls.boardShowBase}/card/${c.id}${window.location.search}`);
+        },
+
+        afterPanelReset() {
+            window.history.replaceState({}, '', `${this.cfg.urls.boardShowBase}${window.location.search}`);
         },
 
         // ---- Hooks do card-panel.js compartilhado -----------------------------

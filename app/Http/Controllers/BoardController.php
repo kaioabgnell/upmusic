@@ -6,6 +6,7 @@ use App\Domain\Enums\CardPriority;
 use App\Http\Requests\StoreBoardRequest;
 use App\Http\Requests\UpdateBoardRequest;
 use App\Models\Board;
+use App\Models\Card;
 use App\Models\CardTemplate;
 use App\Models\Setor;
 use App\Models\User;
@@ -36,9 +37,14 @@ class BoardController extends Controller
         return view('boards.index', compact('boards'));
     }
 
-    public function show(Request $request, Board $board, CardFormOptionsService $options)
+    public function show(Request $request, Board $board, CardFormOptionsService $options, ?Card $card = null)
     {
         $this->authorize('view', $board);
+
+        // Link direto do card (specs/18): /quadros/{board}/card/{card} reaproveita esta mesma tela —
+        // card de outro quadro na URL (id editado manualmente) vira 404, mesmo padrão de checagem
+        // cruzada já usado em CardController::move().
+        abort_if($card && $card->board_id !== $board->id, 404);
 
         $filters = $this->filtersFromRequest($request);
 
@@ -75,6 +81,7 @@ class BoardController extends Controller
             'priorities' => CardPriority::options(),
             'boardTemplates' => CardTemplate::query()->where('active', true)->where('board_id', $board->id)
                 ->withCount('items')->orderBy('name')->get(['id', 'name']),
+            'openCardId' => $card?->id,
         ]);
     }
 

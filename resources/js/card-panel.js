@@ -7,8 +7,10 @@
  * opcionais chamados nos pontos de mutação (`afterCardOpened`, `afterCardSaved`, `afterCardRemoved`,
  * `afterCardMoved`, `afterCardTransferred`, `afterCardConcluded`, `afterCardReopened`,
  * `afterCardDuplicated`, `afterCardArchived`, `afterCardUnarchived`, `afterCardApproved`,
- * `afterCardRejected`, `bumpCardCount`) — o Kanban usa esses hooks para atualizar seu array reativo
- * de colunas/cards sem reload; a listagem global simplesmente recarrega a página.
+ * `afterCardRejected`, `afterPanelReset`, `bumpCardCount`) — o Kanban usa esses hooks para atualizar
+ * seu array reativo de colunas/cards sem reload; a listagem global simplesmente recarrega a página.
+ * `afterPanelReset` (specs/18) é chamado ao fechar o modal ou abrir "Novo card" — só o Kanban o define,
+ * para reverter a URL do card para a URL do quadro (a listagem global não tem URL por quadro).
  *
  * IMPORTANTE: a mesclagem usa `Object.getOwnPropertyDescriptors` + `Object.defineProperties`, não
  * `{ ...a, ...b }` — o objeto abaixo tem várias propriedades `get` (computeds). Um spread comum
@@ -119,6 +121,9 @@ function cardPanelBase() {
             this.estimatedValueCheck = null;
             this.tab = 'detalhes';
             this.panelOpen = true;
+            // Link direto do card (specs/18): abrir "Novo card" some com o card anteriormente aberto,
+            // então a URL (se apontava para um card) volta a refletir só o quadro.
+            this.afterPanelReset?.();
         },
 
         async openCard(id) {
@@ -173,6 +178,9 @@ function cardPanelBase() {
 
         closePanel() {
             this.panelOpen = false;
+            // Link direto do card (specs/18) — a URL (se apontava para este card) volta a refletir
+            // só o quadro, já que o modal não está mais aberto.
+            this.afterPanelReset?.();
         },
 
         // "Vencido": o prazo (due_date) é anterior a hoje. Comparação lexical de datas em Y-m-d
@@ -361,6 +369,14 @@ function cardPanelBase() {
             } catch (e) {
                 window.upAlerts.notifyError(e.message);
             }
+        },
+
+        // Link direto do card (specs/18) — sempre aponta para o Kanban, mesmo se o modal foi aberto
+        // pela listagem global "Todos os cards" (que não tem URL própria por card).
+        shareCard() {
+            const url = `${window.location.origin}/quadros/${this.form.board_id}/card/${this.cardId}`;
+            navigator.clipboard.writeText(url);
+            window.upAlerts.notifySuccess('Link do card copiado para sua área de transferência.');
         },
 
         async doUnarchive() {

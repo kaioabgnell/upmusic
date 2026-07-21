@@ -947,6 +947,45 @@ critérios de aceite marcados).
 > Dados de teste (cards, admin extra, configuração de aprovadores) removidos ao final. `pint --dirty` e
 > `npm run build` limpos.
 
+**Link Direto e Compartilhamento de Card.** Ver [specs/18](18-link-direto-e-compartilhamento-de-card.md)
+(spec completa, todos os critérios de aceite marcados).
+> Cada card do Kanban passa a ter URL própria e compartilhável (`/quadros/{board}/card/{card}`) — abrir um
+> card atualiza a URL sem reload; colar a URL abre o quadro com o modal já aberto, respeitando a
+> autorização de acesso ao quadro já existente (nenhuma regra nova).
+> - **Rota**: `GET quadros/{board}/card/{card?}` (`boards.show.card`) reaproveita o mesmo
+>   `BoardController::show()` de `boards.show` (parâmetro `Card` opcional) — evita duplicar toda a lógica
+>   de carregar campos/colunas/opções do quadro. Card de outro quadro na URL → `404`
+>   (`abort_if($card && $card->board_id !== $board->id, 404)`, mesmo padrão de checagem cruzada já usado
+>   em `CardController::move()`); sem acesso ao quadro → `403` (reaproveita `authorize('view', $board)`
+>   que já existia).
+> - **`#{id} - Título`**: card compacto do Kanban, visão Lista e cabeçalho do modal — só ao visualizar um
+>   card já existente (criação continua mostrando "Novo card"). "Todos os cards" não foi alterado (fora do
+>   escopo pedido).
+> - **Sincronização de URL — só no Kanban** (`kanban.js`, não em `cards-hub.js`): novos hooks
+>   `afterCardOpened(c)` (aponta a URL para `/quadros/{board}/card/{id}`) e `afterPanelReset()` (volta pra
+>   `/quadros/{board}`), chamados pelo `card-panel.js` compartilhado em `openCard()`/`closePanel()`/
+>   `openCreate()` — `cards-hub.js` não define esses hooks, então não tem efeito nenhum lá (a listagem
+>   global não tem URL por quadro). Usa `history.replaceState` (sem criar entrada no histórico do
+>   navegador — decisão explícita, documentada na spec como suposição). Abertura automática via rota
+>   (`openCardFromRoute()`, lendo `cfg.initialOpenCardId` injetado pelo servidor) é a irmã do
+>   `openCardFromQueryString()` já existente (specs/16) — a diferença central é que aquele remove o
+>   parâmetro da URL depois de abrir (uso único) e este mantém a URL apontando pro card de propósito
+>   (é o requisito central: ser copiável).
+> - **"Compartilhar Card"**: novo item no menu de 3 pontos, logo abaixo de Arquivar/Desarquivar — copia
+>   `${origin}/quadros/{board_id}/card/{card_id}` via `navigator.clipboard.writeText` (mesmo padrão já
+>   usado em `captures/ios-setup.blade.php`/`external/manage.blade.php`) e mostra "Link do card copiado
+>   para sua área de transferência." Funciona tanto no Kanban quanto em "Todos os cards" (é o mesmo modal
+>   compartilhado), sempre copiando a URL do Kanban.
+>
+> Validado por HTTP real (sessão de admin e de usuário comum): `GET quadros/1/card/{id}` de um card do
+> próprio quadro → `200` com `initialOpenCardId` correto embutido no HTML; card de outro quadro na URL →
+> `404`; card inexistente → `404`; usuário sem vínculo `user_board` com o quadro → `403` (acesso removido
+> e restaurado via tinker só para o teste). **Ressalva de escopo**: a pedido explícito do usuário nesta
+> tarefa, nenhum teste em navegador real (Puppeteer/Playwright) foi rodado — a troca de URL ao
+> abrir/fechar o modal e o clique em "Compartilhar Card" foram implementados seguindo o padrão já
+> comprovado de `openCardFromQueryString()` e revisados linha a linha, mas não exercitados visualmente.
+> `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase

@@ -155,6 +155,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Dados assíncronos do quadro (colunas + cards) — ver specs/14.
     Route::get('quadros/{board}/kanban', [BoardController::class, 'kanbanData'])->name('boards.kanban.data');
 
+    // Link direto de card (specs/18) — mesmo controller/método de boards.show, {card} opcional.
+    Route::get('quadros/{board}/card/{card?}', [BoardController::class, 'show'])->name('boards.show.card');
+
     // Wildcard de exibição por último para não capturar as rotas literais acima.
     Route::get('quadros/{board}', [BoardController::class, 'show'])->name('boards.show');
 
