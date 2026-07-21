@@ -20,7 +20,8 @@
 
             <div id="columns-list" class="space-y-2">
                 @foreach ($board->columns as $column)
-                    <div class="column-row flex items-center gap-3 rounded-lg border border-hairline p-3 bg-surface" data-id="{{ $column->id }}">
+                    @php $isLastColumn = $column->id === $board->columns->last()->id; @endphp
+                    <div class="column-row flex items-center gap-3 rounded-lg border border-hairline p-3 bg-surface" data-id="{{ $column->id }}" data-position="{{ $column->position }}" data-approvers="{{ $column->approvers->pluck('id')->implode(',') }}">
                         <i class="fa-solid fa-grip-vertical text-steel cursor-move handle"></i>
                         <input type="color" value="{{ $column->color ?? '#e5e5e5' }}" class="h-8 w-10 rounded border border-hairline cursor-pointer" onchange="boardConfig.saveColumn({{ $column->id }}, this)" data-field="color">
                         <input type="text" value="{{ $column->name }}" class="flex-1 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm" onchange="boardConfig.saveColumn({{ $column->id }}, this)" data-field="name">
@@ -30,6 +31,14 @@
                         <label class="flex items-center gap-1 text-xs text-steel whitespace-nowrap">
                             <input type="checkbox" @checked($column->is_final) class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange" onchange="boardConfig.saveColumn({{ $column->id }}, this)" data-field="is_final"> final
                         </label>
+                        @unless ($isLastColumn)
+                            <button type="button"
+                                    class="text-xs whitespace-nowrap {{ $column->approvers->isNotEmpty() ? 'text-brand-orange-deep font-medium' : 'text-steel' }} hover:text-brand-orange-deep"
+                                    title="Aprovadores desta etapa"
+                                    onclick="boardConfig.editApprovers({{ $column->id }}, {{ Illuminate\Support\Js::from($column->name) }})">
+                                <i class="fa-solid fa-user-check mr-1"></i>{{ $column->approvers->isNotEmpty() ? 'Aprovação (' . $column->approvers->count() . ')' : 'Aprovação' }}
+                            </button>
+                        @endunless
                         <button type="button" class="text-steel hover:text-red-600" title="Excluir" onclick="boardConfig.deleteColumn({{ $column->id }}, this)"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 @endforeach
@@ -110,6 +119,7 @@
         window.boardConfig = (function () {
             const boardId = document.getElementById('board-config').dataset.board;
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
+            const admins = {{ Illuminate\Support\Js::from($admins->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])) }};
 
             async function api(url, method, body) {
                 const res = await fetch(url, {
@@ -176,6 +186,47 @@
                 reorder(listEl, url) {
                     const order = [...listEl.children].map(el => el.dataset.id).filter(Boolean);
                     api(url, 'POST', { order }).catch(e => window.upAlerts.notifyError(e.message));
+                },
+                async editApprovers(columnId, columnName) {
+                    const row = document.querySelector(`.column-row[data-id="${columnId}"]`);
+                    const current = (row.dataset.approvers || '').split(',').filter(Boolean).map(Number);
+
+                    if (!admins.length) {
+                        window.upAlerts.notifyError('Nenhum usuário Administrador ativo para configurar como aprovador.');
+                        return;
+                    }
+
+                    const optionsHtml = admins.map(a => `
+                        <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface text-left">
+                            <input type="checkbox" class="approver-option rounded border-gray-300 text-brand-orange focus:ring-brand-orange" value="${a.id}" ${current.includes(a.id) ? 'checked' : ''}>
+                            <span class="text-sm text-brand-ink">${a.name}</span>
+                        </label>
+                    `).join('');
+
+                    const { value: userIds } = await window.Swal.fire({
+                        title: `Aprovadores — ${columnName}`,
+                        customClass: { title: 'up-modal-title' },
+                        html: `
+                            <p class="text-xs text-steel text-left mb-3">Cards nesta etapa só avançam para a próxima coluna quando um destes usuários aprovar. Deixe vazio para não exigir aprovação.</p>
+                            <div class="space-y-2 max-h-72 overflow-y-auto text-left">${optionsHtml}</div>
+                        `,
+                        focusConfirm: false,
+                        showCancelButton: true,
+                        confirmButtonText: 'Salvar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#ff8c1e',
+                        preConfirm: () => [...document.querySelectorAll('.approver-option:checked')].map(el => Number(el.value)),
+                    });
+                    if (userIds === undefined) return;
+
+                    try {
+                        await api(`{{ url('colunas') }}/${columnId}/aprovadores`, 'PUT', { user_ids: userIds });
+                        row.dataset.approvers = userIds.join(',');
+                        window.upAlerts.notifySuccess('Aprovadores atualizados.');
+                        setTimeout(() => location.reload(), 600);
+                    } catch (e) {
+                        window.upAlerts.notifyError(e.message);
+                    }
                 },
             };
         })();

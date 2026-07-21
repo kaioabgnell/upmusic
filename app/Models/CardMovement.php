@@ -13,7 +13,7 @@ class CardMovement extends Model
 
     protected $fillable = [
         'card_id', 'user_id', 'from_board_id', 'to_board_id',
-        'from_column_id', 'to_column_id', 'type',
+        'from_column_id', 'to_column_id', 'type', 'note',
     ];
 
     protected $casts = ['type' => MovementType::class];

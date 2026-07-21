@@ -53,6 +53,25 @@
                  o Alpine aplica x-model antes de o x-for interno criar as <option>s, deixando a seleção em
                  branco mesmo com o valor certo no estado. --}}
             <div x-show="!loading" class="flex-1 min-h-0 flex flex-col">
+                    {{-- Faixa de aprovação de etapa (specs/17) — só para card existente numa coluna que exige aprovação. --}}
+                    <div x-show="mode === 'view' && cardId && requiresApproval" x-cloak
+                         class="mx-5 mt-4 rounded-lg border px-4 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0"
+                         :class="canApprove ? 'bg-brand-orange/10 border-brand-orange/30' : 'bg-gray-100 border-hairline'">
+                        <div class="flex items-center gap-2 text-sm min-w-0">
+                            <i class="fa-solid fa-user-clock" :class="canApprove ? 'text-brand-orange-deep' : 'text-steel'"></i>
+                            <span class="font-medium text-brand-ink">Aguardando aprovação</span>
+                            <span class="text-steel truncate" x-show="approvers.length" x-text="'(' + approvers.join(', ') + ')'"></span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0" x-show="canApprove" x-cloak>
+                            <button type="button" @click="doReject()" class="rounded-md border border-red-300 text-red-600 px-3 py-1.5 text-sm font-medium hover:bg-red-50">
+                                <i class="fa-solid fa-xmark"></i> Reprovar
+                            </button>
+                            <button type="button" @click="doApprove()" class="rounded-md bg-brand-orange px-3 py-1.5 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep">
+                                <i class="fa-solid fa-check"></i> Aprovar
+                            </button>
+                        </div>
+                    </div>
+
                     {{-- Ações rápidas: responsável / vencimento / prioridade --}}
                     <div class="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-hairline shrink-0">
                         {{-- Responsável --}}

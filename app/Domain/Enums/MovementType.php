@@ -10,6 +10,8 @@ enum MovementType: string
     case Reopening = 'reopening';
     case Archival = 'archival';
     case Unarchival = 'unarchival';
+    case Approval = 'approval';
+    case Rejection = 'rejection';
 
     public function label(): string
     {
@@ -20,6 +22,8 @@ enum MovementType: string
             self::Reopening => 'Card reaberto',
             self::Archival => 'Card arquivado',
             self::Unarchival => 'Card desarquivado',
+            self::Approval => 'Card aprovado',
+            self::Rejection => 'Card reprovado (arquivado)',
         };
     }
 }

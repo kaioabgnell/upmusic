@@ -73,5 +73,13 @@ export default function cardsHub(config) {
         afterCardUnarchived() {
             window.location.reload();
         },
+
+        afterCardApproved() {
+            window.location.reload();
+        },
+
+        afterCardRejected() {
+            window.location.reload();
+        },
     });
 }

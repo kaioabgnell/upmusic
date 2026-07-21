@@ -91,6 +91,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('colunas/{column}', [BoardColumnController::class, 'update'])->name('columns.update');
         Route::delete('colunas/{column}', [BoardColumnController::class, 'destroy'])->name('columns.destroy');
         Route::post('quadros/{board}/colunas/reordenar', [BoardColumnController::class, 'reorder'])->name('columns.reorder');
+        Route::put('colunas/{column}/aprovadores', [BoardColumnController::class, 'updateApprovers'])->name('columns.approvers.update');
 
         // Campos do card (JSON)
         Route::post('quadros/{board}/campos', [BoardFieldController::class, 'store'])->name('fields.store');
@@ -117,6 +118,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('cards/{card}/duplicar', [CardController::class, 'duplicate'])->name('cards.duplicate');
     Route::post('cards/{card}/arquivar', [CardController::class, 'archive'])->name('cards.archive');
     Route::post('cards/{card}/desarquivar', [CardController::class, 'unarchive'])->name('cards.unarchive');
+    Route::post('cards/{card}/aprovar', [CardController::class, 'approve'])->name('cards.approve');
+    Route::post('cards/{card}/reprovar', [CardController::class, 'reject'])->name('cards.reject');
     Route::post('cards/{card}/comentarios', [CardController::class, 'storeComment'])->name('cards.comments.store');
     Route::post('cards/{card}/anexos', [CardController::class, 'storeAttachment'])->name('cards.attachments.store');
     Route::delete('anexos/{attachment}', [CardController::class, 'destroyAttachment'])->name('cards.attachments.destroy');

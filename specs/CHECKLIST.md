@@ -898,6 +898,55 @@ Trocar com `/model sonnet` ou `/model opus` ao iniciar cada bloco.
 > corretamente no histórico; excluir (agora só acessível pelo menu) segue funcionando via soft delete.
 > `pint --dirty` e `npm run build` limpos.
 
+**Fluxo de Aprovação de Etapas.** Ver [specs/17](17-fluxo-de-aprovacao-de-etapas.md) (spec completa, todos os
+critérios de aceite marcados).
+> Colunas específicas de um quadro passam a exigir aprovação de administrador(es) selecionados antes do
+> card avançar para a próxima etapa — aprovado avança, reprovado é arquivado (reaproveita 100% a feature
+> de Arquivar). Configuração por coluna, não por quadro: nem toda etapa precisa do gate.
+> - **`board_column_approvers`** (nova tabela, pivot `board_column_id` + `user_id`): a simples existência
+>   de linhas para uma coluna já marca "exige aprovação" — sem flag própria nem estado "pendente" no card.
+>   `card_movements` ganhou coluna `note` (motivo da reprovação) e os casos `MovementType::Approval`/
+>   `Rejection`.
+> - **`BoardColumn`** ganhou `approvers()` (belongsToMany), `requiresApproval()`, `isApproverFor(User)` e
+>   `nextColumn()` (próxima coluna do quadro por posição — usada por Aprovar, que não tem seleção de
+>   destino).
+> - **Actions `ApproveCard`/`RejectCard`** (novas): aprovar move para `nextColumn()` e grava movimentação
+>   `approval`; reprovar arquiva (`archived_at`/`archived_by`, mesmos campos do Arquivar manual) e grava
+>   `rejection` com o motivo em `note`.
+> - **Config do quadro**: botão "Aprovação" em cada coluna não-final (`boards/config.blade.php`) abre um
+>   modal (SweetAlert2, mesmo padrão de `quickEmpresa`/`quickFornecedor`) com checkboxes dos usuários
+>   `role = admin` ativos, sincronizando via `PUT colunas/{id}/aprovadores`. Backend valida que só admins
+>   sejam selecionados e que a coluna tenha uma próxima (não permite gate na última coluna).
+> - **Card modal**: faixa "Aguardando aprovação" logo abaixo do cabeçalho — com botões Aprovar/Reprovar
+>   só para quem está configurado como aprovador daquela coluna especificamente; para os demais (inclusive
+>   outros admins não selecionados), a faixa não aparece. Reprovar exige motivo (SweetAlert2 `input:
+>   'textarea'`, validação obrigatória no front e no back).
+> - **Bloqueio de avanço manual**: `cards.move` recusa (`422`) qualquer destino com `position` maior que a
+>   coluna atual enquanto ela exigir aprovação (retroceder continua livre); `cards.transfer` ("enviar para
+>   outro departamento") é bloqueado por completo nesse estado — fecha a brecha de contornar o gate
+>   arrastando o card ou transferindo de quadro.
+>
+> **Nota técnica importante, documentada na própria spec (§7) e seguida à risca na implementação**:
+> `AuthServiceProvider` tem `Gate::before(fn ($user) => $user->isAdmin() ? true : null)`, que libera
+> qualquer admin em qualquer Policy — usar `$this->authorize()` para aprovar/reprovar teria quebrado a
+> regra central (só o admin especificamente selecionado por coluna pode agir). A checagem em
+> `CardController::authorizeApprover()` é manual (`abort_unless($card->column->isApproverFor(...))`),
+> fora do sistema de Gate/Policy, exatamente para não ser bypassada.
+>
+> **Bug encontrado e corrigido durante a validação**: `CardMovement::$fillable` não incluía `note` — a
+> coluna nova era descartada silenciosamente por mass assignment ao gravar a reprovação (o motivo nunca
+> era salvo, apesar de vir certo no request). Corrigido adicionando `'note'` ao `$fillable`.
+>
+> Validado por HTTP real com dois administradores distintos (um configurado como aprovador da coluna,
+> outro não): usuário não-aprovador recebe `can_approve: false` no JSON do card e `403` ao tentar
+> `POST .../aprovar`; aprovador configurado aprova e o card move de coluna com `card_movements` correto
+> (`type=approval`, `from`/`to` certos); reprovar sem motivo → `422` de validação; reprovar com motivo →
+> card arquivado e `note` gravado corretamente (após o fix do bug acima); `cards.move` para coluna à frente
+> bloqueado (`422`) enquanto pendente, para trás permitido (`200`); `cards.transfer` bloqueado (`422`) no
+> mesmo estado; configurar aprovador não-admin → `422`; configurar aprovação na última coluna → `422`.
+> Dados de teste (cards, admin extra, configuração de aprovadores) removidos ao final. `pint --dirty` e
+> `npm run build` limpos.
+
 ---
 
 ### Status por fase

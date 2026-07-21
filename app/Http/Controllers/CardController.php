@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Cards\ApproveCard;
 use App\Actions\Cards\ArchiveCard;
 use App\Actions\Cards\ConcludeCard;
 use App\Actions\Cards\CreateCard;
 use App\Actions\Cards\DuplicateCard;
 use App\Actions\Cards\MoveCard;
+use App\Actions\Cards\RejectCard;
 use App\Actions\Cards\ReopenCard;
 use App\Actions\Cards\TransferCard;
 use App\Actions\Cards\UnarchiveCard;
@@ -109,6 +111,14 @@ class CardController extends Controller
         $column = BoardColumn::findOrFail($data['board_column_id']);
         abort_unless($column->board_id === $card->board_id, 422, 'Coluna inválida para este quadro.');
 
+        // Card numa coluna que exige aprovação só avança por aprovação explícita (ver approve()) —
+        // mover pra trás ou entre outras colunas sem avançar continua livre. Ver specs/17 §6.
+        abort_if(
+            $card->column->requiresApproval() && $column->position > $card->column->position,
+            422,
+            'Este card precisa ser aprovado antes de avançar.'
+        );
+
         $action->execute($card, $column, $data['position'], $request->user());
 
         return response()->json(['ok' => true]);
@@ -117,6 +127,10 @@ class CardController extends Controller
     public function transfer(Request $request, Card $card, TransferCard $action)
     {
         $this->authorize('update', $card);
+
+        // Enviar para outro departamento também é "avançar" — bloqueado enquanto pendente de
+        // aprovação, mesma regra do move() acima. Ver specs/17 §6.
+        abort_if($card->column->requiresApproval(), 422, 'Este card precisa ser aprovado antes de avançar.');
 
         $data = $request->validate([
             'board_id' => ['required', 'exists:boards,id'],
@@ -202,6 +216,38 @@ class CardController extends Controller
         return response()->json(['ok' => true, 'message' => 'Card desarquivado.']);
     }
 
+    public function approve(Card $card, ApproveCard $action)
+    {
+        $this->authorizeApprover($card);
+
+        $approved = $action->execute($card, request()->user());
+
+        // Devolve o card compacto (não só {ok}) para o Kanban reposicionar na nova coluna sem
+        // reload — mesmo padrão de duplicate(), que também move/insere um card "novo" na tela.
+        return response()->json(CardPresenter::compact($approved) + ['message' => 'Card aprovado.']);
+    }
+
+    public function reject(Request $request, Card $card, RejectCard $action)
+    {
+        $this->authorizeApprover($card);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $action->execute($card, request()->user(), $data['reason']);
+
+        return response()->json(['ok' => true, 'message' => 'Card reprovado e arquivado.']);
+    }
+
+    // Checagem manual, DE PROPÓSITO fora de Policy/Gate: Gate::before libera qualquer admin em
+    // qualquer ability (ver AuthServiceProvider), o que quebraria a regra de que só o(s)
+    // aprovador(es) especificamente configurados para esta coluna podem agir. Ver specs/17 §7.
+    private function authorizeApprover(Card $card): void
+    {
+        abort_unless($card->column->isApproverFor(request()->user()), 403);
+    }
+
     public function storeComment(Request $request, Card $card)
     {
         $this->authorize('view', $card);
@@ -270,7 +316,8 @@ class CardController extends Controller
     {
         $card->load([
             'board.fields',
-            'column:id,name',
+            'column:id,board_id,name,position',
+            'column.approvers:id,name',
             'empresa:id,corporate_name,trade_name',
             'fornecedor:id,name',
             'event:id,name',
@@ -308,6 +355,9 @@ class CardController extends Controller
             'concluded_by' => $card->concludedBy?->name,
             'archived_at' => $card->archived_at?->format('d/m/Y H:i'),
             'archived_by' => $card->archivedBy?->name,
+            'requires_approval' => (bool) $card->column?->requiresApproval(),
+            'approvers' => $card->column?->approvers->pluck('name') ?? [],
+            'can_approve' => (bool) $card->column?->isApproverFor(auth()->user()),
             'board_fields' => $card->board?->fields->map(fn ($f) => [
                 'id' => $f->id,
                 'label' => $f->label,
@@ -333,11 +383,12 @@ class CardController extends Controller
                 },
                 'to' => match ($m->type->value) {
                     'board' => $m->toBoard?->name,
-                    'conclusion', 'archival' => null,
+                    'conclusion', 'archival', 'rejection' => null,
                     'reopening' => $m->toBoard && $m->toColumn ? "{$m->toBoard->name} / {$m->toColumn->name}" : $m->toColumn?->name,
                     default => $m->toColumn?->name,
                 },
                 'user' => $m->user?->name,
+                'note' => $m->note,
                 'created_at' => $m->created_at->format('d/m/Y H:i'),
             ]),
         ];

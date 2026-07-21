@@ -192,12 +192,13 @@ class BoardController extends Controller
     {
         $this->authorize('configure', $board);
 
-        $board->load(['columns', 'fields', 'users:id']);
+        $board->load(['columns.approvers:id,name', 'fields', 'users:id']);
 
         return view('boards.config', [
             'board' => $board,
             'users' => User::where('active', true)->orderBy('name')->get(['id', 'name', 'role']),
             'accessIds' => $board->users->pluck('id')->all(),
+            'admins' => User::where('active', true)->where('role', 'admin')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

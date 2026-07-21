@@ -6,9 +6,9 @@
  * Cada host chama `cardPanel({ ...seu próprio estado/métodos... })` e define, se precisar, "hooks"
  * opcionais chamados nos pontos de mutação (`afterCardOpened`, `afterCardSaved`, `afterCardRemoved`,
  * `afterCardMoved`, `afterCardTransferred`, `afterCardConcluded`, `afterCardReopened`,
- * `afterCardDuplicated`, `afterCardArchived`, `afterCardUnarchived`, `bumpCardCount`) — o Kanban usa
- * esses hooks para atualizar seu array reativo de colunas/cards sem reload; a listagem global
- * simplesmente recarrega a página.
+ * `afterCardDuplicated`, `afterCardArchived`, `afterCardUnarchived`, `afterCardApproved`,
+ * `afterCardRejected`, `bumpCardCount`) — o Kanban usa esses hooks para atualizar seu array reativo
+ * de colunas/cards sem reload; a listagem global simplesmente recarrega a página.
  *
  * IMPORTANTE: a mesclagem usa `Object.getOwnPropertyDescriptors` + `Object.defineProperties`, não
  * `{ ...a, ...b }` — o objeto abaixo tem várias propriedades `get` (computeds). Um spread comum
@@ -28,6 +28,9 @@ function cardPanelBase() {
         concludedBy: null,
         archivedAt: null,
         archivedBy: null,
+        requiresApproval: false,
+        approvers: [],
+        canApprove: false,
         tab: 'detalhes', // 'detalhes' | 'comentarios' | 'historico'
 
         actionsMenuOpen: false,
@@ -104,6 +107,9 @@ function cardPanelBase() {
             this.concludedBy = null;
             this.archivedAt = null;
             this.archivedBy = null;
+            this.requiresApproval = false;
+            this.approvers = [];
+            this.canApprove = false;
             this.form = this.blankForm(columnId);
             this.errors = {};
             this.comments = []; this.attachments = []; this.movements = [];
@@ -136,6 +142,9 @@ function cardPanelBase() {
                 this.concludedBy = c.concluded_by;
                 this.archivedAt = c.archived_at;
                 this.archivedBy = c.archived_by;
+                this.requiresApproval = c.requires_approval;
+                this.approvers = c.approvers;
+                this.canApprove = c.can_approve;
                 this.cfg.fields = c.board_fields;
                 const fields = {};
                 this.cfg.fields.forEach((f) => {
@@ -361,6 +370,49 @@ function cardPanelBase() {
                 this.archivedBy = null;
                 this.afterCardUnarchived?.();
                 window.upAlerts.notifySuccess(r.message || 'Card desarquivado.');
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
+        // ---- Aprovação de etapa (specs/17) -------------------------------------
+        async doApprove() {
+            const confirmed = await window.upAlerts.confirmAction({
+                title: 'Aprovar card?',
+                text: 'O card avança para a próxima etapa do quadro.',
+                confirmText: 'Aprovar',
+                icon: 'question',
+            });
+            if (!confirmed) return;
+            try {
+                const card = await this.api(this.cardUrl(this.cardId, '/aprovar'), 'POST');
+                this.afterCardApproved?.(card);
+                window.upAlerts.notifySuccess(card.message || 'Card aprovado.');
+                this.closePanel();
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
+        async doReject() {
+            const { value: reason } = await window.Swal.fire({
+                title: 'Reprovar card?',
+                customClass: { title: 'up-modal-title' },
+                input: 'textarea',
+                inputLabel: 'Motivo da reprovação',
+                inputPlaceholder: 'Explique por que este card está sendo reprovado...',
+                inputValidator: (value) => (!value || !value.trim()) ? 'Informe o motivo da reprovação.' : undefined,
+                showCancelButton: true,
+                confirmButtonText: 'Reprovar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc2626',
+            });
+            if (!reason) return;
+            try {
+                const r = await this.api(this.cardUrl(this.cardId, '/reprovar'), 'POST', { reason });
+                this.afterCardRejected?.();
+                window.upAlerts.notifySuccess(r.message || 'Card reprovado.');
+                this.closePanel();
             } catch (e) {
                 window.upAlerts.notifyError(e.message);
             }

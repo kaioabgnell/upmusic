@@ -243,6 +243,14 @@ export default function kanban(config) {
             this.upsertCardInColumns(card);
         },
 
+        afterCardApproved(card) {
+            this.upsertCardInColumns(card);
+        },
+
+        afterCardRejected() {
+            this.removeCardFromColumns(this.cardId);
+        },
+
         // ---- Drag and drop ---------------------------------------------------
         initSortable() {
             this.destroySortable();
