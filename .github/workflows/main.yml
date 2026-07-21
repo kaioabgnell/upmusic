@@ -14,16 +14,6 @@ jobs:
       - name: 🚚 Checkout código
         uses: actions/checkout@v4
 
-      - name: 🐘 Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.1'
-          extensions: mbstring, xml, ctype, json, bcmath, fileinfo, tokenizer, openssl, pdo, pdo_mysql, curl, dom, pcre
-          coverage: none
-
-      - name: 📦 Instalar dependências do Composer (produção)
-        run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction
-
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -39,12 +29,36 @@ jobs:
       # (não para uma subpasta "public"). Por isso o código do Laravel vai para uma pasta IRMÃ
       # (upmusic-app/), fora da área servida publicamente, e só o CONTEÚDO de public/ vai dentro do
       # document root — evita expor .env, vendor/, app/ etc. via navegador. O index.php publicado
-      # precisa apontar para os caminhos corretos dentro dessa pasta irmã (ver passo abaixo).
+      # precisa: (1) apontar vendor/bootstrap/maintenance.php para a pasta irmã; (2) avisar o Laravel
+      # que o public/ "de verdade" não é basePath('public') (padrão), e sim esta própria pasta — senão
+      # tudo que usa public_path() (inclusive o helper @vite, que lê build/manifest.json por ali) quebra.
       - name: 🔧 Ajustar public/index.php para a estrutura fora do document root
         run: |
-          sed -i "s#__DIR__.'/../vendor/autoload.php'#__DIR__.'/../upmusic-app/vendor/autoload.php'#" public/index.php
-          sed -i "s#__DIR__.'/../bootstrap/app.php'#__DIR__.'/../upmusic-app/bootstrap/app.php'#" public/index.php
+          python3 << 'PYEOF'
+          path = "public/index.php"
+          content = open(path).read()
 
+          content = content.replace(
+              "$maintenance = __DIR__.'/../storage/framework/maintenance.php'",
+              "$maintenance = __DIR__.'/../upmusic-app/storage/framework/maintenance.php'",
+          )
+          content = content.replace(
+              "require __DIR__.'/../vendor/autoload.php';",
+              "require __DIR__.'/../upmusic-app/vendor/autoload.php';",
+          )
+          content = content.replace(
+              "$app = require_once __DIR__.'/../bootstrap/app.php';",
+              "$app = require_once __DIR__.'/../upmusic-app/bootstrap/app.php';\n\n"
+              "// public/ real fica fora do basePath do Laravel (deploy split — ver .github/workflows/main.yml).\n"
+              "$app->usePublicPath(__DIR__);",
+          )
+
+          open(path, "w").write(content)
+          PYEOF
+
+      # vendor/ NUNCA é enviado por FTP: já existe em /upmusic-app/vendor no servidor e é mantido à parte
+      # (raramente muda). Sempre que composer.json/composer.lock mudar nesta branch, atualize o vendor/
+      # do servidor manualmente (FTP/SSH) — o deploy automático não faz isso.
       - name: 📂 Deploy Laravel (código da aplicação → fora do document root)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -59,6 +73,7 @@ jobs:
             .github/**
             public/**
             tests/**
+            vendor/**
             .env
 
       - name: 📂 Deploy arquivos públicos (public → document root do subdomínio)
