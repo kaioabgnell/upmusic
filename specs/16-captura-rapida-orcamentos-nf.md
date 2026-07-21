@@ -503,41 +503,51 @@ DELETE /capturas/token                  captures.token.destroy        // Revoga 
 > **Validado em iPhone 15 Pro (iOS 17/18)** — a sequência abaixo é a que funciona de fato no aparelho.
 > O que aparece no "Compartilhar" do iPhone é **este Atalho** (item do app "Atalhos"), **não** a PWA/site.
 
+> **Decisão de UX (iOS 26):** o Atalho tem **uma única ação** — só faz o POST do arquivo. A resposta
+> `confirm_url` **não é usada pelo Atalho** (fica disponível no backend, mas o passo-a-passo não a consome).
+> Motivo: as ações "Obter Valor do Dicionário" e "Abrir URLs" tornaram o setup confuso/frágil para o time,
+> e são **desnecessárias** — o POST já registra a captura como `pendente`, então o arquivo aparece na Caixa
+> de Entrada e o usuário confirma no app. Menos ações = setup que realmente funciona num aparelho de não-dev.
+
 ### A.1 Contrato com o backend (o que o Atalho envia e recebe)
 - `POST https://SEU-DOMINIO/captura/receber`
-- Header: `Authorization: Bearer <token pessoal>`
-- Corpo: `multipart/form-data`, campo **`arquivos`** = o PDF
-- Resposta `200` (JSON): `{ "confirm_url": "https://SEU-DOMINIO/capturas/{id}?signature=..." }`
+- Headers: `Authorization: Bearer <token pessoal>` e `Accept: application/json` (o segundo faz erro de
+  token voltar como JSON `401` em vez de página de login HTML).
+- Corpo: `multipart/form-data`, campo **`arquivos[]`** (com colchetes — PHP bucketiza como array; mesmo
+  detalhe do `manifest.webmanifest`) = o PDF/imagem.
+- Resposta `200` (JSON): `{ "confirm_url": "..." }` — **ignorada pelo Atalho** (só relevante se um dia se
+  quiser reintroduzir a abertura automática da confirmação). O que importa: `200` = arquivo estacionado
+  como captura `pendente`.
 - Erros: `401` (token inválido/revogado), `422` (arquivo inválido).
 
-### A.2 Montar o Atalho — passo a passo (na ordem certa)
+### A.2 Montar o Atalho — passo a passo (iOS 26, validado)
 
 > **Pegadinha crítica (confirmada em aparelho):** enquanto o atalho está **vazio**, o iOS mantém
-> "Detalhes", "Duplicar", "Mover" e "Adicionar à Tela de Início" **bloqueados**, e o interruptor "Mostrar na
-> Folha de Partilha" **não aparece**. Por isso **adicione as ações primeiro** e só **depois** ligue o
-> compartilhamento. O botão "+" só adiciona **ações** — o compartilhamento não é uma ação, é uma
-> configuração em **Detalhes**.
+> "Detalhes"/"Duplicar"/"Mover" **bloqueados** e o interruptor "Mostrar na Folha de Partilha" **não
+> aparece**. Por isso **adicione a ação primeiro** e só **depois** ligue o compartilhamento. O botão "+"
+> só adiciona **ações**; o compartilhamento é uma **configuração** em Detalhes, não uma ação.
 
 1. App **Atalhos** → **+** (Novo Atalho).
-2. **Adicione a 1ª ação:** em "Buscar Ações", procure **"Obter Conteúdo do URL"** e toque para adicionar.
-   (Isso tira o atalho do estado "vazio" e destrava o menu de Detalhes.)
-3. **Configure a ação** (toque em "Mostrar mais" dentro dela):
-   - URL: `https://SEU-DOMINIO/captura/receber`
-   - Método: **POST**
-   - Cabeçalhos: `Authorization` = `Bearer <token>` e `Accept` = `application/json` (sem este segundo
-     header, um token inválido/revogado volta como página de login HTML em vez de erro JSON claro).
-   - Corpo da solicitação: **Formulário** → adicionar campo tipo **Arquivo**, chave **`arquivos[]`**
-     (com colchetes — é o que faz o PHP aceitar múltiplos arquivos corretamente, mesmo detalhe do
-     `manifest.webmanifest` da Fase 2), valor = **Entrada do Atalho** (o PDF compartilhado).
-4. Adicione **"Obter Valor do Dicionário"** → chave **`confirm_url`** (lê a resposta do passo anterior).
-5. Adicione **"Abrir URLs"** → valor = **`confirm_url`** (abre a confirmação/board no Safari, via URL
-   assinada, sem exigir login).
-6. **Agora ligue o compartilhamento:** toque na **seta ⌄ ao lado do nome do atalho, no topo** →
-   **"Detalhes"** → ligue **"Mostrar na Folha de Partilha"** (em alguns aparelhos "Folha de
-   Compartilhamento") → em **"Tipos da Folha de Partilha"** deixe marcado só **Ficheiros/Arquivos** e
-   **Imagens** (desmarque o resto).
-7. Renomeie para **"Enviar ao upMusic"**, escolha ícone/cor e salve.
-8. **Teste:** WhatsApp → abrir o PDF → **Compartilhar** → rolar até **"Enviar ao upMusic"** → tocar.
+2. Em **"Buscar Ações"**, adicione **"Obter Conteúdo do URL"**.
+3. Toque na palavra **URL** e cole `https://SEU-DOMINIO/captura/receber`. Toque em **"Mostrar Mais"** e
+   preencha:
+   - **Método:** POST
+   - **Cabeçalhos** (um "Adicionar novo cabeçalho" para cada): `Authorization` = `Bearer <token>` ·
+     `Accept` = `application/json`. Apague qualquer linha de cabeçalho vazia (botão vermelho).
+   - **Pedir Corpo:** Formulário
+   - **Adicionar novo campo** → tipo **Ficheiro** → Chave `arquivos[]` → valor = variável
+     **"Entrada do Atalho"** (o arquivo vindo do WhatsApp).
+4. *(Opcional, recomendado)* Adicione **"Mostrar Notificação"** com texto fixo (ex.: "Enviado ao upMusic")
+   para ter confirmação visual.
+5. **Ligue o compartilhamento:** seta **⌄ ao lado do nome** → **"Detalhes"** → **"Mostrar na Folha de
+   Partilha"**. Isso adiciona no topo do atalho o bloco **"Receber … de Compartilhamento"** — toque nos
+   tipos e deixe só **Imagens** e **Ficheiros**.
+6. Renomeie para **"Enviar ao upMusic"** e salve (Concluído).
+7. **Teste:** WhatsApp → abrir o PDF → **Compartilhar** → tocar em **"Enviar ao upMusic"**.
+
+Depois de compartilhar, o arquivo **não vira card sozinho** — fica na Caixa de Entrada (Captura rápida)
+aguardando o usuário abrir o app, escolher o quadro e confirmar. Pode-se enviar vários seguidos e confirmar
+todos depois (bom para o "alto volume").
 
 ### A.3 Distribuição ao time
 - Publicar o Atalho por **link do iCloud** com uma **"Pergunta de Importação"** para o token: ao instalar,

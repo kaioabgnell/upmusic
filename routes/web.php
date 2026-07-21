@@ -55,6 +55,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
     Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
+    // Foto de perfil servida pelo Laravel (sem depender do symlink /storage — ver ProfileController::showAvatar).
+    Route::get('/avatar/{user}', [ProfileController::class, 'showAvatar'])->name('avatar.show');
 
     // Usuários (Admin/Coordenador) — ver specs/04.
     Route::resource('usuarios', UserController::class)

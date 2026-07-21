@@ -56,6 +56,22 @@ class ProfileController extends Controller
     }
 
     /**
+     * Serve a foto de perfil lendo direto do disco (disco `public`). Evita depender do symlink
+     * `public/storage` (php artisan storage:link), que não existe em produção sem SSH e que, nesta
+     * hospedagem, apontaria para o lugar errado por causa do docroot separado do código. As `<img>`
+     * são requisitadas pelo navegador com o cookie de sessão (mesma origem), então `auth` funciona.
+     */
+    public function showAvatar(User $user)
+    {
+        abort_if(! $user->avatar_path, 404);
+        abort_unless(Storage::disk('public')->exists($user->avatar_path), 404);
+
+        return Storage::disk('public')->response($user->avatar_path, null, [
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
      * Remove a foto de perfil do usuário (volta a exibir as iniciais).
      */
     public function destroyAvatar(Request $request): RedirectResponse
