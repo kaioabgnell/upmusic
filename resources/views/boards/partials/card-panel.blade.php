@@ -405,6 +405,33 @@
                                     <div x-show="supplierForm.allowed" x-cloak class="border-t border-hairline pt-4">
                                         <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-file-signature text-steel mr-1"></i> Formulário do fornecedor (minuta)</p>
 
+                                        {{-- Dados de contato do fornecedor vinculado ao card — para falar com ele antes/depois de enviar o link. --}}
+                                        <div x-show="selectedFornecedor" x-cloak class="rounded-md bg-surface border border-hairline p-3 mb-3 space-y-1.5">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-xs text-steel">Fornecedor</span>
+                                                <span class="text-xs font-medium text-brand-ink truncate" x-text="selectedFornecedor?.name"></span>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-xs text-steel">CNPJ</span>
+                                                <span class="text-xs font-medium text-brand-ink" x-text="selectedFornecedor?.document"></span>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-xs text-steel">Telefone</span>
+                                                <span class="inline-flex items-center gap-1.5">
+                                                    <span class="text-xs font-medium text-brand-ink" x-text="selectedFornecedor?.phone || '—'"></span>
+                                                    <a x-show="selectedFornecedor?.phone" :href="whatsappLink(selectedFornecedor?.phone)" target="_blank" rel="noopener" title="Conversar no WhatsApp" class="text-green-600 hover:text-green-700">
+                                                        <i class="fa-brands fa-whatsapp"></i>
+                                                    </a>
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-xs text-steel">E-mail</span>
+                                                <a x-show="selectedFornecedor?.email" :href="'mailto:' + selectedFornecedor?.email" class="text-xs font-medium text-brand-ink hover:underline truncate" x-text="selectedFornecedor?.email"></a>
+                                                <span x-show="!selectedFornecedor?.email" class="text-xs text-steel">—</span>
+                                            </div>
+                                        </div>
+                                        <p x-show="!selectedFornecedor" x-cloak class="text-xs text-steel mb-3">Vincule um fornecedor ao card para ver os dados de contato aqui.</p>
+
                                         {{-- Sem link ainda --}}
                                         <div x-show="!supplierForm.active">
                                             <p class="text-xs text-steel mb-2">Gere um link para o fornecedor enviar a própria minuta. O arquivo cai como anexo neste card.</p>

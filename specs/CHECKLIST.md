@@ -1019,6 +1019,34 @@ critérios de aceite marcados).
 > toggle do quadro de teste foi restaurado ao estado original, mas os anexos/submissions de teste criados
 > no card permaneceram no banco (não removidos). `pint --dirty` e `npm run build` limpos.
 
+**Ajustes na Minuta do Fornecedor: avanço automático de etapa + contato do fornecedor no card.**
+Ver [specs/19 §6.1](19-formulario-de-minuta-do-fornecedor.md#61-ajuste-pós-entrega-avanço-automático-de-etapa--contato-do-fornecedor-no-card).
+> - **`ProcessSupplierMinuta`** passou a mover o card para `column->nextColumn()` (mesma noção de "próxima
+>   etapa" da spec 17) logo após anexar a minuta e registrar o submission, tudo na mesma transação. Sem
+>   próxima coluna, o card só fica como está (sem erro). Nova movimentação `MovementType::MinutaRecebida`
+>   (`user_id = null`, envio é público).
+> - **Contato do fornecedor no card**: `CardFormOptionsService` passou a incluir `phone`/`email` no
+>   payload de fornecedores; a seção "Formulário do fornecedor (minuta)" no modal ganhou um bloco com
+>   Nome/CNPJ/Telefone (ícone do WhatsApp, `wa.me/55<dígitos>` em nova aba, via novo helper
+>   `whatsappLink()` em `card-panel.js`) e E-mail (`mailto:`), visível sempre que o quadro permitir
+>   solicitar minuta e o card tiver um fornecedor vinculado.
+>
+> **Bug real encontrado e corrigido durante a validação**: `card_movements.type` era `VARCHAR(10)` —
+> suficiente para os tipos existentes (`conclusion`/`unarchival` já usavam os 10 caracteres no limite),
+> mas o novo `minuta_recebida` (16 caracteres) estourava a coluna e quebrava a transação inteira com
+> `SQLSTATE[22001]: Data too long for column 'type'`, resultando em `500` no envio da minuta. Corrigido
+> com uma nova migration alargando a coluna para `VARCHAR(30)` via `DB::statement` (SQL bruto, já que
+> `doctrine/dbal` — exigido pelo `->change()` do Schema Builder — não está instalado no projeto).
+>
+> Validado por HTTP real: reproduzi o bug (envio de minuta retornando `500`, confirmado no log com o
+> `SQLSTATE[22001]`), confirmei que a transação fez rollback corretamente (nenhum anexo/movimento órfão
+> ficou no banco), apliquei a migration, reenviei a minuta com sucesso — card avançou da coluna de origem
+> para a próxima por posição, movimentação `minuta_recebida` gravada com `from`/`to` corretos e
+> `user = null`, e o histórico do card (`GET /cards/{id}`) refletindo tudo certo. `phone`/`email` do
+> fornecedor confirmados no payload de `cfg.fornecedores` renderizado na página do quadro. `pint --dirty`
+> limpo. Nenhum registro foi apagado — os dados de teste (telefone/e-mail do fornecedor, coluna do card
+> de teste) permaneceram alterados no banco desta sessão de validação.
+
 ---
 
 ### Status por fase

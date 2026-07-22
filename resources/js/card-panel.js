@@ -260,6 +260,15 @@ function cardPanelBase() {
             return this.cfg.fornecedores.find((f) => f.id === Number(this.form.fornecedor_id)) || null;
         },
 
+        // Link "clique para conversar" do WhatsApp (specs/19) a partir do telefone cadastrado do
+        // fornecedor (formato livre, ex.: "(11) 98765-4321"). Só dígitos; assume DDI 55 (Brasil)
+        // quando o número não já vier com código de país (12+ dígitos).
+        whatsappLink(phone) {
+            const digits = (phone || '').replace(/\D/g, '');
+            if (!digits) return null;
+            return `https://wa.me/${digits.length > 11 ? digits : '55' + digits}`;
+        },
+
         get filteredFornecedores() {
             const q = this.fornecedorSearch.trim().toLowerCase();
             if (!q) return this.cfg.fornecedores;
@@ -723,7 +732,7 @@ function cardPanelBase() {
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(Object.values(data.errors || {}).flat()[0] || 'Erro ao cadastrar.');
-                this.cfg.fornecedores.push({ id: data.id, name: data.name, document: data.document, preco_interno: null });
+                this.cfg.fornecedores.push({ id: data.id, name: data.name, document: data.document, phone: null, email: null, preco_interno: null });
                 this.form.fornecedor_id = data.id;
                 this.fornecedorOpen = false;
                 this.loadFornecedorHistory(data.id);

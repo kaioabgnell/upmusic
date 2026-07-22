@@ -164,6 +164,27 @@ menu de 3 pontos — é uma seção com estado (link + lista), não uma ação p
   `cards.attachments.download`).
 - Validação estrita de upload e `throttle` na rota pública, iguais à spec 11.
 
+## 6.1 Ajuste pós-entrega: avanço automático de etapa + contato do fornecedor no card
+
+Ajuste pedido após a entrega inicial desta spec:
+
+- **Ao receber a minuta, o card avança automaticamente para a próxima etapa do quadro** (mesma noção de
+  "próxima coluna por posição" já usada pela aprovação — `BoardColumn::nextColumn()`, spec 17). Se o card
+  já estiver na última coluna, não há para onde avançar: fica como está, sem erro (é um efeito automático,
+  não uma ação com feedback de falha para o fornecedor). A movimentação é registrada com um novo
+  `MovementType::MinutaRecebida` (`user_id = null`, já que o envio é público/sem sessão).
+- **Dados de contato do fornecedor visíveis no card**: quando o quadro permite solicitar minuta, a seção
+  do card mostra Nome/CNPJ/Telefone (com ícone do WhatsApp, abrindo `wa.me/55<dígitos>` em nova aba) e
+  E-mail do fornecedor vinculado ao card — para a equipe falar com ele antes/depois de enviar o link, sem
+  precisar abrir o cadastro. Vem do mesmo payload de fornecedores já carregado no modal (`cfg.fornecedores`,
+  `CardFormOptionsService`), que ganhou `phone`/`email`.
+- **Bug real encontrado durante a validação**: `card_movements.type` era `VARCHAR(10)` — os valores
+  originais já usavam esse limite no talo (`conclusion`, `unarchival` têm exatamente 10 caracteres), e o
+  novo `minuta_recebida` (16 caracteres) estourava a coluna, quebrando a transação inteira com
+  `SQLSTATE[22001]: Data too long`. Corrigido alargando a coluna para `VARCHAR(30)` via SQL bruto
+  (`DB::statement`, já que `doctrine/dbal` — exigido pelo `->change()` do Schema Builder — não está
+  instalado neste projeto).
+
 ## 7. Suposições assumidas (confirmar se algo estiver errado)
 
 As 4 decisões centrais foram confirmadas com o usuário (habilitação por quadro; exibir empresa + valor

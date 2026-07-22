@@ -12,6 +12,7 @@ enum MovementType: string
     case Unarchival = 'unarchival';
     case Approval = 'approval';
     case Rejection = 'rejection';
+    case MinutaRecebida = 'minuta_recebida';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum MovementType: string
             self::Unarchival => 'Card desarquivado',
             self::Approval => 'Card aprovado',
             self::Rejection => 'Card reprovado (arquivado)',
+            self::MinutaRecebida => 'Minuta recebida do fornecedor',
         };
     }
 }
