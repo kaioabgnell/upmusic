@@ -327,7 +327,9 @@ class CardController extends Controller
             'fieldValues',
             'comments.user:id,name',
             'attachments.uploader:id,name',
+            'attachments.supplierSubmission:id,card_attachment_id,note',
             'movements' => fn ($q) => $q->with(['user:id,name', 'fromColumn:id,name', 'toColumn:id,name', 'fromBoard:id,name', 'toBoard:id,name']),
+            'supplierForm' => fn ($q) => $q->withCount('submissions'),
         ]);
 
         return [
@@ -358,6 +360,7 @@ class CardController extends Controller
             'requires_approval' => (bool) $card->column?->requiresApproval(),
             'approvers' => $card->column?->approvers->pluck('name') ?? [],
             'can_approve' => (bool) $card->column?->isApproverFor(auth()->user()),
+            'supplier_form' => $this->supplierFormJson($card),
             'board_fields' => $card->board?->fields->map(fn ($f) => [
                 'id' => $f->id,
                 'label' => $f->label,
@@ -403,6 +406,24 @@ class CardController extends Controller
             'original_name' => $a->original_name,
             'size' => $a->size,
             'url' => route('cards.attachments.download', $a),
+            // Observação do fornecedor ao enviar a minuta (specs/19) — null para os demais anexos.
+            'note' => $a->supplierSubmission?->note,
+        ];
+    }
+
+    /**
+     * Estado do formulário de minuta do fornecedor para o modal do card (specs/19). `allowed` reflete
+     * o toggle do quadro; `url`/`active`/`submissions_count` só vêm quando já existe um link.
+     */
+    private function supplierFormJson(Card $card): array
+    {
+        $form = $card->supplierForm;
+
+        return [
+            'allowed' => (bool) $card->board?->allows_supplier_form,
+            'active' => (bool) $form?->active,
+            'url' => $form && $form->active ? route('supplier.form.show', $form->token) : null,
+            'submissions_count' => $form?->submissions_count ?? 0,
         ];
     }
 }

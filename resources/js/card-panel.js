@@ -33,6 +33,8 @@ function cardPanelBase() {
         requiresApproval: false,
         approvers: [],
         canApprove: false,
+        // Formulário de minuta do fornecedor (specs/19): allowed = quadro permite; demais campos vêm do link.
+        supplierForm: { allowed: false, active: false, url: null, submissions_count: 0 },
         tab: 'detalhes', // 'detalhes' | 'comentarios' | 'historico'
 
         actionsMenuOpen: false,
@@ -112,6 +114,7 @@ function cardPanelBase() {
             this.requiresApproval = false;
             this.approvers = [];
             this.canApprove = false;
+            this.supplierForm = { allowed: false, active: false, url: null, submissions_count: 0 };
             this.form = this.blankForm(columnId);
             this.errors = {};
             this.comments = []; this.attachments = []; this.movements = [];
@@ -150,6 +153,7 @@ function cardPanelBase() {
                 this.requiresApproval = c.requires_approval;
                 this.approvers = c.approvers;
                 this.canApprove = c.can_approve;
+                this.supplierForm = c.supplier_form;
                 this.cfg.fields = c.board_fields;
                 const fields = {};
                 this.cfg.fields.forEach((f) => {
@@ -196,6 +200,15 @@ function cardPanelBase() {
         get isFinalColumn() {
             const col = this.columns.find((c) => c.id === Number(this.columnId));
             return col ? col.is_final : false;
+        },
+
+        // Contagem de minutas ainda anexadas (specs/19) — computada a partir de `attachments`, não do
+        // valor vindo do backend na abertura do card: assim, ao excluir um anexo de minuta
+        // (deleteAttachment já remove de `attachments`), o número reflete na hora, sem precisar
+        // recarregar o card. O histórico de envios (card_supplier_submissions) continua intacto —
+        // isso só afeta o que é mostrado aqui.
+        get minutaCount() {
+            return this.attachments.filter((a) => a.kind === 'minuta').length;
         },
 
         get currentColumnIndex() {
@@ -377,6 +390,34 @@ function cardPanelBase() {
             const url = `${window.location.origin}/quadros/${this.form.board_id}/card/${this.cardId}`;
             navigator.clipboard.writeText(url);
             window.upAlerts.notifySuccess('Link do card copiado para sua área de transferência.');
+        },
+
+        // ---- Formulário de minuta do fornecedor (specs/19) ----------------------
+        async generateSupplierLink() {
+            try {
+                const r = await this.api(this.cardUrl(this.cardId, '/minuta/link'), 'POST');
+                this.supplierForm = { ...this.supplierForm, active: r.active, url: r.url };
+                window.upAlerts.notifySuccess('Link gerado. Copie e envie ao fornecedor.');
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
+        copySupplierLink() {
+            if (!this.supplierForm.url) return;
+            navigator.clipboard.writeText(this.supplierForm.url);
+            window.upAlerts.notifySuccess('Link copiado para sua área de transferência.');
+        },
+
+        async disableSupplierLink() {
+            if (!(await window.upAlerts.confirmAction({ text: 'Desativar o link do fornecedor? A página deixará de abrir.' }))) return;
+            try {
+                const r = await this.api(this.cardUrl(this.cardId, '/minuta/link'), 'DELETE');
+                this.supplierForm = { ...this.supplierForm, active: r.active, url: null };
+                window.upAlerts.notifySuccess('Link desativado.');
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
         },
 
         async doUnarchive() {

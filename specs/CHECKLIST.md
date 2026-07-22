@@ -986,6 +986,39 @@ critérios de aceite marcados).
 > comprovado de `openCardFromQueryString()` e revisados linha a linha, mas não exercitados visualmente.
 > `pint --dirty` e `npm run build` limpos.
 
+**Formulário de Minuta do Fornecedor (link por card).** Ver [specs/19](19-formulario-de-minuta-do-fornecedor.md)
+(spec completa, todos os critérios de aceite marcados).
+> Inverso do Formulário Externo (spec 11): em vez de criar um card novo, o link carrega o contexto de um
+> card já existente e o arquivo enviado cai como anexo naquele card. Uso típico: orçamento aprovado chega
+> ao Jurídico → equipe gera um link único do card → fornecedor abre, vê o resumo do orçamento e anexa a
+> própria minuta.
+> - **Dados**: `boards.allows_supplier_form` (toggle por quadro); novas tabelas `card_supplier_forms`
+>   (link único por card: `card_id` unique, `token`, `active`, `created_by`) e `card_supplier_submissions`
+>   (cada minuta: form, card, `card_attachment_id`, `note`, `ip`); novo `AttachmentKind::Minuta`.
+> - **Backend**: `CardSupplierFormController` (generate/disable, `authorize('update', $card)`),
+>   `SupplierFormController` (público show/submit/success, gated por token + `active`),
+>   `ProcessSupplierMinuta` (transação: anexa `kind=minuta` privado + registra submission — espelha
+>   `ProcessExternalSubmission`, mas NÃO cria card), `StoreSupplierMinutaRequest` (mimes pdf/doc/docx,
+>   note opcional), `BoardController::updateSupplierForm` (toggle). Rotas públicas `/minuta/{token}` com
+>   `throttle:10,1`, ao lado de `/f/{token}`.
+> - **Frontend**: toggle em `boards/config.blade.php` (salvo via JSON no `boardConfig`); seção
+>   "Formulário do fornecedor (minuta)" no modal do card (após Anexos), visível só quando o quadro
+>   permite — gerar/copiar/desativar link + contagem de minutas recebidas; funciona igual no Kanban e em
+>   "Todos os cards" (modal compartilhado). Copiar link reusa `navigator.clipboard.writeText` + toast,
+>   mesmo padrão das specs 11/18. `cardJson()` ganhou `supplier_form` (allowed/active/url/count).
+> - **Página pública** (`resources/views/supplier/{form,success}.blade.php`, `x-public-layout`): resumo
+>   read-only do orçamento (empresa + CNPJ + evento + valor aprovado + descrição) + upload da minuta +
+>   observação. Link desativado ou inexistente cai na tela `external.unavailable` (404).
+>
+> Validado por HTTP real (sessão admin + POST público multipart, sem Playwright): gerar link com o quadro
+> desligado → `422`; ligar o toggle → `200`; gerar → `200` com URL; página pública sem auth → `200`
+> exibindo o valor aprovado; envio da minuta → `302` sucesso, arquivo anexado ao card como `kind=minuta`
+> e submission gravado com `note`/`ip`; **reutilização** confirmada (2º envio → count 2, sem sobrescrever);
+> envio sem arquivo barrado pela validação (não cria submission); desativar link → página pública `404`.
+> **Ressalvas** (a pedido do usuário): nenhum teste visual/Playwright; nenhum registro foi apagado — o
+> toggle do quadro de teste foi restaurado ao estado original, mas os anexos/submissions de teste criados
+> no card permaneceram no banco (não removidos). `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase

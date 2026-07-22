@@ -24,6 +24,7 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 16 | [Captura Rápida de Orçamentos e NFs](16-captura-rapida-orcamentos-nf.md) | WhatsApp → Card de custo zero via PWA + Web Share Target (alternativa à spec 13) | `opus` |
 | 17 | [Fluxo de Aprovação de Etapas](17-fluxo-de-aprovacao-de-etapas.md) | Melhoria pós-entrega: coluna com aprovador(es) dedicado(s) — aprovado avança, reprovado arquiva | `opus` |
 | 18 | [Link Direto e Compartilhamento de Card](18-link-direto-e-compartilhamento-de-card.md) | Melhoria pós-entrega: URL própria por card (`/quadros/{board}/card/{card}`), exibição do `#ID` e botão "Compartilhar Card" | `sonnet` |
+| 19 | [Formulário de Minuta do Fornecedor](19-formulario-de-minuta-do-fornecedor.md) | Melhoria pós-entrega: link único por card para o fornecedor enviar a própria minuta, que cai como anexo no card | `opus` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

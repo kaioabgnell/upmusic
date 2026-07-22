@@ -17,7 +17,7 @@
         <div class="min-h-screen flex flex-col">
             {{-- Topo com logo --}}
             <header class="bg-brand-ink">
-                <div class="max-w-2xl mx-auto px-6 py-5">
+                <div class="max-w-2xl mx-auto px-6 py-5 flex justify-center">
                     <x-application-logo variant="branca" class="h-7" />
                 </div>
             </header>

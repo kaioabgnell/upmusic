@@ -14,12 +14,13 @@ class Board extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'setor_id', 'name', 'description', 'color', 'icon', 'position', 'active',
+        'setor_id', 'name', 'description', 'color', 'icon', 'position', 'active', 'allows_supplier_form',
     ];
 
     protected $casts = [
         'active' => 'boolean',
         'position' => 'integer',
+        'allows_supplier_form' => 'boolean',
     ];
 
     public function setor(): BelongsTo

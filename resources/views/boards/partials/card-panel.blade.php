@@ -375,11 +375,15 @@
                                         <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-paperclip text-steel mr-1"></i> Anexos</p>
                                         <div class="space-y-2">
                                             <template x-for="a in attachments" :key="a.id">
-                                                <div class="flex items-center gap-2 rounded-md border border-hairline p-2 text-sm">
-                                                    <i class="fa-solid fa-file text-steel"></i>
-                                                    <a :href="a.url" class="flex-1 text-brand-ink hover:underline truncate" x-text="a.original_name"></a>
-                                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600" x-text="a.kind_label"></span>
-                                                    <button type="button" @click="deleteAttachment(a)" class="text-steel hover:text-red-600"><i class="fa-solid fa-trash text-xs"></i></button>
+                                                <div class="rounded-md border border-hairline p-2 text-sm">
+                                                    <div class="flex items-center gap-2">
+                                                        <i class="fa-solid fa-file text-steel"></i>
+                                                        <a :href="a.url" class="flex-1 text-brand-ink hover:underline truncate" x-text="a.original_name"></a>
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600" x-text="a.kind_label"></span>
+                                                        <button type="button" @click="deleteAttachment(a)" class="text-steel hover:text-red-600"><i class="fa-solid fa-trash text-xs"></i></button>
+                                                    </div>
+                                                    {{-- Observação do fornecedor ao enviar a minuta (specs/19) — null para os demais anexos. --}}
+                                                    <p x-show="a.note" x-cloak class="text-xs text-steel italic mt-1 pl-6">"<span x-text="a.note"></span>"</p>
                                                 </div>
                                             </template>
                                             <p x-show="attachments.length === 0" class="text-xs text-steel">Nenhum anexo.</p>
@@ -394,6 +398,32 @@
                                                 <i class="fa-solid fa-cloud-arrow-up"></i> Enviar arquivo
                                                 <input type="file" class="hidden" @change="uploadAttachment($event)">
                                             </label>
+                                        </div>
+                                    </div>
+
+                                    {{-- Formulário do fornecedor (minuta) — specs/19. Só aparece quando o quadro permite. --}}
+                                    <div x-show="supplierForm.allowed" x-cloak class="border-t border-hairline pt-4">
+                                        <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-file-signature text-steel mr-1"></i> Formulário do fornecedor (minuta)</p>
+
+                                        {{-- Sem link ainda --}}
+                                        <div x-show="!supplierForm.active">
+                                            <p class="text-xs text-steel mb-2">Gere um link para o fornecedor enviar a própria minuta. O arquivo cai como anexo neste card.</p>
+                                            <button type="button" @click="generateSupplierLink()" class="inline-flex items-center gap-2 rounded-md bg-brand-orange px-3 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep">
+                                                <i class="fa-solid fa-link"></i> Gerar link para o fornecedor
+                                            </button>
+                                        </div>
+
+                                        {{-- Link ativo --}}
+                                        <div x-show="supplierForm.active" x-cloak class="space-y-2">
+                                            <div class="flex items-center gap-2">
+                                                <input type="text" :value="supplierForm.url" readonly class="flex-1 border-gray-300 bg-surface rounded-md text-xs text-steel" @focus="$event.target.select()">
+                                                <button type="button" @click="copySupplierLink()" class="shrink-0 rounded-md border border-hairline px-3 py-2 text-xs font-medium text-brand-ink hover:bg-surface"><i class="fa-solid fa-copy"></i> Copiar</button>
+                                            </div>
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs text-steel"><i class="fa-solid fa-inbox mr-1"></i><span x-text="minutaCount"></span> minuta(s) recebida(s)</span>
+                                                <button type="button" @click="disableSupplierLink()" class="text-xs text-red-600 hover:underline"><i class="fa-solid fa-ban mr-1"></i>Desativar link</button>
+                                            </div>
+                                            <p class="text-[11px] text-steel">As minutas enviadas aparecem na seção de Anexos acima (tipo "Minuta").</p>
                                         </div>
                                     </div>
 

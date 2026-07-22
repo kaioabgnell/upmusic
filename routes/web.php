@@ -6,6 +6,7 @@ use App\Http\Controllers\BoardFieldController;
 use App\Http\Controllers\CaptureController;
 use App\Http\Controllers\CaptureTokenController;
 use App\Http\Controllers\CardController;
+use App\Http\Controllers\CardSupplierFormController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\EventController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\PriceRecordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicFormController;
 use App\Http\Controllers\SetorController;
+use App\Http\Controllers\SupplierFormController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TemplateItemController;
 use App\Http\Controllers\UserController;
@@ -46,6 +48,12 @@ Route::get('/f/{token}', [PublicFormController::class, 'show'])->name('external.
 Route::post('/f/{token}', [PublicFormController::class, 'submit'])
     ->middleware('throttle:10,1')->name('external.form.submit');
 Route::get('/f/{token}/sucesso', [PublicFormController::class, 'success'])->name('external.form.success');
+
+// Formulário de minuta do fornecedor (link por card, sem autenticação) — ver specs/19.
+Route::get('/minuta/{token}', [SupplierFormController::class, 'show'])->name('supplier.form.show');
+Route::post('/minuta/{token}', [SupplierFormController::class, 'submit'])
+    ->middleware('throttle:10,1')->name('supplier.form.submit');
+Route::get('/minuta/{token}/sucesso', [SupplierFormController::class, 'success'])->name('supplier.form.success');
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -85,6 +93,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('quadros/{board}', [BoardController::class, 'destroy'])->name('boards.destroy');
         Route::get('quadros/{board}/configurar', [BoardController::class, 'config'])->name('boards.config');
         Route::put('quadros/{board}/acesso', [BoardController::class, 'updateAccess'])->name('boards.access');
+        Route::put('quadros/{board}/config-fornecedor', [BoardController::class, 'updateSupplierForm'])->name('boards.supplier-form.update');
 
         // Colunas (JSON)
         Route::post('quadros/{board}/colunas', [BoardColumnController::class, 'store'])->name('columns.store');
@@ -120,6 +129,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('cards/{card}/desarquivar', [CardController::class, 'unarchive'])->name('cards.unarchive');
     Route::post('cards/{card}/aprovar', [CardController::class, 'approve'])->name('cards.approve');
     Route::post('cards/{card}/reprovar', [CardController::class, 'reject'])->name('cards.reject');
+    // Link de minuta do fornecedor (specs/19) — gerar/desativar; página pública fica fora do grupo auth.
+    Route::post('cards/{card}/minuta/link', [CardSupplierFormController::class, 'generate'])->name('supplier.link.generate');
+    Route::delete('cards/{card}/minuta/link', [CardSupplierFormController::class, 'disable'])->name('supplier.link.disable');
     Route::post('cards/{card}/comentarios', [CardController::class, 'storeComment'])->name('cards.comments.store');
     Route::post('cards/{card}/anexos', [CardController::class, 'storeAttachment'])->name('cards.attachments.store');
     Route::delete('anexos/{attachment}', [CardController::class, 'destroyAttachment'])->name('cards.attachments.destroy');

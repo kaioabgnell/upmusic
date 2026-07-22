@@ -72,6 +72,18 @@
                     <i class="fa-solid fa-floppy-disk"></i> Salvar acesso
                 </button>
             </form>
+
+            {{-- Formulário do fornecedor (minuta) — specs/19 --}}
+            <div class="mt-6 pt-6 border-t border-hairline">
+                <h3 class="font-semibold text-brand-ink mb-1"><i class="fa-solid fa-file-signature text-brand-orange mr-2"></i>Formulário do fornecedor</h3>
+                <p class="text-xs text-steel mb-3">Quando ligado, os cards deste quadro ganham a opção de gerar um link para o fornecedor enviar a própria minuta, que cai como anexo no card.</p>
+                <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
+                    <input type="checkbox" @checked($board->allows_supplier_form)
+                           onchange="boardConfig.saveSupplierForm(this)"
+                           class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+                    <span class="text-sm text-brand-ink">Permitir solicitar minuta ao fornecedor</span>
+                </label>
+            </div>
         </section>
 
         {{-- Campos do card --}}
@@ -186,6 +198,10 @@
                 reorder(listEl, url) {
                     const order = [...listEl.children].map(el => el.dataset.id).filter(Boolean);
                     api(url, 'POST', { order }).catch(e => window.upAlerts.notifyError(e.message));
+                },
+                async saveSupplierForm(el) {
+                    try { await api(`{{ url('quadros') }}/${boardId}/config-fornecedor`, 'PUT', { allows_supplier_form: el.checked }); window.upAlerts.notifySuccess('Configuração salva.'); }
+                    catch (e) { el.checked = !el.checked; window.upAlerts.notifyError(e.message); }
                 },
                 async editApprovers(columnId, columnName) {
                     const row = document.querySelector(`.column-row[data-id="${columnId}"]`);

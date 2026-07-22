@@ -222,4 +222,17 @@ class BoardController extends Controller
 
         return back()->with('success', 'Acesso atualizado com sucesso.');
     }
+
+    /**
+     * Toggle "Permitir solicitar minuta ao fornecedor" (specs/19). Salvo via JSON pela tela de
+     * configuração (mesmo padrão dos aprovadores da spec 17).
+     */
+    public function updateSupplierForm(Request $request, Board $board)
+    {
+        $this->authorize('configure', $board);
+
+        $board->update(['allows_supplier_form' => $request->boolean('allows_supplier_form')]);
+
+        return response()->json(['ok' => true, 'allows_supplier_form' => $board->allows_supplier_form]);
+    }
 }
