@@ -44,6 +44,12 @@ class User extends Authenticatable
         return $this->belongsToMany(Board::class, 'user_board');
     }
 
+    /** Eventos aos quais um coordenador está restrito (ver specs/20). Vazio = sem restrição. */
+    public function events(): BelongsToMany
+    {
+        return $this->belongsToMany(Event::class, 'event_user');
+    }
+
     public function assignedCards(): HasMany
     {
         return $this->hasMany(Card::class, 'assignee_id');
@@ -68,6 +74,29 @@ class User extends Authenticatable
         }
 
         return $this->boards()->whereKey($board->getKey())->exists();
+    }
+
+    /**
+     * Coordenador restrito por evento (specs/20): coordenador com ao menos um evento vinculado.
+     * Admin nunca é restrito; coordenador sem eventos e usuário comum também não.
+     */
+    public function isEventScoped(): bool
+    {
+        return $this->isCoordenador() && $this->events()->exists();
+    }
+
+    /**
+     * Fonte única da verdade do escopo por evento (specs/20):
+     * - null  → sem restrição (Admin, Coordenador sem eventos, Usuário) — vê tudo;
+     * - Collection de event_id → restrito a esses eventos.
+     */
+    public function allowedEventIds(): ?\Illuminate\Support\Collection
+    {
+        if (! $this->isEventScoped()) {
+            return null;
+        }
+
+        return $this->events()->pluck('events.id');
     }
 
     /**

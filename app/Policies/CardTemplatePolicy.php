@@ -9,21 +9,21 @@ class CardTemplatePolicy
     // Admin liberado via Gate::before. Gestão de templates: Coordenador.
     public function viewAny(User $user): bool
     {
-        return $user->isCoordenador();
+        return $user->isCoordenador() && ! $user->isEventScoped();
     }
 
     public function create(User $user): bool
     {
-        return $user->isCoordenador();
+        return $user->isCoordenador() && ! $user->isEventScoped();
     }
 
     public function update(User $user): bool
     {
-        return $user->isCoordenador();
+        return $user->isCoordenador() && ! $user->isEventScoped();
     }
 
     public function delete(User $user): bool
     {
-        return $user->isCoordenador();
+        return $user->isCoordenador() && ! $user->isEventScoped();
     }
 }

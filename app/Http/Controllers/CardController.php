@@ -48,6 +48,7 @@ class CardController extends Controller
 
         $cards = Card::query()
             ->whereIn('board_id', $boardIds)
+            ->visibleTo($user)
             ->with(['board:id,name', 'column:id,name', 'empresa:id,corporate_name', 'event:id,name', 'assignee:id,name'])
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%'.$request->input('search').'%'))
             ->when($request->filled('empresa_id'), fn ($q) => $q->where('empresa_id', $request->integer('empresa_id')))

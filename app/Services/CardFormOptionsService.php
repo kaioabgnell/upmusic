@@ -36,7 +36,14 @@ class CardFormOptionsService
                     'preco_interno' => $f->categoria?->preco_interno !== null ? (float) $f->categoria->preco_interno : null,
                 ])
                 ->values(),
-            'events' => Event::active()->orderByDesc('start_date')->get(['id', 'name']),
+            // Coordenador restrito por evento (specs/20) só vê/filtra/seleciona os eventos vinculados —
+            // isso alimenta tanto o filtro "Eventos" do Kanban quanto o select de Evento no modal de card.
+            'events' => Event::active()
+                ->when(
+                    ($ids = auth()->user()?->allowedEventIds()) !== null,
+                    fn ($q) => $q->whereIn('id', $ids)
+                )
+                ->orderByDesc('start_date')->get(['id', 'name']),
             'assignees' => User::where('active', true)->orderBy('name')->get(['id', 'name', 'avatar_path'])
                 ->map(fn ($u) => (object) ['id' => $u->id, 'name' => $u->name, 'avatar_url' => $u->avatar_url])
                 ->values(),

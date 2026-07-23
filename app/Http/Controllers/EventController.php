@@ -13,8 +13,12 @@ class EventController extends Controller
     {
         $this->authorize('viewAny', Event::class);
 
+        // Coordenador restrito por evento (specs/20) só vê os eventos vinculados.
+        $allowedEventIds = $request->user()->allowedEventIds();
+
         $events = Event::query()
             ->withCount('cards')
+            ->when($allowedEventIds !== null, fn ($q) => $q->whereIn('id', $allowedEventIds))
             ->when($request->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->when($request->filled('status'), fn ($q) => $q->where('active', $request->status === 'active'))
             ->orderByDesc('start_date')

@@ -24,7 +24,7 @@ class StoreCardRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'empresa_id' => ['nullable', 'exists:empresas,id'],
             'fornecedor_id' => ['nullable', 'exists:fornecedores,id'],
-            'event_id' => ['nullable', 'exists:events,id'],
+            'event_id' => $this->eventRule(),
             'assignee_id' => ['nullable', 'exists:users,id'],
             'board_column_id' => ['nullable', Rule::exists('board_columns', 'id')->where('board_id', $board->id)],
             'estimated_value' => ['nullable', 'numeric'],
@@ -41,6 +41,22 @@ class StoreCardRequest extends FormRequest
             'estimated_value' => Br::money($this->input('estimated_value')),
             'actual_value' => Br::money($this->input('actual_value')),
         ]);
+    }
+
+    /**
+     * Regra do evento (specs/20): para o coordenador restrito, o evento é obrigatório e precisa estar
+     * dentro dos eventos vinculados (o select já vem filtrado, isto impede burlar via requisição). Para
+     * os demais perfis, evento continua opcional e livre.
+     */
+    private function eventRule(): array
+    {
+        $ids = $this->user()->allowedEventIds();
+
+        if ($ids === null) {
+            return ['nullable', 'exists:events,id'];
+        }
+
+        return ['required', Rule::in($ids->all())];
     }
 
     public function withValidator(Validator $validator): void

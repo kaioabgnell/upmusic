@@ -28,6 +28,8 @@ class UpdateUserRequest extends FormRequest
             'active' => ['boolean'],
             'boards' => ['array'],
             'boards.*' => ['integer', 'exists:boards,id'],
+            'events' => ['array'],
+            'events.*' => ['integer', 'exists:events,id'],
         ];
     }
 

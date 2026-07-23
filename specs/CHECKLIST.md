@@ -1047,6 +1047,38 @@ Ver [specs/19 §6.1](19-formulario-de-minuta-do-fornecedor.md#61-ajuste-pós-ent
 > limpo. Nenhum registro foi apagado — os dados de teste (telefone/e-mail do fornecedor, coluna do card
 > de teste) permaneceram alterados no banco desta sessão de validação.
 
+**Coordenador Restrito por Evento.** Ver [specs/20](20-coordenador-por-evento.md) (spec completa, todos
+os critérios de aceite marcados).
+> Coordenador pode ser vinculado a eventos específicos no cadastro; quando tem ≥1 evento vinculado, passa
+> a ver só os dados desses eventos. Admin e coordenador sem eventos seguem vendo tudo (opt-in
+> retrocompatível).
+> - **Dados**: novo pivot `event_user`; `User::events()`, `isEventScoped()` e `allowedEventIds()` (null =
+>   sem restrição); `Event::coordinators()`; scope reutilizável `Card::scopeVisibleTo($user)` (aplica
+>   `whereIn('event_id', ...)` + exclui cards sem evento quando restrito).
+> - **Cadastro**: multiselect "Eventos que este coordenador pode ver" no `users/_form` (aparece quando
+>   role = coordenador), sincronizado por `UserController::syncEvents()` + validação nos Form Requests.
+> - **Menus/rotas bloqueados**: Setores, Empresas, Fornecedores e Templates de Cards ocultos na sidebar
+>   (`$isEventScoped`) e negados nas Policies (`viewAny`/`create`/`update`/`delete`) → 403 em acesso
+>   direto. Banco de Preços permanece.
+> - **Escopo de cards** aplicado em Dashboard (vencendo hoje/recentes + `cards_count`), "Todos os Cards",
+>   `BoardController::index` (contagem) e `kanbanData`; `CardPolicy::view/update/delete` passam a checar o
+>   escopo (403 ao abrir card de outro evento por URL).
+> - **Eventos/select de card**: `CardFormOptionsService` devolve só os eventos permitidos (alimenta o
+>   filtro do Kanban e o select de Evento do card); `StoreCardRequest`/`UpdateCardRequest` exigem
+>   `event_id` dentro do escopo (obrigatório para esse perfil). Lista de Eventos (`EventController` +
+>   `EventPolicy`) e de Usuários (`UserController`) filtradas; atalho "Novo fornecedor" no card oculto.
+>
+> Validado por HTTP real com um coordenador restrito (vinculado só ao evento "Copa 2026"), mais um 2º
+> evento e um card fora do escopo criados para o teste: sidebar sem os 4 menus e com Eventos/Banco de
+> Preços; `setores/empresas/fornecedores/templates` → 403 e `precos/categorias` → 200; "Todos os Cards",
+> Kanban e filtro de Eventos sem o card/evento de fora; abrir o card fora do escopo por URL → 403 (dentro
+> → 200); lista de Eventos só com Copa 2026 (editar o evento de fora → 403); lista de Usuários só com o
+> próprio coordenador. Regressão confirmada: **admin** e **coordenador sem eventos** continuam vendo todos
+> os menus, o card de fora (200) e Setores (200). Dados de teste (2º evento, card, vínculo) removidos ao
+> final. `pint --dirty` e `npm run build` limpos. **Ressalva**: para logar como o coordenador de teste,
+> a senha do usuário `kaio.gomes@upmusic.com.br` foi redefinida para `password` nesta sessão (banco local
+> de dev) — redefinir se necessário.
+
 ---
 
 ### Status por fase

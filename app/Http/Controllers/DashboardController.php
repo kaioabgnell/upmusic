@@ -16,7 +16,8 @@ class DashboardController extends Controller
         $boards = Board::query()
             ->active()
             ->with('setor')
-            ->withCount(['columns', 'cards' => fn ($q) => $q->whereNull('concluded_at')])
+            // Contagem de cards por quadro respeita o escopo por evento do coordenador restrito (specs/20).
+            ->withCount(['columns', 'cards' => fn ($q) => $q->whereNull('concluded_at')->visibleTo($user)])
             ->when(! $isManager, fn ($q) => $q->whereHas('users', fn ($q) => $q->whereKey($user->id)))
             ->orderBy('position')
             ->orderBy('name')
@@ -26,6 +27,7 @@ class DashboardController extends Controller
 
         $dueTodayCards = Card::whereIn('board_id', $boardIds)
             ->whereNull('concluded_at')
+            ->visibleTo($user)
             ->whereDate('due_date', today())
             ->with(['board:id,name', 'empresa:id,corporate_name', 'assignee:id,name'])
             ->orderByRaw("field(priority, 'alta', 'media', 'baixa')")
@@ -33,6 +35,7 @@ class DashboardController extends Controller
 
         $recentCards = Card::whereIn('board_id', $boardIds)
             ->whereNull('concluded_at')
+            ->visibleTo($user)
             ->with(['board:id,name', 'empresa:id,corporate_name', 'assignee:id,name'])
             ->latest('updated_at')
             ->limit(6)

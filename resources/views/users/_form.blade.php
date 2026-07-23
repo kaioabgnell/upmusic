@@ -3,6 +3,7 @@
     $coordenador = auth()->user()->isCoordenador();
     $selectedRole = old('role', $isEdit ? $user->role->value : 'usuario');
     $selectedBoards = old('boards', $isEdit ? $user->boards->pluck('id')->all() : []);
+    $selectedEvents = old('events', $isEdit ? $user->events->pluck('id')->all() : []);
 @endphp
 
 <form method="POST"
@@ -79,6 +80,28 @@
         <div>
             <x-input-label for="password_confirmation" value="Confirmar senha" />
             <x-text-input id="password_confirmation" type="password" name="password_confirmation" class="mt-1" :required="! $isEdit" autocomplete="new-password" />
+        </div>
+    </div>
+
+    {{-- Vínculo de eventos (somente perfil Coordenador) — specs/20. Vazio = coordenador vê tudo;
+         com eventos = restrito a eles. Só o Admin chega aqui, pois coordenador não define role=coordenador. --}}
+    <div x-show="role === 'coordenador'" x-cloak class="border-t border-hairline pt-5">
+        <x-input-label value="Eventos que este coordenador pode ver" />
+        <p class="text-xs text-steel mb-2">Deixe vazio para o coordenador ver todos os eventos. Selecionando um ou mais, ele passa a ver apenas os cards, filtros e dados desses eventos.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+            @forelse ($events as $event)
+                <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
+                    <input type="checkbox" name="events[]" value="{{ $event->id }}"
+                           @checked(in_array($event->id, $selectedEvents))
+                           class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+                    <span class="text-sm text-brand-ink">
+                        <i class="fa-solid fa-calendar-days text-steel mr-1"></i>
+                        {{ $event->name }}
+                    </span>
+                </label>
+            @empty
+                <p class="text-sm text-steel">Nenhum evento cadastrado ainda.</p>
+            @endforelse
         </div>
     </div>
 

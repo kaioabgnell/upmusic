@@ -6,6 +6,7 @@ use App\Domain\Enums\UserRole;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Board;
+use App\Models\Event;
 use App\Models\Setor;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -17,8 +18,15 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
+        // Coordenador restrito por evento (specs/20): só vê usuários que compartilham ao menos um dos
+        // seus eventos (mais ele próprio). Demais perfis veem todos.
+        $allowedEventIds = $request->user()->allowedEventIds();
+
         $users = User::query()
             ->with('setor')
+            ->when($allowedEventIds !== null, fn ($q) => $q->where(fn ($q) => $q
+                ->whereHas('events', fn ($q) => $q->whereIn('events.id', $allowedEventIds))
+                ->orWhere('users.id', $request->user()->id)))
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q
                 ->where('name', 'like', "%{$s}%")
                 ->orWhere('email', 'like', "%{$s}%")))
@@ -48,6 +56,7 @@ class UserController extends Controller
 
         $user = User::create($data);
         $this->syncBoards($user, $request);
+        $this->syncEvents($user, $request);
 
         return redirect()->route('users.index')
             ->with('success', 'Usuário criado com sucesso.');
@@ -55,15 +64,25 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $this->authorize('update', $user);
+        // Sem permissão para editar este usuário (ex.: Coordenador tentando editar Admin/outro
+        // Coordenador, inclusive por URL direta): em vez do 403 cru, volta para a lista com um alerta.
+        if (! auth()->user()->can('update', $user)) {
+            return redirect()->route('users.index')
+                ->with('error', 'Você não tem permissão para editar este usuário.');
+        }
 
         return view('users.edit', array_merge($this->formData(), [
-            'user' => $user->load('boards'),
+            'user' => $user->load('boards', 'events'),
         ]));
     }
 
     public function update(UpdateUserRequest $request, User $user)
     {
+        if (! $request->user()->can('update', $user)) {
+            return redirect()->route('users.index')
+                ->with('error', 'Você não tem permissão para editar este usuário.');
+        }
+
         $data = $request->validated();
 
         if (empty($data['password'])) {
@@ -74,6 +93,7 @@ class UserController extends Controller
 
         $user->update($data);
         $this->syncBoards($user, $request);
+        $this->syncEvents($user, $request);
 
         return redirect()->route('users.index')
             ->with('success', 'Usuário atualizado com sucesso.');
@@ -103,6 +123,7 @@ class UserController extends Controller
             'roles' => UserRole::options(),
             'setores' => Setor::active()->orderBy('nome')->get(),
             'boards' => Board::active()->orderBy('name')->get(),
+            'events' => Event::active()->orderByDesc('start_date')->get(['id', 'name']),
         ];
     }
 
@@ -113,6 +134,19 @@ class UserController extends Controller
             $user->boards()->sync($request->input('boards', []));
         } else {
             $user->boards()->detach();
+        }
+    }
+
+    /**
+     * Vínculo de eventos só faz sentido para o perfil Coordenador (specs/20). Vazio = coordenador
+     * sem restrição (vê tudo); demais papéis nunca têm eventos vinculados.
+     */
+    private function syncEvents(User $user, Request $request): void
+    {
+        if ($user->role === UserRole::Coordenador) {
+            $user->events()->sync($request->input('events', []));
+        } else {
+            $user->events()->detach();
         }
     }
 }

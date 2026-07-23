@@ -25,7 +25,8 @@ class BoardController extends Controller
 
         $boards = Board::query()
             ->with('setor')
-            ->withCount(['columns', 'cards' => fn ($q) => $q->whereNull('concluded_at')])
+            // Contagem por quadro respeita o escopo por evento do coordenador restrito (specs/20).
+            ->withCount(['columns', 'cards' => fn ($q) => $q->whereNull('concluded_at')->visibleTo($user)])
             ->when(
                 ! $user->isAdmin() && ! $user->isCoordenador(),
                 fn ($q) => $q->whereHas('users', fn ($q) => $q->whereKey($user->id))
@@ -93,15 +94,17 @@ class BoardController extends Controller
     {
         $this->authorize('view', $board);
 
+        $user = $request->user();
         $filters = $this->filtersFromRequest($request);
 
         $board->load([
             'columns' => fn ($q) => $q->orderBy('position'),
-            'columns.cards' => function ($q) use ($filters) {
+            'columns.cards' => function ($q) use ($filters, $user) {
                 $q->with(['empresa:id,corporate_name,trade_name', 'event:id,name', 'assignee:id,name,avatar_path'])
                     ->withCount(['attachments', 'comments'])
                     ->whereNull('concluded_at')
                     ->whereNull('archived_at')
+                    ->visibleTo($user)
                     ->when($filters['empresa_id'], fn ($q, $v) => $q->where('empresa_id', $v))
                     ->when($filters['event_id'], fn ($q, $v) => $q->where('event_id', $v))
                     ->when($filters['assignee_id'], fn ($q, $v) => $q->where('assignee_id', $v))

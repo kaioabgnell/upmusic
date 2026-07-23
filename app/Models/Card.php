@@ -87,6 +87,22 @@ class Card extends Model
         return $query->whereNotNull('concluded_at');
     }
 
+    /**
+     * Restringe os cards aos eventos permitidos do usuário (specs/20). Se o usuário não é restrito
+     * (allowedEventIds() === null), não aplica filtro nenhum. Se é restrito, mostra só os cards cujo
+     * event_id está na lista — cards sem evento (event_id null) ficam de fora, por decisão de produto.
+     */
+    public function scopeVisibleTo($query, User $user)
+    {
+        $ids = $user->allowedEventIds();
+
+        if ($ids === null) {
+            return $query;
+        }
+
+        return $query->whereNotNull('event_id')->whereIn('event_id', $ids);
+    }
+
     public function scopeArchived($query)
     {
         return $query->whereNotNull('archived_at');

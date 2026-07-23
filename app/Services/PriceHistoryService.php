@@ -23,6 +23,7 @@ class PriceHistoryService
         $prices = $categoria->priceRecords()
             ->with(['fornecedor:id,name', 'card:id,title', 'event:id,name'])
             ->when($fornecedorId, fn ($q, $v) => $q->where('fornecedor_id', $v))
+            ->tap(fn ($q) => $this->scopeToAllowedEvents($q))
             ->orderBy('reference_date')
             ->orderBy('id')
             ->get();
@@ -61,6 +62,7 @@ class PriceHistoryService
         return $categoria->priceRecords()
             ->with('fornecedor:id,name')
             ->whereNotNull('fornecedor_id')
+            ->tap(fn ($q) => $this->scopeToAllowedEvents($q))
             ->get()
             ->groupBy('fornecedor_id')
             ->map(function ($group) {
@@ -88,6 +90,7 @@ class PriceHistoryService
 
         return $categoria->priceRecords()
             ->whereIn('fornecedor_id', $fornecedorIds)
+            ->tap(fn ($q) => $this->scopeToAllowedEvents($q))
             ->when($startDate, fn ($q, $v) => $q->where('reference_date', '>=', $v->toDateString()))
             ->where('reference_date', '<=', $endDate->toDateString())
             ->with('fornecedor:id,name')
@@ -104,6 +107,20 @@ class PriceHistoryService
                 ])->values(),
             ])
             ->values();
+    }
+
+    /**
+     * Coordenador restrito por evento (specs/20): a evolução de preços só enxerga registros dos
+     * eventos vinculados a ele. Registros sem evento também ficam ocultos, como acontece com os
+     * cards. Demais perfis (e coordenador sem restrição) veem tudo — allowedEventIds() = null.
+     */
+    private function scopeToAllowedEvents($query): void
+    {
+        $ids = auth()->user()?->allowedEventIds();
+
+        if ($ids !== null) {
+            $query->whereNotNull('event_id')->whereIn('event_id', $ids);
+        }
     }
 
     /**

@@ -73,10 +73,12 @@
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex items-center justify-end gap-1">
-                            <a href="{{ route('users.edit', $u) }}"
-                               class="inline-flex items-center justify-center w-8 h-8 rounded-md text-steel hover:bg-surface hover:text-brand-ink" title="Editar">
-                                <i class="fa-solid fa-pen"></i>
-                            </a>
+                            @can('update', $u)
+                                <a href="{{ route('users.edit', $u) }}"
+                                   class="inline-flex items-center justify-center w-8 h-8 rounded-md text-steel hover:bg-surface hover:text-brand-ink" title="Editar">
+                                    <i class="fa-solid fa-pen"></i>
+                                </a>
+                            @endcan
                             @can('delete', $u)
                                 <form method="POST" action="{{ route('users.destroy', $u) }}"
                                       data-confirm="Excluir o usuário {{ $u->name }}? Esta ação pode ser desfeita apenas pelo suporte.">

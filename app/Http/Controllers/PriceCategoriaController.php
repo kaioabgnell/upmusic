@@ -15,8 +15,16 @@ class PriceCategoriaController extends Controller
      */
     public function index(Request $request)
     {
+        // Coordenador restrito por evento (specs/20): a contagem de "Registros" só considera preços
+        // dos eventos vinculados a ele (registros sem evento ficam de fora, como nos cards). Admin e
+        // coordenador sem restrição contam tudo — allowedEventIds() = null.
+        $allowedEventIds = $request->user()->allowedEventIds();
+
         $categorias = FornecedorCategoria::query()
-            ->withCount('priceRecords')
+            ->withCount(['priceRecords' => fn ($q) => $q->when(
+                $allowedEventIds !== null,
+                fn ($q) => $q->whereNotNull('event_id')->whereIn('event_id', $allowedEventIds),
+            )])
             ->when($request->search, fn ($q, $s) => $q->where('nome', 'like', "%{$s}%"))
             ->when($request->filled('status'), fn ($q) => $q->where('active', $request->status === 'active'))
             ->orderBy('nome')
