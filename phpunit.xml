@@ -21,8 +21,11 @@
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <!-- Banco de testes SEPARADO: `RefreshDatabase` limpa o schema a cada teste, e apontar para
+             `upmusic_local` apagaria os dados de desenvolvimento. SQLite não serve porque migrations
+             existentes usam statements específicos do MySQL. Criar com:
+             CREATE DATABASE upmusic_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; -->
+        <env name="DB_DATABASE" value="upmusic_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

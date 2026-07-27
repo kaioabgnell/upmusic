@@ -1079,6 +1079,56 @@ os critérios de aceite marcados).
 > a senha do usuário `kaio.gomes@upmusic.com.br` foi redefinida para `password` nesta sessão (banco local
 > de dev) — redefinir se necessário.
 
+**Módulo de Licitações.** Ver [specs/21](21-modulo-licitacoes.md) (spec completa; §17 registra os desvios
+de implementação).
+> Módulo novo e **exclusivo do Admin**: empresas licitantes do grupo, cofre de certidões com alerta de
+> vencimento, leitura de documento por IA e análise de edital com ranking de aptidão. Fases A–D da spec
+> entregues.
+> - **Dados**: 11 tabelas `bid_*` (`bid_companies`, `bid_business_lines` + pivot, `bid_document_categories`,
+>   `bid_document_types`, `bid_documents`, `bid_notices`, `bid_notice_requirements`,
+>   `bid_notice_evaluations`, `bid_requirement_matches`, `bid_ai_calls`); 7 enums de domínio;
+>   `BidCatalogSeeder` idempotente com 6 categorias, 22 tipos canônicos (com apelidos) e 7 ramos.
+>   Empresas licitantes ficam **isoladas** de `empresas` (clientes de cards/financeiro/preços).
+> - **Status de vigência nunca é coluna**: sempre derivado de `expires_at`/`no_expiry` (`valido`,
+>   `vencendo` ≤30d, crítico ≤7d, `vencido`, `permanente`), com scopes SQL para filtros server-side.
+> - **Versionamento**: renovar cria nova versão (`supersedes_id`) e marca a anterior (`superseded_at`)
+>   em transação; o acervo vigente nunca tem duas versões do mesmo documento.
+> - **IA (Gemini `gemini-flash-latest`)** só no servidor, em um único cliente (`GeminiClient`): saída por
+>   `responseSchema`, `thinkingLevel: low`, retry em 429/5xx, teto diário por usuário, log de custo em
+>   `bid_ai_calls`, anti prompt-injection nos dois prompts e saneamento de toda a saída.
+> - **A IA extrai, o PHP decide**: `RequirementMatcher` + `AptitudeScorer` são determinísticos
+>   (catálogo canônico → apelidos → fuzzy sinalizado; CNAE, porte, capital/patrimônio; incerteza sempre
+>   vira `conferir`). Veredito Apta / Apta com pendências / Inapta com bloqueadores em PT-BR.
+> - **Telas**: painel com contadores e alertas; empresas (lista + cofre com abas de status, renovação e
+>   histórico); análise de edital (ranking, matriz fixa e rolável, painel do requisito com o trecho do
+>   edital, overrides manuais, plano de regularização, CSV); relatórios (5 blocos + CSV); configurações.
+> - **Sem fila e sem worker** (decisão do cliente): análise síncrona; registro preso em `processando`
+>   além de `stale_minutes` aparece como "Análise interrompida" com Reprocessar.
+>
+> **Validado por HTTP real** (servidor local, admin logado) com 2 empresas de teste e 16 documentos:
+> painel 15 docs / 13 válidos / 1 vencendo / 1 vencido e saúde 4/9 vs 9/9; leitura de certidão por IA
+> devolvendo tipo `cnd_federal`, categoria, emissão, validade e código de controle corretos; análise de
+> um edital de portaria em PDF (2 páginas) extraindo 17 requisitos com trecho e página, ranking
+> UP Portaria 91,67 × UP Eventos 36,54, bloqueadores e destaques corretos (capital ≥ 10% do estimado,
+> CNAE 8011-1/01, afinidade de ramo); ignorar requisito → recálculo para Apta com pendências mantendo
+> `verdict_at_analysis`; override manual sobrevivendo ao recálculo; vínculo de documento de outra
+> empresa recusado; renovação versionando; recálculo automático ao reabrir com acervo alterado; análise
+> interrompida + Reprocessar sem duplicar dados; CSV de matriz e de relatórios. Coordenador (restrito ou
+> não) e Usuário → **403** em todas as rotas e sem o menu.
+> - **Testes**: 74 novos (`tests/Unit/Bid`, `tests/Feature/Bid`), 297 asserções, IA sempre via
+>   `Http::fake` — a chave real nunca é usada em teste. `phpunit.xml` passou a apontar para o banco
+>   **`upmusic_test`** (criado nesta sessão) porque `RefreshDatabase` apagaria `upmusic_local`.
+> - **Bugs encontrados e corrigidos na validação**: lazy loading em modo estrito no `DocumentReader`/
+>   `NoticeExtractor`; `sortBy([callable,...])` do Laravel 10 tratando extratores como comparadores
+>   (ranking ordenava por acidente); atalho `@php(...)` do Blade engolindo o template até o `@endphp`
+>   seguinte; callback de `retry()` recebendo `PendingRequest` no 2º argumento (429 virava 500).
+> - **Ressalvas**: (a) reprocessar um edital descarta requisitos e overrides anteriores — ver melhoria
+>   sugerida em specs/21 §17; (b) os dados de teste (2 empresas, documentos, edital e arquivos) foram
+>   removidos ao final; (c) 8 testes **pré-existentes** do Breeze (`ExampleTest`, `RegistrationTest`,
+>   `ProfileTest`) seguem falhando por motivos alheios ao módulo (`/` redireciona, `/register` foi
+>   removido, e o fixture de usuário do ProfileTest quebra no modo estrito).
+> - `php artisan test tests/Unit/Bid tests/Feature/Bid` verde, `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase

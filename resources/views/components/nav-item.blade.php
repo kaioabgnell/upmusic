@@ -3,6 +3,7 @@
     'pattern' => null,  // padrão para active-state (ex.: boards.*); default = base da rota
     'icon' => 'fa-circle',
     'label' => '',
+    'badge' => null,    // contador opcional à direita (ex.: pendências de licitações)
 ])
 
 @php
@@ -21,5 +22,12 @@
         'text-white/30 cursor-not-allowed' => ! $exists,
    ])>
     <i class="fa-solid {{ $icon }} w-5 text-center {{ $active ? 'text-brand-ink' : '' }}"></i>
-    <span>{{ $label }}</span>
+    <span class="flex-1">{{ $label }}</span>
+    @if($badge)
+        <span @class([
+            'inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-semibold',
+            'bg-brand-ink text-white' => $active,
+            'bg-brand-orange text-brand-ink' => ! $active,
+        ])>{{ $badge }}</span>
+    @endif
 </a>

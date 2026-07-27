@@ -1,5 +1,12 @@
 <?php
 
+use App\Http\Controllers\Bid\BidCompanyController;
+use App\Http\Controllers\Bid\BidDashboardController;
+use App\Http\Controllers\Bid\BidDocumentController;
+use App\Http\Controllers\Bid\BidNoticeController;
+use App\Http\Controllers\Bid\BidReportController;
+use App\Http\Controllers\Bid\BidRequirementController;
+use App\Http\Controllers\Bid\BidSettingsController;
 use App\Http\Controllers\BoardColumnController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\BoardFieldController;
@@ -211,6 +218,72 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('precos/categorias/{fornecedorCategoria}/registros', [PriceRecordController::class, 'store'])->name('prices.store');
         Route::put('precos/registros/{priceRecord}', [PriceRecordController::class, 'update'])->name('prices.update');
         Route::delete('precos/registros/{priceRecord}', [PriceRecordController::class, 'destroy'])->name('prices.destroy');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Módulo de Licitações — exclusivo do Admin (ver specs/21)
+    |--------------------------------------------------------------------------
+    | Coordenador (restrito ou não) e Usuário recebem 403 aqui; o bloqueio é de servidor, e não
+    | apenas o item oculto na sidebar. Rotas literais sempre antes dos wildcards.
+    */
+    Route::middleware('role:admin')->prefix('licitacoes')->name('bid.')->group(function () {
+        Route::get('/', [BidDashboardController::class, 'index'])->name('dashboard');
+
+        // Empresas licitantes
+        Route::get('empresas', [BidCompanyController::class, 'index'])->name('companies.index');
+        Route::get('empresas/criar', [BidCompanyController::class, 'create'])->name('companies.create');
+        Route::post('empresas', [BidCompanyController::class, 'store'])->name('companies.store');
+        Route::get('empresas/{company}', [BidCompanyController::class, 'show'])->name('companies.show');
+        Route::get('empresas/{company}/editar', [BidCompanyController::class, 'edit'])->name('companies.edit');
+        Route::put('empresas/{company}', [BidCompanyController::class, 'update'])->name('companies.update');
+        Route::delete('empresas/{company}', [BidCompanyController::class, 'destroy'])->name('companies.destroy');
+
+        // Documentos do acervo
+        Route::post('empresas/{company}/documentos', [BidDocumentController::class, 'store'])->name('documents.store');
+        // Leitura assistida pela IA — literal antes de {document} e com throttle (specs/21 §12).
+        Route::post('documentos/ler', [BidDocumentController::class, 'read'])
+            ->middleware('throttle:10,1')->name('documents.read');
+        Route::put('documentos/{document}', [BidDocumentController::class, 'update'])->name('documents.update');
+        Route::post('documentos/{document}/renovar', [BidDocumentController::class, 'renew'])->name('documents.renew');
+        Route::delete('documentos/{document}', [BidDocumentController::class, 'destroy'])->name('documents.destroy');
+        Route::get('documentos/{document}/arquivo', [BidDocumentController::class, 'file'])->name('documents.file');
+        Route::get('documentos/{document}/historico', [BidDocumentController::class, 'history'])->name('documents.history');
+
+        // Análise de edital
+        Route::get('editais', [BidNoticeController::class, 'index'])->name('notices.index');
+        Route::get('editais/nova', [BidNoticeController::class, 'create'])->name('notices.create');
+        Route::post('editais', [BidNoticeController::class, 'store'])
+            ->middleware('throttle:10,1')->name('notices.store');
+        Route::get('editais/{notice}', [BidNoticeController::class, 'show'])->name('notices.show');
+        Route::put('editais/{notice}', [BidNoticeController::class, 'update'])->name('notices.update');
+        Route::delete('editais/{notice}', [BidNoticeController::class, 'destroy'])->name('notices.destroy');
+        Route::post('editais/{notice}/reprocessar', [BidNoticeController::class, 'reprocess'])
+            ->middleware('throttle:10,1')->name('notices.reprocess');
+        Route::post('editais/{notice}/recalcular', [BidNoticeController::class, 'reevaluate'])->name('notices.reevaluate');
+        Route::get('editais/{notice}/matriz', [BidNoticeController::class, 'matrix'])->name('notices.matrix');
+        Route::get('editais/{notice}/plano/{company}', [BidNoticeController::class, 'plan'])->name('notices.plan');
+
+        // Correção humana sobre o que a IA extraiu
+        Route::put('requisitos/{requirement}', [BidRequirementController::class, 'update'])->name('requirements.update');
+        Route::put('conferencias/{match}', [BidRequirementController::class, 'updateMatch'])->name('matches.update');
+        Route::delete('conferencias/{match}/override', [BidRequirementController::class, 'resetMatch'])->name('matches.reset');
+
+        // Relatórios
+        Route::get('relatorios', [BidReportController::class, 'index'])->name('reports.index');
+        Route::get('relatorios/exportar', [BidReportController::class, 'export'])->name('reports.export');
+
+        // Configurações do módulo (categorias, tipos de documento, ramos)
+        Route::get('config', [BidSettingsController::class, 'index'])->name('settings.index');
+        Route::post('config/categorias', [BidSettingsController::class, 'storeCategory'])->name('categories.store');
+        Route::put('config/categorias/{category}', [BidSettingsController::class, 'updateCategory'])->name('categories.update');
+        Route::delete('config/categorias/{category}', [BidSettingsController::class, 'destroyCategory'])->name('categories.destroy');
+        Route::post('config/tipos', [BidSettingsController::class, 'storeType'])->name('types.store');
+        Route::put('config/tipos/{type}', [BidSettingsController::class, 'updateType'])->name('types.update');
+        Route::delete('config/tipos/{type}', [BidSettingsController::class, 'destroyType'])->name('types.destroy');
+        Route::post('config/ramos', [BidSettingsController::class, 'storeLine'])->name('lines.store');
+        Route::put('config/ramos/{line}', [BidSettingsController::class, 'updateLine'])->name('lines.update');
+        Route::delete('config/ramos/{line}', [BidSettingsController::class, 'destroyLine'])->name('lines.destroy');
     });
 });
 

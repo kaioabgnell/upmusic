@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             BoardSeeder::class,
             SampleDataSeeder::class,
+            // Módulo de Licitações (ver specs/21) — catálogo idempotente de categorias/tipos/ramos.
+            BidCatalogSeeder::class,
         ]);
     }
 }

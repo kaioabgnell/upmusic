@@ -2,6 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\BidBusinessLine;
+use App\Models\BidCompany;
+use App\Models\BidDocument;
+use App\Models\BidDocumentCategory;
+use App\Models\BidDocumentType;
+use App\Models\BidNotice;
+use App\Models\BidNoticeRequirement;
+use App\Models\BidRequirementMatch;
 use App\Models\Board;
 use App\Models\Card;
 use App\Models\CardCapture;
@@ -12,6 +20,7 @@ use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
 use App\Models\Setor;
 use App\Models\User;
+use App\Policies\BidModulePolicy;
 use App\Policies\BoardPolicy;
 use App\Policies\CardCapturePolicy;
 use App\Policies\CardPolicy;
@@ -43,6 +52,16 @@ class AuthServiceProvider extends ServiceProvider
         CardTemplate::class => CardTemplatePolicy::class,
         Event::class => EventPolicy::class,
         CardCapture::class => CardCapturePolicy::class,
+
+        // Módulo de Licitações — exclusivo do Admin (ver specs/21 §7).
+        BidCompany::class => BidModulePolicy::class,
+        BidDocument::class => BidModulePolicy::class,
+        BidNotice::class => BidModulePolicy::class,
+        BidNoticeRequirement::class => BidModulePolicy::class,
+        BidRequirementMatch::class => BidModulePolicy::class,
+        BidDocumentCategory::class => BidModulePolicy::class,
+        BidDocumentType::class => BidModulePolicy::class,
+        BidBusinessLine::class => BidModulePolicy::class,
     ];
 
     /**

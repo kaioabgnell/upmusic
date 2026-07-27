@@ -75,6 +75,12 @@ class Br
         return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $c);
     }
 
+    /** Valor em reais no formato BR ("R$ 1.234,56"). */
+    public static function formatMoney(float|int|null $value): string
+    {
+        return 'R$ '.number_format((float) $value, 2, ',', '.');
+    }
+
     /**
      * Converte valor monetário em formato BR ("1.234,56") ou numérico para float.
      * Retorna null se vazio.

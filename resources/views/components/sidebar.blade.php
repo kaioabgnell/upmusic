@@ -20,7 +20,7 @@
         // Coordenador restrito por evento (specs/20): esconde os cadastros que ele não pode acessar.
         $isEventScoped = auth()->user()->isEventScoped();
     @endphp
-    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+    <nav class="sidebar-nav flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div class="space-y-1">
             <x-nav-item route="dashboard" pattern="dashboard" icon="fa-gauge-high" label="Painel" />
         </div>
@@ -62,6 +62,21 @@
             <x-nav-item route="prices.categorias.index" pattern="prices.*" icon="fa-tags" label="Banco de Preços" />
         </div>
 
+        {{-- Licitações (specs/21): módulo exclusivo do Admin. O badge conta documentos vencidos +
+             vencendo e vem do mesmo cache do painel (TTL curto, invalidado ao mexer no acervo). --}}
+        @if ($isAdmin)
+            @php($bidPending = app(\App\Services\Bid\BidDashboardService::class)->pendingCount())
+            <div class="space-y-1">
+                <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Licitações</p>
+                <x-nav-item route="bid.dashboard" pattern="bid.dashboard" icon="fa-gavel" label="Painel de Licitações" />
+                <x-nav-item route="bid.companies.index" pattern="bid.companies.*" icon="fa-building-flag"
+                    label="Empresas" :badge="$bidPending ?: null" />
+                <x-nav-item route="bid.notices.index" pattern="bid.notices.*" icon="fa-file-contract"
+                    label="Análise de Editais" />
+                <x-nav-item route="bid.reports.index" pattern="bid.reports.*" icon="fa-chart-column" label="Relatórios" />
+                <x-nav-item route="bid.settings.index" pattern="bid.settings.*" icon="fa-sliders" label="Configurações" />
+            </div>
+        @endif
 
         @if ($isManager)
             <div class="space-y-1">
