@@ -56,13 +56,13 @@ function cardPanelBase() {
         fornecedorOpen: false,
         fornecedorSearch: '',
 
-        // Histórico de preços do fornecedor selecionado (tooltip ao lado de "Valor previsto").
+        // Histórico de preços do fornecedor selecionado (tooltip ao lado de "Banco de Preços").
         // Cacheado por fornecedor_id — não depende do card aberto, só do fornecedor.
         fornecedorHistoryCache: {},
         fornecedorHistoryLoading: false,
         fornecedorHistoryPos: { top: 0, left: 0 },
 
-        // Aviso sob "Valor previsto" comparando com o Preço Interno da categoria do fornecedor
+        // Aviso sob "Banco de Preços" comparando com o Preço Interno da categoria do fornecedor
         // (recalculado só ao sair do campo — ver checkEstimatedValueVsPrecoInterno).
         estimatedValueCheck: null,
 
@@ -99,6 +99,7 @@ function cardPanelBase() {
             return {
                 title: '', description: '', empresa_id: '', fornecedor_id: '', event_id: '', assignee_id: '',
                 due_date: '', priority: 'media', estimated_value: '', actual_value: '',
+                valor_sem_nota: '', valor_com_nota: '', negociado: '',
                 board_column_id: columnId, fields,
             };
         },
@@ -166,6 +167,9 @@ function cardPanelBase() {
                     due_date: c.due_date ?? '', priority: c.priority,
                     estimated_value: this.moneyFromDecimal(c.estimated_value),
                     actual_value: this.moneyFromDecimal(c.actual_value),
+                    valor_sem_nota: this.moneyFromDecimal(c.valor_sem_nota),
+                    valor_com_nota: this.moneyFromDecimal(c.valor_com_nota),
+                    negociado: c.negociado ?? '',
                     board_column_id: c.board_column_id, board_id: c.board_id, fields,
                 };
                 this.comments = c.comments;
@@ -288,6 +292,20 @@ function cardPanelBase() {
                 this.fornecedorHistoryCache[fornecedorId] = { records: [], average: null, trend: null };
             } finally {
                 this.fornecedorHistoryLoading = false;
+            }
+        },
+
+        // Ao escolher o fornecedor no dropdown, o "Banco de Preços" (estimated_value) já vem
+        // preenchido com a média do histórico de preços daquele fornecedor — o usuário pode alterar
+        // livremente depois. Sem histórico (average null), o campo fica como estava.
+        async selectFornecedor(f) {
+            this.form.fornecedor_id = f.id;
+            this.fornecedorOpen = false;
+            await this.loadFornecedorHistory(f.id);
+            const average = this.fornecedorHistoryCache[f.id]?.average;
+            if (average !== null && average !== undefined) {
+                this.form.estimated_value = this.moneyFromDecimal(average);
+                this.checkEstimatedValueVsPrecoInterno();
             }
         },
 
@@ -597,7 +615,7 @@ function cardPanelBase() {
             return Number.isNaN(num) ? null : num;
         },
 
-        // Ao sair do campo "Valor previsto", compara com o Preço Interno da categoria do fornecedor
+        // Ao sair do campo "Banco de Preços", compara com o Preço Interno da categoria do fornecedor
         // selecionado e mostra um aviso logo abaixo do input (ver card-panel.blade.php).
         checkEstimatedValueVsPrecoInterno() {
             const precoInterno = this.selectedFornecedor?.preco_interno;

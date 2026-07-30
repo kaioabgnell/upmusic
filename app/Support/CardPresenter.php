@@ -38,6 +38,9 @@ class CardPresenter
             },
             'priority' => $card->priority->value,
             'estimated_value' => $card->estimated_value,
+            'valor_sem_nota' => $card->valor_sem_nota,
+            'valor_com_nota' => $card->valor_com_nota,
+            'negociado' => $card->negociado?->value,
             'attachments_count' => $card->attachments_count,
             'comments_count' => $card->comments_count,
         ];

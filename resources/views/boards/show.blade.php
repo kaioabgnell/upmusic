@@ -217,13 +217,16 @@
                         <th class="px-4 py-3 font-medium">Responsável</th>
                         <th class="px-4 py-3 font-medium">Prioridade</th>
                         <th class="px-4 py-3 font-medium">Prazo</th>
-                        <th class="px-4 py-3 font-medium">Valor previsto</th>
+                        <th class="px-4 py-3 font-medium">Banco de Preços</th>
+                        <th class="px-4 py-3 font-medium">Valor sem nota</th>
+                        <th class="px-4 py-3 font-medium">Valor com nota</th>
+                        <th class="px-4 py-3 font-medium">Negociado</th>
                         <th class="px-4 py-3 font-medium text-right">Anexos / Comentários</th>
                     </x-slot>
 
                     <template x-if="loadingCards">
                         <tr>
-                            <td class="px-4 py-3" colspan="9">
+                            <td class="px-4 py-3" colspan="12">
                                 <div class="h-5 rounded bg-gray-100 animate-pulse"></div>
                             </td>
                         </tr>
@@ -264,6 +267,13 @@
                                 <span x-show="!card.due_date" class="text-steel">—</span>
                             </td>
                             <td class="px-4 py-3 text-steel" x-text="card.estimated_value !== null ? ('R$ ' + formatMoneyBR(card.estimated_value)) : '—'"></td>
+                            <td class="px-4 py-3 text-steel" x-text="card.valor_sem_nota !== null ? ('R$ ' + formatMoneyBR(card.valor_sem_nota)) : '—'"></td>
+                            <td class="px-4 py-3 text-steel" x-text="card.valor_com_nota !== null ? ('R$ ' + formatMoneyBR(card.valor_com_nota)) : '—'"></td>
+                            <td class="px-4 py-3">
+                                <span x-show="card.negociado === 'sem_nota'" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700">Sem nota</span>
+                                <span x-show="card.negociado === 'com_nota'" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-brand-orange/15 text-brand-orange-deep">Com nota</span>
+                                <span x-show="!card.negociado" class="text-steel">—</span>
+                            </td>
                             <td class="px-4 py-3 text-right text-steel">
                                 <span x-show="card.attachments_count" class="mr-2"><i class="fa-solid fa-paperclip"></i> <span x-text="card.attachments_count"></span></span>
                                 <span x-show="card.comments_count"><i class="fa-regular fa-comment"></i> <span x-text="card.comments_count"></span></span>

@@ -17,6 +17,22 @@
         <x-input-error :messages="$errors->get('location')" class="mt-1" />
     </div>
 
+    @php $tipo = old('tipo', $isEdit ? $event->tipo->value : 'publico'); @endphp
+    <div>
+        <x-input-label value="Tipo de evento" />
+        <div class="mt-1 flex items-center gap-4">
+            <label class="inline-flex items-center gap-2 text-sm text-brand-ink">
+                <input type="radio" name="tipo" value="publico" @checked($tipo === 'publico') class="border-gray-300 text-brand-orange focus:ring-brand-orange">
+                Público
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm text-brand-ink">
+                <input type="radio" name="tipo" value="privado" @checked($tipo === 'privado') class="border-gray-300 text-brand-orange focus:ring-brand-orange">
+                Privado
+            </label>
+        </div>
+        <x-input-error :messages="$errors->get('tipo')" class="mt-1" />
+    </div>
+
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
             <x-input-label for="responsible_name" value="Responsável" />

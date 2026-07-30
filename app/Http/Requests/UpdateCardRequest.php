@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\CardNegociado;
 use App\Support\Br;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,6 +26,9 @@ class UpdateCardRequest extends FormRequest
             'assignee_id' => ['nullable', 'exists:users,id'],
             'estimated_value' => ['nullable', 'numeric'],
             'actual_value' => ['nullable', 'numeric'],
+            'valor_sem_nota' => ['nullable', 'numeric'],
+            'valor_com_nota' => ['nullable', 'numeric'],
+            'negociado' => ['nullable', Rule::enum(CardNegociado::class)],
             'due_date' => ['nullable', 'date'],
             'priority' => ['nullable', Rule::in(['baixa', 'media', 'alta'])],
             'fields' => ['array'],
@@ -36,6 +40,9 @@ class UpdateCardRequest extends FormRequest
         $this->merge([
             'estimated_value' => Br::money($this->input('estimated_value')),
             'actual_value' => Br::money($this->input('actual_value')),
+            'valor_sem_nota' => Br::money($this->input('valor_sem_nota')),
+            'valor_com_nota' => Br::money($this->input('valor_com_nota')),
+            'negociado' => $this->input('negociado') ?: null,
         ]);
     }
 

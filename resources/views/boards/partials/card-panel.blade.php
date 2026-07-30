@@ -205,7 +205,7 @@
                                             </div>
                                             <div class="max-h-48 overflow-y-auto space-y-0.5">
                                                 <template x-for="f in filteredFornecedores" :key="f.id">
-                                                    <button type="button" @click="form.fornecedor_id = f.id; fornecedorOpen = false; loadFornecedorHistory(f.id)" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left">
+                                                    <button type="button" @click="selectFornecedor(f)" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left">
                                                         <span class="flex-1 truncate text-brand-ink" x-text="f.name"></span>
                                                         <span class="text-[11px] text-steel shrink-0" x-text="f.document"></span>
                                                         <i x-show="Number(form.fornecedor_id) === f.id" class="fa-solid fa-check text-brand-orange text-xs"></i>
@@ -236,7 +236,7 @@
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-1.5">
-                                        <label class="text-sm font-medium text-brand-ink">Valor previsto</label>
+                                        <label class="text-sm font-medium text-brand-ink">Banco de Preços</label>
                                         {{-- Histórico de preços do fornecedor selecionado (últimos 5 registros). --}}
                                         <div x-show="form.fornecedor_id" x-data="{ historyOpen: false }" @mouseenter="historyOpen = true; positionFornecedorHistoryTooltip($event)" @mouseleave="historyOpen = false">
                                             <i class="fa-solid fa-clock-rotate-left text-steel hover:text-brand-orange cursor-default text-xs"></i>
@@ -286,12 +286,39 @@
                                     {{-- Aviso comparando com o Preço Interno da categoria do fornecedor selecionado — calculado ao sair do campo. --}}
                                     <p x-show="estimatedValueCheck" x-cloak class="mt-1 text-xs" :class="estimatedValueCheck?.above ? 'text-red-600' : 'text-green-600'" x-text="estimatedValueCheck?.message"></p>
                                 </div>
+                                
+                                <div>
+                                    <label class="text-sm font-medium text-brand-ink">Valor sem nota</label>
+                                    <div class="relative mt-1">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
+                                        <input type="text" inputmode="decimal" x-model="form.valor_sem_nota" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-brand-ink">Valor com nota</label>
+                                    <div class="relative mt-1">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
+                                        <input type="text" inputmode="decimal" x-model="form.valor_com_nota" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                    </div>
+                                </div>
                                 <div>
                                     <label class="text-sm font-medium text-brand-ink">Valor realizado</label>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
                                         <input type="text" inputmode="decimal" x-model="form.actual_value" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
+                                </div>
+                                <div class="flex items-end gap-4 pb-1">
+                                    <label class="inline-flex items-center gap-2 text-sm text-brand-ink">
+                                        <input type="radio" name="negociado" value="sem_nota" x-model="form.negociado" class="border-gray-300 text-brand-orange focus:ring-brand-orange">
+                                        Negociado sem nota
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 text-sm text-brand-ink">
+                                        <input type="radio" name="negociado" value="com_nota" x-model="form.negociado" class="border-gray-300 text-brand-orange focus:ring-brand-orange">
+                                        Negociado com nota
+                                    </label>
+                                    {{-- Radio nativo não desmarca ao clicar de novo — só assim dá pra voltar ao estado "nenhum". --}}
+                                    <button type="button" x-show="form.negociado" @click="form.negociado = ''" class="text-xs text-red-600 hover:underline">Limpar</button>
                                 </div>
                             </div>
 

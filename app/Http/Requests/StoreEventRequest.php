@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\EventTipo;
 use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreEventRequest extends FormRequest
 {
@@ -20,6 +22,7 @@ class StoreEventRequest extends FormRequest
             'responsible_name' => ['nullable', 'string', 'max:180'],
             'phone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:150'],
+            'tipo' => ['required', Rule::enum(EventTipo::class)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'active' => ['boolean'],
@@ -28,7 +31,12 @@ class StoreEventRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['active' => $this->boolean('active')]);
+        $this->merge([
+            'active' => $this->boolean('active'),
+            // Rádio com default "público" marcado no form — só cai aqui se o campo vier ausente
+            // por algum motivo (ex.: requisição direta fora do form).
+            'tipo' => $this->input('tipo') ?: EventTipo::Publico->value,
+        ]);
     }
 
     public function attributes(): array
@@ -39,6 +47,7 @@ class StoreEventRequest extends FormRequest
             'responsible_name' => 'responsável',
             'phone' => 'telefone',
             'email' => 'e-mail',
+            'tipo' => 'tipo de evento',
             'start_date' => 'data de início',
             'end_date' => 'data de fim',
         ];

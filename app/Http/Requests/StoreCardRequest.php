@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\CardNegociado;
 use App\Models\Card;
 use App\Support\Br;
 use Illuminate\Contracts\Validation\Validator;
@@ -29,6 +30,9 @@ class StoreCardRequest extends FormRequest
             'board_column_id' => ['nullable', Rule::exists('board_columns', 'id')->where('board_id', $board->id)],
             'estimated_value' => ['nullable', 'numeric'],
             'actual_value' => ['nullable', 'numeric'],
+            'valor_sem_nota' => ['nullable', 'numeric'],
+            'valor_com_nota' => ['nullable', 'numeric'],
+            'negociado' => ['nullable', Rule::enum(CardNegociado::class)],
             'due_date' => ['nullable', 'date'],
             'priority' => ['nullable', Rule::in(['baixa', 'media', 'alta'])],
             'fields' => ['array'],
@@ -40,6 +44,11 @@ class StoreCardRequest extends FormRequest
         $this->merge([
             'estimated_value' => Br::money($this->input('estimated_value')),
             'actual_value' => Br::money($this->input('actual_value')),
+            'valor_sem_nota' => Br::money($this->input('valor_sem_nota')),
+            'valor_com_nota' => Br::money($this->input('valor_com_nota')),
+            // Vem do radio do modal como string vazia quando nenhuma opção está marcada — normaliza
+            // pra null, senão a regra do enum rejeitaria "" como valor inválido.
+            'negociado' => $this->input('negociado') ?: null,
         ]);
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Enums\CardNegociado;
 use App\Domain\Enums\CardOrigin;
 use App\Domain\Enums\CardPriority;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,13 +18,17 @@ class Card extends Model
 
     protected $fillable = [
         'board_id', 'board_column_id', 'empresa_id', 'fornecedor_id', 'event_id', 'assignee_id', 'created_by',
-        'title', 'description', 'estimated_value', 'actual_value', 'due_date',
+        'title', 'description', 'estimated_value', 'actual_value',
+        'valor_sem_nota', 'valor_com_nota', 'negociado', 'due_date',
         'priority', 'origin', 'position', 'concluded_at', 'concluded_by', 'archived_at', 'archived_by',
     ];
 
     protected $casts = [
         'estimated_value' => 'decimal:2',
         'actual_value' => 'decimal:2',
+        'valor_sem_nota' => 'decimal:2',
+        'valor_com_nota' => 'decimal:2',
+        'negociado' => CardNegociado::class,
         'due_date' => 'date',
         'priority' => CardPriority::class,
         'origin' => CardOrigin::class,

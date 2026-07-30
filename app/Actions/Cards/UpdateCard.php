@@ -25,6 +25,9 @@ class UpdateCard
                 'assignee_id' => $data['assignee_id'] ?? null,
                 'estimated_value' => $data['estimated_value'] ?? null,
                 'actual_value' => $data['actual_value'] ?? null,
+                'valor_sem_nota' => $data['valor_sem_nota'] ?? null,
+                'valor_com_nota' => $data['valor_com_nota'] ?? null,
+                'negociado' => $data['negociado'] ?? null,
                 'due_date' => $data['due_date'] ?? null,
                 'priority' => $data['priority'] ?? $card->priority->value,
             ]);
