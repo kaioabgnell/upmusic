@@ -13,6 +13,7 @@
                 empresaQuick: '{{ route('empresas.quick') }}',
                 fornecedorQuick: '{{ route('fornecedores.quick') }}',
                 fornecedorPriceHistory: '{{ url('fornecedores') }}',
+                cnpjLookup: '{{ url('cnpj') }}',
                 boardKanbanData: '{{ url('quadros') }}',
             },
             fields: [],

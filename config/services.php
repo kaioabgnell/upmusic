@@ -44,4 +44,15 @@ return [
         'attempts' => (int) env('GEMINI_ATTEMPTS', 2),
     ],
 
+    /*
+    | Consulta de CNPJ (preenchimento automático da razão social nos cadastros rápidos de
+    | empresa/fornecedor). A API oficial do Conecta gov.br (specs/19) exige credenciamento como
+    | órgão público — inacessível para a Up Music — então usamos a BrasilAPI, que espelha os
+    | mesmos dados públicos da Receita Federal sem necessidade de chave.
+    */
+    'cnpj_lookup' => [
+        'base_url' => env('CNPJ_LOOKUP_BASE_URL', 'https://brasilapi.com.br/api/cnpj/v1'),
+        'timeout' => (int) env('CNPJ_LOOKUP_TIMEOUT', 8),
+    ],
+
 ];

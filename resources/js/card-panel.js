@@ -648,6 +648,24 @@ function cardPanelBase() {
                 .slice(0, 18);
         },
 
+        // Consulta de CNPJ (specs/19) ao sair do campo, nos modais de cadastro rápido: preenche a
+        // razão social automaticamente. Só dispara para PJ e com os 14 dígitos completos — CPF
+        // (PF) não tem essa consulta.
+        async lookupCnpj(typeEl, docEl, nameEl, statusEl) {
+            if (typeEl.value !== 'PJ') return;
+            const digits = docEl.value.replace(/\D/g, '');
+            if (digits.length !== 14) return;
+            statusEl.textContent = 'Pesquisando CNPJ...';
+            statusEl.classList.remove('hidden');
+            try {
+                const data = await this.api(`${this.cfg.urls.cnpjLookup}/${digits}`);
+                if (data.razao_social) nameEl.value = data.razao_social;
+                statusEl.classList.add('hidden');
+            } catch (e) {
+                statusEl.textContent = e.message || 'CNPJ não encontrado.';
+            }
+        },
+
         async quickEmpresa() {
             const inputClass = 'block w-full h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md mb-2';
             const { value: form } = await window.Swal.fire({
@@ -714,8 +732,9 @@ function cardPanelBase() {
                             '<option value="PJ">Pessoa Jurídica</option>' +
                             '<option value="PF">Pessoa Física</option>' +
                         '</select>' +
-                        `<input id="qf-name" class="${inputClass}" placeholder="Razão social">` +
-                        `<input id="qf-document" class="${inputClass.replace(' mb-2', '')}" placeholder="CNPJ" maxlength="18">` +
+                        `<input id="qf-document" class="${inputClass}" placeholder="CNPJ" maxlength="18">` +
+                        `<div id="qf-cnpj-status" class="hidden text-xs text-gray-500 mb-2"></div>` +
+                        `<input id="qf-name" class="${inputClass.replace(' mb-2', '')}" placeholder="Razão social">` +
                     '</div>',
                 focusConfirm: false,
                 showCancelButton: true,
@@ -726,13 +745,16 @@ function cardPanelBase() {
                     const typeEl = document.getElementById('qf-type');
                     const nameEl = document.getElementById('qf-name');
                     const docEl = document.getElementById('qf-document');
+                    const statusEl = document.getElementById('qf-cnpj-status');
                     const applyType = () => {
                         nameEl.placeholder = typeEl.value === 'PF' ? 'Nome completo' : 'Razão social';
                         docEl.placeholder = typeEl.value === 'PF' ? 'CPF' : 'CNPJ';
                         docEl.value = this.formatDocument(docEl.value, typeEl.value);
+                        statusEl.classList.add('hidden');
                     };
                     typeEl.addEventListener('change', applyType);
                     docEl.addEventListener('input', () => { docEl.value = this.formatDocument(docEl.value, typeEl.value); });
+                    docEl.addEventListener('blur', () => this.lookupCnpj(typeEl, docEl, nameEl, statusEl));
                     applyType();
                 },
                 preConfirm: () => ({

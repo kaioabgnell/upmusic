@@ -8,7 +8,7 @@
 @endphp
 
 <form method="POST" action="{{ $isEdit ? route('fornecedores.update', $fornecedor) : route('fornecedores.store') }}"
-      x-data="fornecedorForm('{{ $type }}', @js($categorias), {{ $categoriaId ?: 'null' }}, '{{ route('fornecedor-categorias.quick') }}')"
+      x-data="fornecedorForm('{{ $type }}', @js($categorias), {{ $categoriaId ?: 'null' }}, '{{ route('fornecedor-categorias.quick') }}', '{{ url('cnpj') }}')"
       class="bg-white border border-hairline rounded-xl p-6 space-y-5 max-w-2xl">
     @csrf
     @if ($isEdit) @method('PUT') @endif
@@ -23,16 +23,19 @@
             <x-input-error :messages="$errors->get('type')" class="mt-1" />
         </div>
         <div>
-            <x-input-label for="name" x-text="type === 'PF' ? 'Nome' : 'Razão social'" />
-            <x-text-input id="name" name="name" :value="old('name', $isEdit ? $fornecedor->name : '')" class="mt-1" required />
-            <x-input-error :messages="$errors->get('name')" class="mt-1" />
-        </div>
-        <div>
             <x-input-label for="document" x-text="type === 'PF' ? 'CPF' : 'CNPJ'" />
             <x-text-input id="document" name="document" :value="$docValue" class="mt-1"
                           x-mask:dynamic="type === 'PF' ? '999.999.999-99' : '99.999.999/9999-99'"
-                          x-bind:placeholder="type === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'" required />
+                          x-bind:placeholder="type === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'"
+                          @blur="lookupCnpj()" required />
+            <p x-show="cnpjLoading" x-cloak class="mt-1 text-xs text-gray-500">Pesquisando CNPJ...</p>
+            <p x-show="cnpjError" x-cloak x-text="cnpjError" class="mt-1 text-xs text-red-600"></p>
             <x-input-error :messages="$errors->get('document')" class="mt-1" />
+        </div>
+        <div>
+            <x-input-label for="name" x-text="type === 'PF' ? 'Nome' : 'Razão social'" />
+            <x-text-input id="name" name="name" :value="old('name', $isEdit ? $fornecedor->name : '')" class="mt-1" required />
+            <x-input-error :messages="$errors->get('name')" class="mt-1" />
         </div>
         <div>
             <x-input-label for="fornecedor_categoria_id" value="Categoria" />
@@ -102,13 +105,15 @@
 
 @push('scripts')
 <script>
-    function fornecedorForm(initialType, categorias, initialCategoriaId, quickCategoriaUrl) {
+    function fornecedorForm(initialType, categorias, initialCategoriaId, quickCategoriaUrl, cnpjLookupUrl) {
         return {
             type: initialType,
             categorias: categorias,
             categoriaId: initialCategoriaId,
             categoriaOpen: false,
             categoriaSearch: '',
+            cnpjLoading: false,
+            cnpjError: null,
             csrf: document.querySelector('meta[name="csrf-token"]').content,
             get selectedCategoria() {
                 return this.categorias.find((c) => c.id === Number(this.categoriaId)) || null;
@@ -117,6 +122,27 @@
                 const q = this.categoriaSearch.trim().toLowerCase();
                 if (!q) return this.categorias;
                 return this.categorias.filter((c) => c.nome.toLowerCase().includes(q));
+            },
+            // Consulta de CNPJ (specs/19) ao sair do campo — preenche a razão social. Só dispara
+            // para PJ e com os 14 dígitos completos (CPF não tem essa consulta).
+            async lookupCnpj() {
+                this.cnpjError = null;
+                if (this.type !== 'PJ') return;
+                const digits = document.getElementById('document').value.replace(/\D/g, '');
+                if (digits.length !== 14) return;
+                this.cnpjLoading = true;
+                try {
+                    const res = await fetch(`${cnpjLookupUrl}/${digits}`, {
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.message || 'CNPJ não encontrado.');
+                    if (data.razao_social) document.getElementById('name').value = data.razao_social;
+                } catch (e) {
+                    this.cnpjError = e.message;
+                } finally {
+                    this.cnpjLoading = false;
+                }
             },
             async quickCategoria() {
                 const { value: nome } = await window.Swal.fire({

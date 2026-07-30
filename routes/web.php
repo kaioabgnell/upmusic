@@ -14,6 +14,7 @@ use App\Http\Controllers\CaptureController;
 use App\Http\Controllers\CaptureTokenController;
 use App\Http\Controllers\CardController;
 use App\Http\Controllers\CardSupplierFormController;
+use App\Http\Controllers\CnpjLookupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\EventController;
@@ -83,6 +84,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Empresas — busca e cadastro inline disponíveis a qualquer autenticado (fluxo do card).
     Route::get('empresas/buscar', [EmpresaController::class, 'search'])->name('empresas.search');
     Route::post('empresas/quick', [EmpresaController::class, 'quick'])->name('empresas.quick');
+
+    // Consulta de CNPJ (specs/19) — preenchimento automático da razão social nos cadastros
+    // rápidos de empresa/fornecedor (ver ConsultaCnpjService).
+    Route::get('cnpj/{cnpj}', [CnpjLookupController::class, 'show'])->name('cnpj.lookup');
 
     // Fornecedores — CRUD completo liberado a qualquer usuário autenticado (não é "cadastro base"
     // restrito a Admin/Coordenador como Setores/Empresas/Eventos).

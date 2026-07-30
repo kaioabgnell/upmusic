@@ -16,6 +16,7 @@
                 empresaQuick: '{{ route('empresas.quick') }}',
                 fornecedorQuick: '{{ route('fornecedores.quick') }}',
                 fornecedorPriceHistory: '{{ url('fornecedores') }}',
+                cnpjLookup: '{{ url('cnpj') }}',
                 kanbanData: '{{ route('boards.kanban.data', $board) }}',
                 boardShowBase: '{{ url('quadros/'.$board->id) }}',
             },
