@@ -34,22 +34,23 @@
             @endif
         </div>
 
-        @if ($isManager)
-            <div class="space-y-1">
-                <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Cadastros</p>
-                {{-- Coordenador restrito por evento (specs/20) não vê Setores/Empresas/Fornecedores/Templates. --}}
-                @unless ($isEventScoped)
-                    <x-nav-item route="setores.index" pattern="setores.*" icon="fa-sitemap" label="Setores" />
-                    <x-nav-item route="empresas.index" pattern="empresas.*" icon="fa-building" label="Empresas" />
-                    <x-nav-item route="fornecedores.index" pattern="fornecedores.*" icon="fa-truck-field"
-                        label="Fornecedores" />
-                @endunless
+        {{-- Fornecedores é liberado a qualquer usuário (todos podem criar/editar/excluir) — diferente
+             de Setores/Empresas/Eventos/Templates, que continuam restritos a Admin/Coordenador, e do
+             coordenador restrito por evento (specs/20), que não vê os demais cadastros. --}}
+        <div class="space-y-1">
+            <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Cadastros</p>
+            @if ($isManager && ! $isEventScoped)
+                <x-nav-item route="setores.index" pattern="setores.*" icon="fa-sitemap" label="Setores" />
+                <x-nav-item route="empresas.index" pattern="empresas.*" icon="fa-building" label="Empresas" />
+            @endif
+            <x-nav-item route="fornecedores.index" pattern="fornecedores.*" icon="fa-truck-field" label="Fornecedores" />
+            @if ($isManager)
                 <x-nav-item route="eventos.index" pattern="eventos.*" icon="fa-calendar-days" label="Eventos" />
                 @unless ($isEventScoped)
                     <x-nav-item route="templates.index" pattern="templates.*" icon="fa-clone" label="Templates de Cards" />
                 @endunless
-            </div>
-        @endif
+            @endif
+        </div>
 
 
         <div class="space-y-1">

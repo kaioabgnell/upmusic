@@ -84,9 +84,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('empresas/buscar', [EmpresaController::class, 'search'])->name('empresas.search');
     Route::post('empresas/quick', [EmpresaController::class, 'quick'])->name('empresas.quick');
 
-    // Fornecedores — cadastro inline e histórico de preços disponíveis a qualquer autenticado (fluxo do card).
+    // Fornecedores — CRUD completo liberado a qualquer usuário autenticado (não é "cadastro base"
+    // restrito a Admin/Coordenador como Setores/Empresas/Eventos).
     Route::post('fornecedores/quick', [FornecedorController::class, 'quick'])->name('fornecedores.quick');
     Route::get('fornecedores/{fornecedor}/preco-historico', [FornecedorController::class, 'priceHistory'])->name('fornecedores.price-history');
+    Route::resource('fornecedores', FornecedorController::class)
+        ->parameters(['fornecedores' => 'fornecedor'])->except('show');
 
     // Quadros / Departamentos — ver specs/06.
     Route::get('quadros', [BoardController::class, 'index'])->name('boards.index');
@@ -188,8 +191,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::resource('setores', SetorController::class)
             ->parameters(['setores' => 'setor'])->except('show');
         Route::resource('empresas', EmpresaController::class)->except('show');
-        Route::resource('fornecedores', FornecedorController::class)
-            ->parameters(['fornecedores' => 'fornecedor'])->except('show');
         Route::resource('fornecedor-categorias', FornecedorCategoriaController::class)
             ->parameters(['fornecedor-categorias' => 'fornecedorCategoria'])->except('show');
         Route::post('fornecedor-categorias/quick', [FornecedorCategoriaController::class, 'quick'])->name('fornecedor-categorias.quick');
