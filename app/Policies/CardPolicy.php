@@ -10,9 +10,16 @@ class CardPolicy
 {
     // Admin liberado via Gate::before.
 
+    /**
+     * O responsável atual sempre lê o próprio card, mesmo sem acesso ao quadro (specs/22). O escopo
+     * por evento (specs/20) continua valendo como limite absoluto: ser responsável não fura a
+     * restrição de eventos de um coordenador restrito.
+     */
     public function view(User $user, Card $card): bool
     {
-        return $user->canAccessBoard($card->board) && $this->withinEventScope($user, $card);
+        $canRead = $user->canAccessBoard($card->board) || $card->assignee_id === $user->id;
+
+        return $canRead && $this->withinEventScope($user, $card);
     }
 
     public function create(User $user, Board $board): bool

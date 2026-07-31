@@ -27,6 +27,7 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 19 | [Formulário de Minuta do Fornecedor](19-formulario-de-minuta-do-fornecedor.md) | Melhoria pós-entrega: link único por card para o fornecedor enviar a própria minuta, que cai como anexo no card | `opus` |
 | 20 | [Coordenador Restrito por Evento](20-coordenador-por-evento.md) | Melhoria pós-entrega: coordenador vê só os eventos vinculados no cadastro — escopa cards, menus, filtros e listas de usuários/eventos | `opus` |
 | 21 | [Módulo de Licitações](21-modulo-licitacoes.md) | Novo módulo (Admin): empresas licitantes, cofre de certidões com alerta de vencimento, análise de edital por IA (Gemini) e ranking de aptidão | `opus` |
+| 22 | [Notificações](22-notificacoes.md) | Melhoria pós-entrega: sino na topbar com contador de não lidas, painel com scroll infinito (10 em 10), filtro "não lidas" e link direto para o card | `opus` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

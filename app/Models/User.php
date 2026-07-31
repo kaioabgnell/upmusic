@@ -55,6 +55,12 @@ class User extends Authenticatable
         return $this->hasMany(Card::class, 'assignee_id');
     }
 
+    /** Notificações internas do sino (specs/22), da mais recente para a mais antiga. */
+    public function userNotifications(): HasMany
+    {
+        return $this->hasMany(UserNotification::class)->latest('id');
+    }
+
     // Perfis ----------------------------------------------------------------
 
     public function isAdmin(): bool
@@ -74,6 +80,19 @@ class User extends Authenticatable
         }
 
         return $this->boards()->whereKey($board->getKey())->exists();
+    }
+
+    /**
+     * É responsável por algum card deste quadro (specs/22). Dá **leitura** do quadro/card mesmo sem
+     * vínculo em `user_board`: sem isso, atribuir alguém de outro departamento como responsável
+     * criava um responsável que não recebia a notificação nem conseguia abrir o próprio card.
+     *
+     * Deliberadamente separado de `canAccessBoard()`, que continua sendo a régua de escrita
+     * (mover, transferir, editar, excluir) e do menu de quadros.
+     */
+    public function isAssignedOnBoard(Board $board): bool
+    {
+        return $this->assignedCards()->where('board_id', $board->getKey())->exists();
     }
 
     /**

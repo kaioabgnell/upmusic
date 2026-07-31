@@ -24,6 +24,7 @@ use App\Http\Controllers\FinancialPlanController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\FornecedorCategoriaController;
 use App\Http\Controllers\FornecedorController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceCategoriaController;
 use App\Http\Controllers\PriceHistoryController;
 use App\Http\Controllers\PriceRecordController;
@@ -73,6 +74,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
     // Foto de perfil servida pelo Laravel (sem depender do symlink /storage — ver ProfileController::showAvatar).
     Route::get('/avatar/{user}', [ProfileController::class, 'showAvatar'])->name('avatar.show');
+
+    // Notificações (specs/22) — JSON, sempre escopadas ao usuário logado.
+    // Rotas literais antes do wildcard {notification}.
+    Route::get('notificacoes', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notificacoes/contador', [NotificationController::class, 'count'])->name('notifications.count');
+    Route::post('notificacoes/marcar-todas-lidas', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('notificacoes/{notification}/lida', [NotificationController::class, 'read'])->name('notifications.read');
 
     // Usuários (Admin/Coordenador) — ver specs/04.
     Route::resource('usuarios', UserController::class)

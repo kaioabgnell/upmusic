@@ -9,6 +9,7 @@ import { Chart, LineController, LineElement, PointElement, LinearScale, TimeScal
 import 'chartjs-adapter-date-fns';
 import kanban from './kanban';
 import cardsHub from './cards-hub';
+import notifications from './notifications';
 import { bidDocument, bidMatrix, bidNotice } from './licitacoes';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler);
@@ -19,6 +20,8 @@ window.Chart = Chart;
 Alpine.plugin(mask);
 Alpine.data('kanban', kanban);
 Alpine.data('cardsHub', cardsHub);
+// Sino de notificações da topbar (specs/22).
+Alpine.data('notifications', notifications);
 // Módulo de Licitações (specs/21).
 Alpine.data('bidDocument', bidDocument);
 Alpine.data('bidNotice', bidNotice);

@@ -46,6 +46,9 @@
                             @endisset
                         </div>
 
+                        {{-- Sino de notificações (specs/22) --}}
+                        <x-notification-bell />
+
                         {{-- Menu do usuário --}}
                         <x-dropdown align="right" width="48">
                             <x-slot name="trigger">

@@ -1129,6 +1129,64 @@ de implementação).
 >   removido, e o fixture de usuário do ProfileTest quebra no modo estrito).
 > - `php artisan test tests/Unit/Bid tests/Feature/Bid` verde, `pint --dirty` e `npm run build` limpos.
 
+- [x] **Notificações — sino da topbar** (specs/22): contador de não lidas, painel com lidas e não lidas
+      (10 em 10, scroll infinito), filtro "somente não lidas" e clique que marca como lida e abre o card
+
+> **Evento coberto**: atribuição de responsável. Ao definir/trocar o responsável de um card, o novo
+> responsável recebe "**{Autor}** te colocou como responsável do card **#{id} - {título}**", com a foto
+> (ou iniciais) de quem atribuiu. Clicar leva a `/quadros/{board}/card/{card}` (rota da specs/18, que já
+> abre o modal do card).
+> - **Tabela `user_notifications`** (migration `2026_07_30_000001`), e **não** `notifications`: o `User`
+>   usa o trait `Notifiable`, que reserva aquele nome para o canal `database` do Laravel — uma tabela
+>   homônima com schema próprio quebraria a relação `notifications()` silenciosamente.
+> - **Gatilho único**: `CardObserver` (`created`/`updated` com `wasChanged('assignee_id')`) → Action
+>   `NotifyCardAssigned`. Cobre por construção todos os caminhos que gravam `assignee_id` (CreateCard,
+>   UpdateCard, DuplicateCard, ImportTemplate e futuros), sem espalhar chamadas pelas Actions.
+>   Auto-atribuição e responsável inativo não geram notificação; origem sem sessão grava "Sistema".
+> - **Snapshot do título** em `data`: a notificação descreve o fato como ele foi, mesmo que o card seja
+>   renomeado depois (mesmo princípio de `card_movements`).
+> - **`VisibleNotificationsQuery`** é a fonte única dos três endpoints (lista, contador, marcar todas),
+>   então badge e lista nunca divergem: só aparece notificação de card ainda existente, em quadro
+>   acessível e dentro do escopo por evento do coordenador restrito (specs/20).
+> - **Paginação por cursor** (`?antes=<id>`, ordem `id DESC`), não `?page=` — com offset, uma notificação
+>   nova chegando durante a rolagem faria a página 2 repetir itens da página 1.
+> - **Sem tempo real** (`BROADCAST_DRIVER=log`, `QUEUE_CONNECTION=sync`): gravação síncrona e badge por
+>   polling de 60s num endpoint que devolve só o inteiro, parado com a aba em segundo plano e disparado
+>   ao voltar o foco. O valor inicial vem de um View Composer, para o badge não piscar em 0.
+> - Comando `php artisan notificacoes:limpar` (padrão: lidas há mais de 90 dias), não agendado.
+>
+> **Correções após o primeiro uso real** (dois bugs distintos, ambos com o mesmo sintoma "atribuí o
+> responsável e a notificação não chegou"):
+> - **Painel servia lista velha**: `toggle()` só carregava na primeira abertura (`if (!this.loaded)`),
+>   então notificação chegada depois disso só aparecia com F5. Agora recarrega a cada abertura, e o
+>   `reset` só substitui a lista quando a resposta chega (sem piscar skeleton ao reabrir).
+> - **Responsável sem acesso ao quadro ficava mudo**: o select de responsável oferece todos os usuários
+>   ativos, sem filtrar por quadro; ao atribuir alguém de outro departamento, a linha era gravada mas o
+>   filtro de visibilidade a escondia — e o card também daria 403. **Decisão do cliente**: o responsável
+>   atual passa a **ler** o próprio card e o quadro dele (`CardPolicy::view` + `BoardPolicy::view` +
+>   novo `User::isAssignedOnBoard()`), sem tocar em `canAccessBoard()` — escrita (salvar, mover,
+>   transferir, excluir) e o menu de quadros seguem inalterados, e o escopo por evento da specs/20
+>   continua absoluto. Ver specs/22 §4.5.
+>
+> **Bug encontrado e corrigido na validação**: a primeira versão do `VisibleNotificationsQuery` memoizava
+> os quadros do usuário numa propriedade da instância; como o container reaproveita o objeto entre
+> requests do mesmo processo, o escopo de um usuário **vazava** para o request seguinte de outro (usuário
+> sem acesso ao quadro passou a ver a notificação alheia). O serviço agora é sem estado, com subquery no
+> lugar do `pluck()` — sem round trip extra.
+>
+> **Validado por HTTP real** (servidor local, sessões de admin e de "Usuário Operação"): atribuir o card
+> #31 gerou a notificação com autor, avatar, `#31 - título` e link corretos; auto-atribuição não gerou
+> nada; card do quadro 2 (sem acesso do usuário) gravou a linha mas ficou **invisível** na lista e no
+> contador; marcar como lida devolveu `unread_count` atualizado e é idempotente; admin marcando
+> notificação alheia → **403**; 26 notificações paginaram 10 + 10 + 6 com `next_cursor` null no fim, sem
+> repetir nem pular; "marcar todas" zerou só o conjunto visível; badge renderizado no HTML
+> (`initialUnread: 3` → `0`). Dados de teste removidos e os cards 29/30/31 devolvidos a responsável nulo.
+> - **Testes**: 27 novos (`tests/Feature/Notifications`, `tests/Unit/NotificationPresenterTest`),
+>   95 asserções. Seguem falhando os mesmos **8 testes pré-existentes** do Breeze (`ExampleTest`,
+>   `RegistrationTest`, `ProfileTest`), confirmados por `git stash` como alheios a este módulo.
+> - `php artisan test tests/Feature/Notifications tests/Unit/NotificationPresenterTest` verde,
+>   `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase
