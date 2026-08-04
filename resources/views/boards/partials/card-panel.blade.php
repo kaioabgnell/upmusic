@@ -408,7 +408,11 @@
                                                 <div class="rounded-md border border-hairline p-2 text-sm">
                                                     <div class="flex items-center gap-2">
                                                         <i class="fa-solid fa-file text-steel"></i>
-                                                        <a :href="a.url" class="flex-1 text-brand-ink hover:underline truncate" x-text="a.original_name"></a>
+                                                        {{-- Nova aba: o backend serve PDF/imagem como `inline`, então abre no
+                                                             navegador; sem o target, abriria por cima do modal e perderia o card. --}}
+                                                        <a :href="a.url" target="_blank" rel="noopener"
+                                                           :title="a.original_name"
+                                                           class="flex-1 text-brand-ink hover:underline truncate" x-text="a.original_name"></a>
                                                         <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600" x-text="a.kind_label"></span>
                                                         <button type="button" @click="deleteAttachment(a)" class="text-steel hover:text-red-600"><i class="fa-solid fa-trash text-xs"></i></button>
                                                     </div>

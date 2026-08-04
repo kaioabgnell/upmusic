@@ -28,6 +28,18 @@ use Illuminate\Support\Facades\Storage;
 class CardController extends Controller
 {
     /**
+     * Tipos que o anexo pode abrir direto no navegador. Allowlist fechada de propósito: qualquer
+     * coisa fora daqui (inclusive HTML e SVG, que executam script) continua sendo baixada.
+     */
+    private const INLINE_MIMES = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+    ];
+
+    /**
      * Listagem global de cards (todos os quadros, todos os status). Ver specs/07/12.
      */
     public function index(Request $request, CardFormOptionsService $options)
@@ -302,13 +314,28 @@ class CardController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /**
+     * Abre o anexo no navegador (`inline`) quando o tipo é exibível — PDF e imagens — e só força o
+     * download no resto (doc/docx/xls/xlsx, que o navegador não renderiza mesmo).
+     */
     public function downloadAttachment(CardAttachment $attachment)
     {
         $this->authorize('view', $attachment->card);
 
-        abort_unless(Storage::disk('local')->exists($attachment->path), 404);
+        $disk = Storage::disk('local');
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name);
+        abort_unless($disk->exists($attachment->path), 404);
+
+        // O Content-Type sai do conteúdo do arquivo (finfo), nunca da coluna `mime`: ela guarda o
+        // getClientMimeType() do upload, que quem envia controla. Servir inline com um tipo forjado
+        // (um PNG declarado como text/html, por exemplo) seria XSS armazenado na origem do sistema.
+        // O nosniff completa: impede o navegador de adivinhar um tipo diferente do declarado.
+        $mime = $disk->mimeType($attachment->path) ?: 'application/octet-stream';
+
+        return $disk->response($attachment->path, $attachment->original_name, [
+            'Content-Type' => $mime,
+            'X-Content-Type-Options' => 'nosniff',
+        ], in_array($mime, self::INLINE_MIMES, true) ? 'inline' : 'attachment');
     }
 
     // ------------------------------------------------------------------
