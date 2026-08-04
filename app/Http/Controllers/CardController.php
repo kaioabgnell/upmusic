@@ -24,6 +24,7 @@ use App\Services\CardFormOptionsService;
 use App\Support\CardPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class CardController extends Controller
 {
@@ -286,7 +287,9 @@ class CardController extends Controller
 
         $data = $request->validate([
             'file' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx'],
-            'kind' => ['nullable', 'in:geral,nota_fiscal,comprovante'],
+            // Lista derivada do enum: incluir um tipo novo em AttachmentKind::selectable() já o
+            // libera aqui e no select do card, sem duas listas para manter em sincronia.
+            'kind' => ['nullable', Rule::in(array_column(AttachmentKind::selectable(), 'value'))],
         ]);
 
         $file = $request->file('file');

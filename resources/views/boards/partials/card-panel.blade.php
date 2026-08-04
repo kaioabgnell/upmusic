@@ -423,10 +423,12 @@
                                             <p x-show="attachments.length === 0" class="text-xs text-steel">Nenhum anexo.</p>
                                         </div>
                                         <div class="flex items-center gap-2 mt-2">
+                                            {{-- Opções vêm do enum (AttachmentKind::selectable()), a mesma fonte que o
+                                                 CardController usa para validar — não há lista duplicada aqui. --}}
                                             <select x-model="uploadKind" class="text-xs border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
-                                                <option value="geral">Geral</option>
-                                                <option value="nota_fiscal">Nota fiscal</option>
-                                                <option value="comprovante">Comprovante</option>
+                                                @foreach (\App\Domain\Enums\AttachmentKind::selectable() as $kind)
+                                                    <option value="{{ $kind->value }}">{{ $kind->label() }}</option>
+                                                @endforeach
                                             </select>
                                             <label class="inline-flex items-center gap-2 rounded-md border border-dashed border-hairline px-3 py-1.5 text-xs font-medium text-steel cursor-pointer hover:border-brand-orange">
                                                 <i class="fa-solid fa-cloud-arrow-up"></i> Enviar arquivo

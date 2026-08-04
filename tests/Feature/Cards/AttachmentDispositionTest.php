@@ -134,6 +134,54 @@ class AttachmentDispositionTest extends TestCase
         $this->assertStringNotContainsString('text/html', (string) $response->headers->get('content-type'));
     }
 
+    /** @dataProvider tiposSelecionaveis */
+    public function test_tipos_selecionaveis_sao_aceitos_no_upload(string $kind, string $label): void
+    {
+        Storage::fake('local');
+        $user = $this->admin();
+
+        $this->actingAs($user)
+            ->postJson(route('cards.attachments.store', $this->card()), [
+                'file' => $this->pngFile(),
+                'kind' => $kind,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('kind', $kind)
+            ->assertJsonPath('kind_label', $label);
+    }
+
+    public static function tiposSelecionaveis(): array
+    {
+        return [
+            'geral' => ['geral', 'Geral'],
+            'orçamento' => ['orcamento', 'Orçamento'],
+            'contrato' => ['contrato', 'Contrato'],
+            'nota fiscal' => ['nota_fiscal', 'Nota fiscal'],
+            'comprovante' => ['comprovante', 'Comprovante'],
+        ];
+    }
+
+    /**
+     * `minuta` é atribuída pelo sistema quando o fornecedor envia pelo link do formulário
+     * (specs/19); marcar um anexo à mão como se tivesse vindo do fornecedor não pode ser possível.
+     */
+    public function test_minuta_e_tipo_invalido_sao_recusados_no_upload(): void
+    {
+        Storage::fake('local');
+        $user = $this->admin();
+        $card = $this->card();
+
+        foreach (['minuta', 'inexistente'] as $kind) {
+            $this->actingAs($user)
+                ->postJson(route('cards.attachments.store', $card), [
+                    'file' => $this->pngFile(),
+                    'kind' => $kind,
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('kind');
+        }
+    }
+
     public function test_anexo_de_card_sem_acesso_continua_bloqueado(): void
     {
         Storage::fake('local');
