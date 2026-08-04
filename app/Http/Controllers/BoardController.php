@@ -100,7 +100,10 @@ class BoardController extends Controller
         $board->load([
             'columns' => fn ($q) => $q->orderBy('position'),
             'columns.cards' => function ($q) use ($filters, $user) {
-                $q->with(['empresa:id,corporate_name,trade_name', 'event:id,name', 'assignee:id,name,avatar_path'])
+                $q->with([
+                    'empresa:id,corporate_name,trade_name', 'fornecedor:id,name',
+                    'event:id,name', 'assignee:id,name,avatar_path',
+                ])
                     ->withCount(['attachments', 'comments'])
                     ->whereNull('concluded_at')
                     ->whereNull('archived_at')

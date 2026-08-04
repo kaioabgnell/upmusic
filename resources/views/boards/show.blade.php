@@ -164,8 +164,14 @@
                                     <p class="text-sm font-medium text-brand-ink leading-snug" x-text="'#' + card.id + ' - ' + card.title"></p>
                                     <span class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" :class="priorityMeta(card.priority).classes" x-text="priorityMeta(card.priority).label"></span>
                                 </div>
-                                <p x-show="card.empresa" class="text-xs text-steel mt-1.5"><i class="fa-solid fa-building mr-1"></i><span x-text="truncate(card.empresa, 28)"></span></p>
-                                <p x-show="card.event" class="text-xs text-steel mt-1"><i class="fa-solid fa-calendar-days mr-1"></i><span x-text="truncate(card.event, 28)"></span></p>
+                                {{-- Evento, Fornecedor, Empresa (nesta ordem). O espaçamento fica no
+                                     contêiner: qualquer uma das três linhas pode não existir no card, e
+                                     margem fixa em cada <p> deixaria buraco quando a de cima some. --}}
+                                <div x-show="card.event || card.fornecedor || card.empresa" class="mt-1.5 space-y-1">
+                                    <p x-show="card.event" class="text-xs text-steel"><i class="fa-solid fa-calendar-days mr-1"></i><span x-text="truncate(card.event, 28)"></span></p>
+                                    <p x-show="card.fornecedor" class="text-xs text-steel"><i class="fa-solid fa-truck-field mr-1"></i><span x-text="truncate(card.fornecedor, 28)"></span></p>
+                                    <p x-show="card.empresa" class="text-xs text-steel"><i class="fa-solid fa-building mr-1"></i><span x-text="truncate(card.empresa, 28)"></span></p>
+                                </div>
                                 <div class="flex items-center justify-between mt-2.5 text-xs text-steel">
                                     <div class="flex items-center gap-2">
                                         <span x-show="card.due_date" :class="dueDateClass(card)"><i class="fa-regular fa-calendar mr-0.5"></i><span x-text="card.due_date"></span></span>

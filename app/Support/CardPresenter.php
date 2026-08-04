@@ -14,7 +14,9 @@ class CardPresenter
      */
     public static function compact(Card $card): array
     {
-        $card->loadMissing(['empresa:id,corporate_name', 'event:id,name', 'assignee:id,name,avatar_path']);
+        $card->loadMissing([
+            'empresa:id,corporate_name', 'fornecedor:id,name', 'event:id,name', 'assignee:id,name,avatar_path',
+        ]);
 
         if (! array_key_exists('attachments_count', $card->getAttributes())) {
             $card->loadCount(['attachments', 'comments']);
@@ -25,6 +27,7 @@ class CardPresenter
             'board_column_id' => $card->board_column_id,
             'title' => $card->title,
             'empresa' => $card->empresa?->corporate_name,
+            'fornecedor' => $card->fornecedor?->name,
             'event' => $card->event?->name,
             'assignee' => $card->assignee?->name,
             'assignee_initial' => $card->assignee?->initials(),
