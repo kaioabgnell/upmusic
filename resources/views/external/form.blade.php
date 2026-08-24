@@ -23,19 +23,19 @@
             <input type="text" name="website" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
 
             <div>
-                <label for="cnpj" class="text-sm font-medium text-brand-ink">CNPJ da empresa</label>
+                <label for="cnpj" class="text-sm font-medium text-brand-ink">CNPJ da empresa *</label>
                 <input id="cnpj" name="cnpj" value="{{ old('cnpj') }}" x-data x-mask="99.999.999/9999-99" placeholder="00.000.000/0000-00" required
                        class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
             </div>
 
             <div>
-                <label for="name" class="text-sm font-medium text-brand-ink">Empresa</label>
+                <label for="name" class="text-sm font-medium text-brand-ink">Empresa *</label>
                 <input id="name" name="name" value="{{ old('name') }}" required
                        class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
             </div>
 
             <div>
-                <label for="requester_name" class="text-sm font-medium text-brand-ink">Nome do solicitante</label>
+                <label for="requester_name" class="text-sm font-medium text-brand-ink">Nome do solicitante *</label>
                 <input id="requester_name" name="requester_name" value="{{ old('requester_name') }}" required
                        class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                 <p class="mt-1 text-xs text-steel">Quem solicitou o serviço — usado para saber a quem direcionar a cobrança.</p>
@@ -43,19 +43,19 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label for="value" class="text-sm font-medium text-brand-ink">Valor (R$)</label>
+                    <label for="value" class="text-sm font-medium text-brand-ink">Valor (R$) *</label>
                     <input id="value" name="value" value="{{ old('value') }}" inputmode="decimal" placeholder="0,00" required
                            class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                 </div>
                 <div>
-                    <label for="service_date" class="text-sm font-medium text-brand-ink">Data</label>
+                    <label for="service_date" class="text-sm font-medium text-brand-ink">Data *</label>
                     <input id="service_date" name="service_date" type="date" value="{{ old('service_date') }}" required
                            class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                 </div>
             </div>
 
             <div>
-                <label for="service_description" class="text-sm font-medium text-brand-ink">Descrição do serviço</label>
+                <label for="service_description" class="text-sm font-medium text-brand-ink">Descrição do serviço *</label>
                 <textarea id="service_description" name="service_description" rows="3" required
                           class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">{{ old('service_description') }}</textarea>
             </div>
