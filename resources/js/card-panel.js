@@ -35,6 +35,8 @@ function cardPanelBase() {
         canApprove: false,
         // Formulário de minuta do fornecedor (specs/19): allowed = quadro permite; demais campos vêm do link.
         supplierForm: { allowed: false, active: false, url: null, submissions_count: 0 },
+        // Solicitante informado no formulário externo (specs/11) — só existe em card de origem externa.
+        requesterName: null,
         tab: 'detalhes', // 'detalhes' | 'comentarios' | 'historico'
 
         actionsMenuOpen: false,
@@ -116,6 +118,7 @@ function cardPanelBase() {
             this.approvers = [];
             this.canApprove = false;
             this.supplierForm = { allowed: false, active: false, url: null, submissions_count: 0 };
+            this.requesterName = null;
             this.form = this.blankForm(columnId);
             this.errors = {};
             this.comments = []; this.attachments = []; this.movements = [];
@@ -155,6 +158,7 @@ function cardPanelBase() {
                 this.approvers = c.approvers;
                 this.canApprove = c.can_approve;
                 this.supplierForm = c.supplier_form;
+                this.requesterName = c.requester_name;
                 this.cfg.fields = c.board_fields;
                 const fields = {};
                 this.cfg.fields.forEach((f) => {

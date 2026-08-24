@@ -36,13 +36,14 @@ class PublicFormController extends Controller
         $data = $request->validate([
             'cnpj' => ['required', 'string', new Cnpj],
             'name' => ['required', 'string', 'max:180'],
+            'requester_name' => ['required', 'string', 'max:180'],
             'value' => ['required', 'string'],
             'service_date' => ['required', 'date'],
             'service_description' => ['required', 'string'],
             'payment_data' => ['required', 'string'],
-            'invoice' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'invoice' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
         ], [], [
-            'cnpj' => 'CNPJ', 'name' => 'nome', 'value' => 'valor',
+            'cnpj' => 'CNPJ', 'name' => 'nome', 'requester_name' => 'nome do solicitante', 'value' => 'valor',
             'service_date' => 'data', 'service_description' => 'descrição do serviço',
             'payment_data' => 'dados para pagamento', 'invoice' => 'nota fiscal',
         ]);

@@ -361,6 +361,7 @@ class CardController extends Controller
             'attachments.supplierSubmission:id,card_attachment_id,note',
             'movements' => fn ($q) => $q->with(['user:id,name', 'fromColumn:id,name', 'toColumn:id,name', 'fromBoard:id,name', 'toBoard:id,name']),
             'supplierForm' => fn ($q) => $q->withCount('submissions'),
+            'externalSubmission:id,card_id,requester_name',
         ]);
 
         return [
@@ -395,6 +396,8 @@ class CardController extends Controller
             'approvers' => $card->column?->approvers->pluck('name') ?? [],
             'can_approve' => (bool) $card->column?->isApproverFor(auth()->user()),
             'supplier_form' => $this->supplierFormJson($card),
+            // Solicitante informado no formulário externo (specs/11) — null nos cards criados na mão.
+            'requester_name' => $card->externalSubmission?->requester_name,
             'board_fields' => $card->board?->fields->map(fn ($f) => [
                 'id' => $f->id,
                 'label' => $f->label,

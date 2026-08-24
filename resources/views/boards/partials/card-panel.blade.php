@@ -164,6 +164,14 @@
                     <div class="flex-1 overflow-y-auto p-5 space-y-5">
                         {{-- Aba: Detalhes (única aba na criação; controlada por aba ao editar) --}}
                         <div x-show="!(mode === 'view' && cardId) || tab === 'detalhes'" class="space-y-5">
+                            {{-- Solicitante informado no formulário externo (specs/11) — leitura apenas, e só
+                                 aparece quando o envio trouxe o nome (cards criados na mão não têm). --}}
+                            <div x-show="requesterName" x-cloak class="flex items-center gap-2 rounded-md border border-hairline bg-surface px-3 py-2">
+                                <i class="fa-solid fa-user-tie text-brand-orange-deep"></i>
+                                <span class="text-xs text-steel shrink-0">Solicitante</span>
+                                <span class="text-sm font-medium text-brand-ink truncate" x-text="requesterName"></span>
+                            </div>
+
                             {{-- Campos fixos --}}
                             <div>
                                 <label class="text-sm font-medium text-brand-ink">Título</label>

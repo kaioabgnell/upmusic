@@ -137,4 +137,12 @@ class Card extends Model
     {
         return $this->hasOne(CardSupplierForm::class);
     }
+
+    /**
+     * Envio do formulário externo que originou o card (specs/11) — null nos cards criados na mão.
+     */
+    public function externalSubmission(): HasOne
+    {
+        return $this->hasOne(ExternalSubmission::class);
+    }
 }

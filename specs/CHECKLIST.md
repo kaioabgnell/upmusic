@@ -1187,6 +1187,35 @@ de implementação).
 > - `php artisan test tests/Feature/Notifications tests/Unit/NotificationPresenterTest` verde,
 >   `pint --dirty` e `npm run build` limpos.
 
+- [x] **Nome do solicitante no formulário externo** (specs/11): campo obrigatório em `/f/{token}`, gravado
+  em `external_submissions.requester_name` (coluna nullable — os envios antigos ficam sem valor) e devolvido
+  no JSON do card como `requester_name`, via nova relação `Card::externalSubmission()`. O modal do card
+  mostra uma faixa "Solicitante" no topo da aba Detalhes, só quando há valor (card criado na mão não exibe
+  nada), e a tela de gestão do formulário lista o solicitante junto de cada envio. Motivo: é o produtor que
+  preenche o formulário e a equipe precisa saber de quem cobrar.
+  - **Testes**: 3 novos em `tests/Feature/External/ExternalFormSubmissionTest.php` (campo obrigatório,
+    persistência + retorno no JSON do card, card manual sem solicitante). Seguem falhando os mesmos
+    **8 testes pré-existentes** do Breeze. `pint --dirty` e `npm run build` limpos.
+
+- [x] **Nota fiscal opcional no formulário externo** (specs/11): o `<input type="file" required>` estava com
+  `class="hidden"` e o Chrome abortava o submit inteiro com *"An invalid form control with name='invoice' is
+  not focusable"* — campo com `display:none` não recebe foco, então o browser não tem onde exibir a validação
+  nativa. Como a NF não é obrigatória, o campo virou opcional de ponta a ponta: `nullable` na validação,
+  `invoice_path` nullable (migration em SQL cru — Laravel 10 precisa de doctrine/dbal para `->change()`, que
+  não está instalado), Action aceita `?UploadedFile` e só cria o `card_attachments` quando há arquivo. O input
+  passou de `hidden` para `sr-only` (focável) e o `for` duplicado saiu da label do dropzone, que já envolve o
+  input — com os dois, o clique abria o seletor de arquivo duas vezes em alguns browsers.
+  - **Testes**: 3 novos em `tests/Feature/External/ExternalFormSubmissionTest.php` (envio sem NF cria card sem
+    anexo, envio com NF anexa, e o input renderizado não é `required` nem `hidden` — guarda de regressão).
+    Suite do módulo verde (6 testes), `pint --dirty` e `npm run build` limpos.
+
+- [x] **Formato do card gerado pelo formulário externo** (specs/11): título passou de `Nome — descrição do
+  serviço` para `CNPJ formatado - Empresa`, e a descrição virou um bloco de linhas rotuladas
+  (`Valor (R$) - …`, `Descrição do serviço - …`, `Dados para pagamento - …`) — antes só repetia a descrição
+  do serviço e os dados de pagamento ficavam apenas no submission, fora da vista de quem paga. Vale só para
+  envios novos; cards já criados mantêm o texto antigo. Coberto por teste de formato em
+  `tests/Feature/External/ExternalFormSubmissionTest.php` (7 testes no módulo, verdes).
+
 ---
 
 ### Status por fase

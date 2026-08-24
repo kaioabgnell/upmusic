@@ -19,10 +19,15 @@ dados e anexa a NF; ao enviar, é gerado automaticamente um card no quadro, na e
 
 - **CNPJ da empresa** (obrigatório, validado/máscara).
 - **Nome** (obrigatório).
+- **Nome do solicitante** (obrigatório): quem pediu o serviço — é por ele que a equipe sabe a quem
+  direcionar a cobrança. Gravado em `external_submissions.requester_name` e exibido no modal do card.
 - **Valor** (obrigatório, BRL).
 - **Data** (obrigatório).
 - **Descrição do serviço** (obrigatório).
-- **Anexo da nota fiscal** (obrigatório): PDF/imagem, tamanho/MIME validados.
+- **Anexo da nota fiscal** (**opcional**): PDF/imagem, tamanho/MIME validados. O envio sem arquivo cria o
+  card normalmente, só sem o anexo (`invoice_path` nulo) — a equipe cobra o documento depois. O input **não**
+  pode ser `required` com `display:none`: campo escondido não recebe foco e o browser aborta o submit inteiro
+  ("An invalid form control with name='invoice' is not focusable").
 
 Formulário responsivo, acessível, com feedback SweetAlert2 e tela de sucesso após envio. Ícones Font Awesome.
 
@@ -34,9 +39,17 @@ Ao enviar (`POST /f/{token}`), numa transação:
 2. **Casar empresa por CNPJ** com `empresas.cnpj`; se existir, `empresa_id` é preenchido; senão fica nulo
    (equipe cadastra/associa depois).
 3. **Criar card** no `board_id` do formulário, na `target_column_id` (coluna de análise / `is_entry`),
-   com `origin = external_form`, título a partir do nome/serviço, `estimated_value = valor`, `empresa_id`
-   (se casado), descrição = descrição do serviço.
-4. Anexar a **nota fiscal** ao card (`card_attachments.kind = nota_fiscal`, mesmo arquivo do submission).
+   com `origin = external_form`, `estimated_value = valor` e `empresa_id` (se casado). Título e descrição
+   seguem o formato acordado com a equipe:
+   - **Título:** `CNPJ formatado - Empresa` (ex.: `11.222.333/0001-81 - Som & Luz Ltda`).
+   - **Descrição** (uma linha por dado):
+     ```
+     Valor (R$) - 1.500,00
+     Descrição do serviço - [descrição]
+     Dados para pagamento - [dados]
+     ```
+4. Anexar a **nota fiscal** ao card (`card_attachments.kind = nota_fiscal`, mesmo arquivo do submission),
+   quando o envio trouxe arquivo.
 5. Vincular `external_submissions.card_id` ao card criado.
 6. Exibir tela de sucesso ao cliente.
 
@@ -67,3 +80,4 @@ Resource /quadros/{board}/formularios   external.forms.*   role:admin,coordenado
 - [ ] Empresa casada por CNPJ quando existir; senão card sem vínculo.
 - [ ] Rate limiting e validação de upload aplicados.
 - [ ] Submission registrada e vinculada ao card.
+- [ ] Nome do solicitante obrigatório no envio e visível no card quando preenchido.

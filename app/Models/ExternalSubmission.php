@@ -12,7 +12,7 @@ class ExternalSubmission extends Model
     use HasFactory;
 
     protected $fillable = [
-        'external_form_id', 'empresa_id', 'card_id', 'cnpj', 'name', 'value',
+        'external_form_id', 'empresa_id', 'card_id', 'cnpj', 'requester_name', 'name', 'value',
         'service_date', 'service_description', 'payment_data', 'invoice_path', 'status', 'ip',
     ];
 

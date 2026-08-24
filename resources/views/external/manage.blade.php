@@ -71,6 +71,9 @@
                 <div class="py-2 border-b border-hairline last:border-0">
                     <p class="text-sm font-medium text-brand-ink">{{ $sub->name }}</p>
                     <p class="text-xs text-steel">{{ \App\Support\Br::formatCnpj($sub->cnpj) }} · R$ {{ number_format((float) $sub->value, 2, ',', '.') }}</p>
+                    @if ($sub->requester_name)
+                        <p class="text-xs text-steel truncate"><i class="fa-solid fa-user-tie text-brand-orange-deep mr-1"></i>Solicitante: {{ $sub->requester_name }}</p>
+                    @endif
                     @if ($sub->payment_data)
                         <p class="text-xs text-steel truncate" title="{{ $sub->payment_data }}"><i class="fa-solid fa-money-check-dollar text-brand-orange-deep mr-1"></i>{{ $sub->payment_data }}</p>
                     @endif
