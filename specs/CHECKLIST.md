@@ -1216,6 +1216,39 @@ de implementação).
   envios novos; cards já criados mantêm o texto antigo. Coberto por teste de formato em
   `tests/Feature/External/ExternalFormSubmissionTest.php` (7 testes no módulo, verdes).
 
+- [x] **Financeiro do Evento — substituição da planilha** (specs/23): módulo novo que acaba com o
+  trabalho dobrado "subir o anexo no card e redigitar tudo no `FINANCEIRO - MODELO.xlsx`". Uma
+  planilha por evento (`finance_sheets`, 1:1 com `events`, criada sob demanda) com as três visões do
+  arquivo: **Resumo Geral** (receita/custo/resultado previsto x realizado, custo por categoria,
+  pago/falta pagar, acerto de sócios e alertas de consistência), **Receitas** (`finance_revenues`,
+  com descrição por linha para identificar o patrocínio) e **Custos** (`finance_cost_items`, grade
+  tipo planilha com edição inline e autosave por linha).
+  - **Ponte Kanban → Financeiro:** botão "Enviar para o Financeiro" no painel do card, sincronia
+    automática ao entrar em quadro com `boards.feeds_finance` e observer que leva anexo novo de card
+    já vinculado. `finance_documents` **referencia** o `card_attachments` existente — nenhum arquivo
+    é copiado. A Action `SyncCardToFinance` é idempotente.
+  - **Totais garantidos pelo banco:** `total_estimated_1/2` e `total_actual` são colunas geradas
+    STORED (`unitário × quantidade × diárias`), reproduzindo as fórmulas J/L/N do arquivo. "Previsto 2"
+    é opcional por evento; linha sem Previsto 2 continua valendo pelo Previsto 1.
+  - **Pagamentos** viraram tabela (`finance_payments` + catálogo `finance_payment_sources`) no lugar
+    das 5 colunas fixas — permite pagamento parcial, data e auditoria.
+  - **Controle documental** com os 6 tipos do arquivo (orçamento, contrato, NF, comprovante, ART,
+    boleto); `AttachmentKind` ganhou `art` e `boleto`. Status e ART são derivados dos documentos
+    até alguém editar à mão (`status_auto`).
+  - **Fechamento da prestação de contas** congela a planilha (422 em toda escrita, inclusive para
+    Admin — a trava fica em `FinanceController::authorizeWrite()`, não na policy, porque
+    `Gate::before` libera o Admin em qualquer policy) e bloqueia excluir no card um anexo que prova
+    despesa de evento fechado.
+  - **Migração:** import do `.xlsx` preenchido com pré-visualização obrigatória e export no layout do
+    modelo (`phpoffice/phpspreadsheet`). As marcações do bloco CONTROLE do arquivo entram como
+    observação, nunca como documento — documento sem arquivo seria prova falsa.
+  - **Catálogo semeado** do arquivo modelo: 18 categorias em `fornecedor_categorias` (as 9 existentes
+    reaproveitadas, sem renomear) e 168 descrições em `finance_item_presets`, de
+    `database/data/financeiro-itens-modelo.csv`.
+  - Menu passou a apontar para o módulo novo; `/financeiro/planos` e `/financeiro/comparativo`
+    (specs/09) seguem acessíveis por URL só para consulta do histórico — ver specs/23 §14.
+  - Cobertura: `tests/Feature/Finance` (54 testes verdes), `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase

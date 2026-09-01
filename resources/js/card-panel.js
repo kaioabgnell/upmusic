@@ -51,6 +51,18 @@ function cardPanelBase() {
 
         transferBoardId: '',
 
+        // Ponte com o Financeiro do Evento (specs/23 §6.3). `finance.preview` é carregado sob
+        // demanda ao abrir o modal — o card não paga esse fetch enquanto ninguém pedir.
+        finance: {
+            open: false,
+            loading: false,
+            saving: false,
+            data: null,
+            form: { event_id: '', fornecedor_categoria_id: '', description: '', unit_estimated_1: '', unit_actual: '' },
+            selected: {},
+            kinds: {},
+        },
+
         assigneeOpen: false,
         assigneeSearch: '',
         dueOpen: false,
@@ -544,7 +556,12 @@ function cardPanelBase() {
         },
 
         async deleteAttachment(att) {
-            if (!(await window.upAlerts.confirmAction({ text: `Excluir "${att.original_name}"?` }))) return;
+            // O anexo pode ser a prova de uma despesa no Financeiro (specs/23): o arquivo não é
+            // copiado para lá, então excluir aqui apaga o documento de controle junto.
+            const usage = att.finance_usage
+                ? ' Ele também é documento de controle no Financeiro do evento e sairá de lá.'
+                : '';
+            if (!(await window.upAlerts.confirmAction({ text: `Excluir "${att.original_name}"?${usage}` }))) return;
             try {
                 await this.api(`${this.cfg.urls.anexoBase}/${att.id}`, 'DELETE');
                 this.attachments = this.attachments.filter((a) => a.id !== att.id);
@@ -552,6 +569,73 @@ function cardPanelBase() {
             } catch (e) {
                 window.upAlerts.notifyError(e.message);
             }
+        },
+
+        // ---- Financeiro do Evento (specs/23) -----------------------------------
+        async openFinanceModal() {
+            this.finance.open = true;
+            this.finance.loading = true;
+            try {
+                const data = await this.api(this.cardUrl(this.cardId, '/financeiro/preview'));
+                this.finance.data = data;
+                this.finance.form = {
+                    event_id: data.card.event_id ?? '',
+                    fornecedor_categoria_id: data.card.fornecedor_categoria_id ?? '',
+                    description: data.existing_item?.description ?? data.card.title,
+                    unit_estimated_1: this.brNumber(data.card.estimated_value),
+                    unit_actual: data.card.actual_value === null ? '' : this.brNumber(data.card.actual_value),
+                };
+                // Anexos com tipo mapeável já vêm marcados; `geral`/`minuta` exigem classificação.
+                this.finance.selected = {};
+                this.finance.kinds = {};
+                data.attachments.forEach((a) => {
+                    this.finance.selected[a.id] = a.checked;
+                    this.finance.kinds[a.id] = a.suggested_kind ?? 'comprovante';
+                });
+            } catch (e) {
+                this.finance.open = false;
+                window.upAlerts.notifyError(e.message);
+            } finally {
+                this.finance.loading = false;
+            }
+        },
+
+        get financePresetOptions() {
+            const id = this.finance.form.fornecedor_categoria_id;
+            return (this.finance.data?.presets?.[id]) ?? [];
+        },
+
+        async submitFinance() {
+            this.finance.saving = true;
+            try {
+                const attachmentIds = Object.entries(this.finance.selected)
+                    .filter(([, checked]) => checked)
+                    .map(([id]) => Number(id));
+                const kinds = {};
+                attachmentIds.forEach((id) => { kinds[id] = this.finance.kinds[id]; });
+
+                const res = await this.api(this.cardUrl(this.cardId, '/financeiro'), 'POST', {
+                    ...this.finance.form,
+                    attachment_ids: attachmentIds,
+                    kinds,
+                });
+                this.finance.open = false;
+                window.upAlerts.notifySuccess(res.message);
+                // O evento pode ter sido vinculado no próprio modal — recarrega o card para o
+                // formulário refletir o vínculo novo.
+                await this.openCard(this.cardId);
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            } finally {
+                this.finance.saving = false;
+            }
+        },
+
+        /** Formata número para o padrão BR usado nos inputs monetários do sistema. */
+        brNumber(value) {
+            return value === null || value === undefined || value === ''
+                ? ''
+                : Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
 
         // ---- Transferência / conclusão / reabertura ----------------------------

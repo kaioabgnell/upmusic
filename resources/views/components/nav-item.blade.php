@@ -4,13 +4,17 @@
     'icon' => 'fa-circle',
     'label' => '',
     'badge' => null,    // contador opcional à direita (ex.: pendências de licitações)
+    'except' => null,   // padrão(ões) que NÃO devem ativar o item (ex.: sub-área com item próprio)
 ])
 
 @php
     $exists = $route && \Illuminate\Support\Facades\Route::has($route);
     $href = $exists ? route($route) : '#';
     $pattern = $pattern ?? ($route ? \Illuminate\Support\Str::before($route, '.') . '.*' : null);
-    $active = $pattern && request()->routeIs($pattern);
+    // `except` existe para o caso de uma sub-área ter item próprio no menu (Financeiro x
+    // Config. Financeiro): sem isso os dois acendem juntos, já que o padrão do pai casa com o filho.
+    $active = $pattern && request()->routeIs($pattern)
+        && ! ($except && request()->routeIs($except));
 @endphp
 
 <a href="{{ $href }}"

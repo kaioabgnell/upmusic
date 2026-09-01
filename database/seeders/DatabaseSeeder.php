@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
             SampleDataSeeder::class,
             // Módulo de Licitações (ver specs/21) — catálogo idempotente de categorias/tipos/ramos.
             BidCatalogSeeder::class,
+            // Financeiro do Evento (ver specs/23) — categorias de custo, grupos de pagamento e os
+            // 168 itens do arquivo `FINANCEIRO - MODELO.xlsx`.
+            FinanceCatalogSeeder::class,
         ]);
     }
 }

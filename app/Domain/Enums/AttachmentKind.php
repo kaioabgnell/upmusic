@@ -10,6 +10,10 @@ enum AttachmentKind: string
     case Orcamento = 'orcamento';
     case Contrato = 'contrato';
     case Minuta = 'minuta';
+    // ART e Boleto entram pelo Financeiro do Evento (specs/23): sem eles, dois dos seis
+    // controles documentais da planilha nunca chegariam preenchidos pela ponte card -> financeiro.
+    case Art = 'art';
+    case Boleto = 'boleto';
 
     public function label(): string
     {
@@ -20,6 +24,8 @@ enum AttachmentKind: string
             self::Orcamento => 'Orçamento',
             self::Contrato => 'Contrato',
             self::Minuta => 'Minuta',
+            self::Art => 'ART',
+            self::Boleto => 'Boleto',
         };
     }
 
@@ -32,6 +38,6 @@ enum AttachmentKind: string
      */
     public static function selectable(): array
     {
-        return [self::Geral, self::Orcamento, self::Contrato, self::NotaFiscal, self::Comprovante];
+        return [self::Geral, self::Orcamento, self::Contrato, self::NotaFiscal, self::Comprovante, self::Art, self::Boleto];
     }
 }

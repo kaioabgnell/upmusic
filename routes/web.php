@@ -19,6 +19,16 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\ExternalFormController;
+use App\Http\Controllers\Finance\CardFinanceController;
+use App\Http\Controllers\Finance\FinanceCostItemController;
+use App\Http\Controllers\Finance\FinanceDocumentController;
+use App\Http\Controllers\Finance\FinanceImportExportController;
+use App\Http\Controllers\Finance\FinanceItemPresetController;
+use App\Http\Controllers\Finance\FinancePaymentController;
+use App\Http\Controllers\Finance\FinancePaymentSourceController;
+use App\Http\Controllers\Finance\FinanceRevenueController;
+use App\Http\Controllers\Finance\FinanceSettlementController;
+use App\Http\Controllers\Finance\FinanceSheetController;
 use App\Http\Controllers\FinancialEntryController;
 use App\Http\Controllers\FinancialPlanController;
 use App\Http\Controllers\FinancialReportController;
@@ -155,6 +165,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Link de minuta do fornecedor (specs/19) — gerar/desativar; página pública fica fora do grupo auth.
     Route::post('cards/{card}/minuta/link', [CardSupplierFormController::class, 'generate'])->name('supplier.link.generate');
     Route::delete('cards/{card}/minuta/link', [CardSupplierFormController::class, 'disable'])->name('supplier.link.disable');
+    // Ponte Kanban -> Financeiro (specs/23 §6). Fica no bloco de cards de propósito: quem edita o
+    // card empurra a despesa para o financeiro, mesmo sem acesso ao módulo (autorizado pela
+    // CardPolicy). Rotas literais antes do wildcard de anexos.
+    Route::get('cards/{card}/financeiro/preview', [CardFinanceController::class, 'preview'])->name('cards.finance.preview');
+    Route::post('cards/{card}/financeiro', [CardFinanceController::class, 'sync'])->name('cards.finance.sync');
     Route::post('cards/{card}/comentarios', [CardController::class, 'storeComment'])->name('cards.comments.store');
     Route::post('cards/{card}/anexos', [CardController::class, 'storeAttachment'])->name('cards.attachments.store');
     Route::delete('anexos/{attachment}', [CardController::class, 'destroyAttachment'])->name('cards.attachments.destroy');
@@ -217,7 +232,68 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('template-itens/{item}', [TemplateItemController::class, 'destroy'])->name('template.items.destroy');
         Route::post('templates/{template}/itens/reordenar', [TemplateItemController::class, 'reorder'])->name('template.items.reorder');
 
-        // Planejamento financeiro — ver specs/09.
+        /*
+        |------------------------------------------------------------------
+        | Financeiro do Evento (specs/23) — substitui a planilha do evento
+        |------------------------------------------------------------------
+        | Rotas literais e prefixos fixos SEMPRE antes dos wildcards ({evento}, {item}, ...).
+        | `usuario` não entra aqui (o grupo é role:admin,coordenador) e o coordenador restrito por
+        | evento é filtrado pela FinanceSheetPolicy.
+        */
+        Route::get('financeiro', [FinanceSheetController::class, 'index'])->name('finance.index');
+
+        // Catálogo do módulo — configuração é do Admin (o middleware fecha para o coordenador).
+        Route::middleware('role:admin')->group(function () {
+            Route::get('financeiro/configuracoes', [FinancePaymentSourceController::class, 'index'])->name('finance.settings.index');
+            Route::post('financeiro/configuracoes/fontes', [FinancePaymentSourceController::class, 'store'])->name('finance.sources.store');
+            Route::put('financeiro/configuracoes/fontes/{source}', [FinancePaymentSourceController::class, 'update'])->name('finance.sources.update');
+            Route::delete('financeiro/configuracoes/fontes/{source}', [FinancePaymentSourceController::class, 'destroy'])->name('finance.sources.destroy');
+            Route::post('financeiro/configuracoes/itens', [FinanceItemPresetController::class, 'store'])->name('finance.presets.store');
+            Route::put('financeiro/configuracoes/itens/{preset}', [FinanceItemPresetController::class, 'update'])->name('finance.presets.update');
+            Route::delete('financeiro/configuracoes/itens/{preset}', [FinanceItemPresetController::class, 'destroy'])->name('finance.presets.destroy');
+        });
+
+        // Autocomplete da coluna DESCRIÇÃO (leitura) — usado pela grade e pelo modal do card.
+        Route::get('financeiro/itens', [FinanceItemPresetController::class, 'index'])->name('finance.presets.index');
+
+        // Linhas, pagamentos e documentos (wildcards próprios, fora do prefixo de evento).
+        Route::put('financeiro/custos/{item}', [FinanceCostItemController::class, 'update'])->name('finance.costs.update');
+        Route::delete('financeiro/custos/{item}', [FinanceCostItemController::class, 'destroy'])->name('finance.costs.destroy');
+        Route::post('financeiro/custos/{item}/duplicar', [FinanceCostItemController::class, 'duplicate'])->name('finance.costs.duplicate');
+        Route::get('financeiro/custos/{item}/pagamentos', [FinancePaymentController::class, 'index'])->name('finance.payments.index');
+        Route::post('financeiro/custos/{item}/pagamentos', [FinancePaymentController::class, 'store'])->name('finance.payments.store');
+        Route::get('financeiro/custos/{item}/documentos', [FinanceDocumentController::class, 'index'])->name('finance.documents.index');
+        Route::post('financeiro/custos/{item}/documentos', [FinanceDocumentController::class, 'store'])->name('finance.documents.store');
+        Route::post('financeiro/custos/{item}/documentos/vincular', [FinanceDocumentController::class, 'attach'])->name('finance.documents.attach');
+        Route::put('financeiro/pagamentos/{payment}', [FinancePaymentController::class, 'update'])->name('finance.payments.update');
+        Route::delete('financeiro/pagamentos/{payment}', [FinancePaymentController::class, 'destroy'])->name('finance.payments.destroy');
+        Route::get('financeiro/documentos/{document}', [FinanceDocumentController::class, 'show'])->name('finance.documents.show');
+        Route::delete('financeiro/documentos/{document}', [FinanceDocumentController::class, 'destroy'])->name('finance.documents.destroy');
+        Route::put('financeiro/receitas/{revenue}', [FinanceRevenueController::class, 'update'])->name('finance.revenues.update');
+        Route::delete('financeiro/receitas/{revenue}', [FinanceRevenueController::class, 'destroy'])->name('finance.revenues.destroy');
+
+        // Planilha de um evento.
+        Route::prefix('financeiro/eventos/{evento}')->group(function () {
+            Route::get('/', [FinanceSheetController::class, 'show'])->name('finance.show');
+            Route::put('config', [FinanceSheetController::class, 'updateConfig'])->name('finance.config.update');
+            Route::post('fechar', [FinanceSheetController::class, 'close'])->name('finance.close');
+            Route::post('reabrir', [FinanceSheetController::class, 'reopen'])->name('finance.reopen');
+            Route::put('socios', [FinanceSettlementController::class, 'sync'])->name('finance.settlements.sync');
+
+            Route::get('receitas', [FinanceRevenueController::class, 'index'])->name('finance.revenues.index');
+            Route::post('receitas', [FinanceRevenueController::class, 'store'])->name('finance.revenues.store');
+
+            Route::get('custos', [FinanceCostItemController::class, 'index'])->name('finance.costs.index');
+            Route::post('custos', [FinanceCostItemController::class, 'store'])->name('finance.costs.store');
+            Route::post('custos/em-massa', [FinanceCostItemController::class, 'bulk'])->name('finance.costs.bulk');
+
+            Route::get('exportar', [FinanceImportExportController::class, 'export'])->name('finance.export');
+            Route::post('importar/preview', [FinanceImportExportController::class, 'importPreview'])->name('finance.import.preview');
+            Route::post('importar', [FinanceImportExportController::class, 'import'])->name('finance.import');
+        });
+
+        // Planejamento financeiro (specs/09) — SUBSTITUÍDO pelo Financeiro do Evento acima.
+        // Mantido acessível por URL (fora do menu) só para consulta do histórico; ver specs/23 §14.
         Route::get('financeiro/comparativo', [FinancialReportController::class, 'report'])->name('financial.report');
         Route::get('financeiro/comparativo/exportar', [FinancialReportController::class, 'export'])->name('financial.export');
         Route::resource('financeiro/planos', FinancialPlanController::class)

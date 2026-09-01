@@ -16,6 +16,7 @@ use App\Models\CardCapture;
 use App\Models\CardTemplate;
 use App\Models\Empresa;
 use App\Models\Event;
+use App\Models\FinanceSheet;
 use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
 use App\Models\Setor;
@@ -27,6 +28,7 @@ use App\Policies\CardPolicy;
 use App\Policies\CardTemplatePolicy;
 use App\Policies\EmpresaPolicy;
 use App\Policies\EventPolicy;
+use App\Policies\FinanceSheetPolicy;
 use App\Policies\FornecedorCategoriaPolicy;
 use App\Policies\FornecedorPolicy;
 use App\Policies\SetorPolicy;
@@ -52,6 +54,8 @@ class AuthServiceProvider extends ServiceProvider
         CardTemplate::class => CardTemplatePolicy::class,
         Event::class => EventPolicy::class,
         CardCapture::class => CardCapturePolicy::class,
+        // Financeiro do Evento (specs/23) — escopo por evento igual ao dos cards.
+        FinanceSheet::class => FinanceSheetPolicy::class,
 
         // Módulo de Licitações — exclusivo do Admin (ver specs/21 §7).
         BidCompany::class => BidModulePolicy::class,

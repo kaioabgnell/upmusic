@@ -445,6 +445,23 @@
                                         </div>
                                     </div>
 
+                                    {{-- Financeiro do Evento (specs/23 §6.3): leva a despesa e os anexos deste card para a
+                                         linha de custo da planilha do evento. Os arquivos NÃO são copiados — o financeiro passa
+                                         a enxergar os mesmos anexos, e é isso que acaba com o upload em dois lugares. --}}
+                                    <div class="border-t border-hairline pt-4" x-show="mode === 'view'" x-cloak>
+                                        <p class="text-sm font-semibold text-brand-ink mb-2">
+                                            <i class="fa-solid fa-file-invoice-dollar text-steel mr-1"></i> Financeiro do evento
+                                        </p>
+                                        <p class="text-xs text-steel mb-2">
+                                            Envia este card como linha de custo da planilha do evento, com os anexos já vinculados
+                                            como orçamento, contrato, nota, comprovante, ART ou boleto.
+                                        </p>
+                                        <button type="button" @click="openFinanceModal()"
+                                                class="inline-flex items-center gap-2 rounded-md bg-brand-orange px-3 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep">
+                                            <i class="fa-solid fa-arrow-right-to-bracket"></i> Enviar para o Financeiro
+                                        </button>
+                                    </div>
+
                                     {{-- Formulário do fornecedor (minuta) — specs/19. Só aparece quando o quadro permite. --}}
                                     <div x-show="supplierForm.allowed" x-cloak class="border-t border-hairline pt-4">
                                         <p class="text-sm font-semibold text-brand-ink mb-2"><i class="fa-solid fa-file-signature text-steel mr-1"></i> Formulário do fornecedor (minuta)</p>
@@ -593,5 +610,138 @@
                 </template>
             </div>
         </aside>
+    </div>
+</div>
+
+{{-- Modal "Enviar para o Financeiro" (specs/23 §6.3). Fica fora do modal do card (z acima) para
+     não competir com o overflow interno dele. Mesmo escopo x-data. --}}
+<div x-show="finance.open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
+    <div class="absolute inset-0 bg-black/50" @click="finance.open = false"></div>
+
+    <div class="relative bg-white shadow-xl rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+
+        <div class="flex items-center justify-between px-5 h-14 border-b border-hairline shrink-0">
+            <h3 class="font-semibold text-brand-ink">
+                <i class="fa-solid fa-file-invoice-dollar text-brand-orange mr-1.5"></i>
+                <span x-text="finance.data?.existing_item ? 'Sincronizar com o Financeiro' : 'Enviar para o Financeiro'"></span>
+            </h3>
+            <button type="button" @click="finance.open = false" class="text-steel hover:text-brand-ink">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-4">
+            <div x-show="finance.loading" class="py-10 text-center text-steel">
+                <i class="fa-solid fa-circle-notch fa-spin text-xl"></i>
+            </div>
+
+            <template x-if="!finance.loading && finance.data">
+                <div class="space-y-4">
+                    <div x-show="finance.data.existing_item" x-cloak
+                         class="rounded-md border border-brand-orange/40 bg-brand-orange/5 px-3 py-2 text-xs text-brand-ink">
+                        Este card já é a linha
+                        <strong>#<span x-text="finance.data.existing_item?.id"></span></strong>
+                        do Financeiro (<span x-text="finance.data.existing_item?.documents_count"></span> documento(s)).
+                        O envio vai apenas sincronizar o que mudou.
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="text-xs text-steel">Evento <span class="text-brand-orange-deep">*</span></label>
+                            <select x-model="finance.form.event_id"
+                                    class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                <option value="">Selecione o evento</option>
+                                <template x-for="e in finance.data.events" :key="e.id">
+                                    <option :value="e.id" x-text="e.name"></option>
+                                </template>
+                            </select>
+                            <p x-show="!finance.form.event_id" class="mt-1 text-[11px] text-brand-orange-deep">
+                                Sem evento não existe planilha para receber a despesa.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-steel">Item (categoria)</label>
+                            <select x-model="finance.form.fornecedor_categoria_id"
+                                    class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                <option value="">Sem categoria</option>
+                                <template x-for="c in finance.data.categorias" :key="c.id">
+                                    <option :value="c.id" x-text="c.nome"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-steel">Descrição</label>
+                        <input type="text" x-model="finance.form.description" list="finance-preset-list" maxlength="180"
+                               class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                        <datalist id="finance-preset-list">
+                            <template x-for="d in financePresetOptions" :key="d">
+                                <option :value="d"></option>
+                            </template>
+                        </datalist>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="text-xs text-steel">Valor unitário previsto</label>
+                            <input type="text" x-model="finance.form.unit_estimated_1" inputmode="decimal" placeholder="0,00"
+                                   class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs text-steel">Valor unitário realizado</label>
+                            <input type="text" x-model="finance.form.unit_actual" inputmode="decimal" placeholder="Ainda não realizado"
+                                   class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-brand-ink mb-2">Anexos a vincular</p>
+                        <div class="space-y-2">
+                            <template x-for="a in finance.data.attachments" :key="a.id">
+                                <div class="flex items-center gap-2 rounded-md border border-hairline px-2.5 py-2">
+                                    <input type="checkbox" x-model="finance.selected[a.id]"
+                                           class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+                                    <i class="fa-solid fa-file text-steel text-xs"></i>
+                                    <span class="flex-1 truncate text-sm text-brand-ink" x-text="a.name" :title="a.name"></span>
+                                    <span x-show="!a.suggested_kind" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                                          x-text="a.attachment_label"></span>
+                                    <select x-model="finance.kinds[a.id]"
+                                            class="text-xs border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
+                                        <template x-for="k in finance.data.kinds" :key="k.value">
+                                            <option :value="k.value" x-text="k.label"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </template>
+                            <p x-show="finance.data.attachments.length === 0" class="text-xs text-steel">
+                                Este card ainda não tem anexos. A linha de custo é criada mesmo assim.
+                            </p>
+                        </div>
+                        <p class="mt-2 text-[11px] text-steel">
+                            Anexos "Geral" e "Minuta" chegam desmarcados: precisam ser classificados antes de virarem
+                            documento de controle.
+                        </p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div class="px-5 py-3 border-t border-hairline flex items-center justify-between gap-3 shrink-0">
+            <p class="text-[11px] text-steel">
+                Os arquivos não são copiados — o Financeiro passa a enxergar os mesmos anexos deste card.
+            </p>
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="button" @click="finance.open = false"
+                        class="rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">Cancelar</button>
+                <button type="button" @click="submitFinance()" :disabled="finance.saving || !finance.form.event_id"
+                        class="inline-flex items-center gap-2 rounded-md bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep disabled:opacity-40">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    <span x-text="finance.saving ? 'Enviando...' : 'Enviar'"></span>
+                </button>
+            </div>
+        </div>
     </div>
 </div>

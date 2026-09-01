@@ -14,6 +14,7 @@ use App\Actions\Cards\TransferCard;
 use App\Actions\Cards\UnarchiveCard;
 use App\Actions\Cards\UpdateCard;
 use App\Domain\Enums\AttachmentKind;
+use App\Domain\Enums\FinanceSheetStatus;
 use App\Http\Requests\StoreCardRequest;
 use App\Http\Requests\UpdateCardRequest;
 use App\Models\Board;
@@ -22,23 +23,14 @@ use App\Models\Card;
 use App\Models\CardAttachment;
 use App\Services\CardFormOptionsService;
 use App\Support\CardPresenter;
+use App\Support\ServesStoredFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class CardController extends Controller
 {
-    /**
-     * Tipos que o anexo pode abrir direto no navegador. Allowlist fechada de propósito: qualquer
-     * coisa fora daqui (inclusive HTML e SVG, que executam script) continua sendo baixada.
-     */
-    private const INLINE_MIMES = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-        'image/gif',
-    ];
+    use ServesStoredFile;
 
     /**
      * Listagem global de cards (todos os quadros, todos os status). Ver specs/07/12.
@@ -309,7 +301,23 @@ class CardController extends Controller
 
     public function destroyAttachment(CardAttachment $attachment)
     {
+        $attachment->loadMissing('card');
         $this->authorize('update', $attachment->card);
+
+        // Financeiro do Evento (specs/23 §6.6): o anexo pode ser a PROVA de uma despesa. Com a
+        // prestação de contas fechada, apagá-lo aqui esvaziaria o controle documental de um evento
+        // já encerrado — bloqueia. Com a planilha aberta, o cascade cuida do vínculo e o aviso já
+        // foi dado na confirmação (o painel do card recebe `finance_usage` em cada anexo).
+        $closed = $attachment->financeDocuments()
+            ->whereHas('costItem.sheet', fn ($q) => $q->where('status', FinanceSheetStatus::Fechado->value))
+            ->exists();
+
+        if ($closed) {
+            return response()->json([
+                'message' => 'Este arquivo comprova uma despesa de um evento com a prestação de contas fechada. '
+                    .'Reabra o financeiro do evento antes de excluí-lo.',
+            ], 422);
+        }
 
         Storage::disk('local')->delete($attachment->path);
         $attachment->delete();
@@ -325,20 +333,9 @@ class CardController extends Controller
     {
         $this->authorize('view', $attachment->card);
 
-        $disk = Storage::disk('local');
-
-        abort_unless($disk->exists($attachment->path), 404);
-
-        // O Content-Type sai do conteúdo do arquivo (finfo), nunca da coluna `mime`: ela guarda o
-        // getClientMimeType() do upload, que quem envia controla. Servir inline com um tipo forjado
-        // (um PNG declarado como text/html, por exemplo) seria XSS armazenado na origem do sistema.
-        // O nosniff completa: impede o navegador de adivinhar um tipo diferente do declarado.
-        $mime = $disk->mimeType($attachment->path) ?: 'application/octet-stream';
-
-        return $disk->response($attachment->path, $attachment->original_name, [
-            'Content-Type' => $mime,
-            'X-Content-Type-Options' => 'nosniff',
-        ], in_array($mime, self::INLINE_MIMES, true) ? 'inline' : 'attachment');
+        // Regra de Content-Type/disposition em App\Support\ServesStoredFile — a mesma usada pelo
+        // Financeiro (specs/23), que serve exatamente estes arquivos por outra rota.
+        return $this->serveStoredFile($attachment->path, $attachment->original_name);
     }
 
     // ------------------------------------------------------------------
@@ -359,6 +356,8 @@ class CardController extends Controller
             'comments.user:id,name',
             'attachments.uploader:id,name',
             'attachments.supplierSubmission:id,card_attachment_id,note',
+            // Contagem de usos no Financeiro (specs/23) sem N+1 no attachmentJson().
+            'attachments.financeDocuments:id,card_attachment_id',
             'movements' => fn ($q) => $q->with(['user:id,name', 'fromColumn:id,name', 'toColumn:id,name', 'fromBoard:id,name', 'toBoard:id,name']),
             'supplierForm' => fn ($q) => $q->withCount('submissions'),
             'externalSubmission:id,card_id,requester_name',
@@ -436,6 +435,10 @@ class CardController extends Controller
 
     private function attachmentJson(CardAttachment $a): array
     {
+        // No fluxo de upload o anexo acabou de ser criado e chega sem relações; nas leituras do
+        // card elas já vêm no eager load acima e o loadMissing é no-op.
+        $a->loadMissing(['supplierSubmission', 'financeDocuments']);
+
         return [
             'id' => $a->id,
             'kind' => $a->kind->value,
@@ -445,6 +448,9 @@ class CardController extends Controller
             'url' => route('cards.attachments.download', $a),
             // Observação do fornecedor ao enviar a minuta (specs/19) — null para os demais anexos.
             'note' => $a->supplierSubmission?->note,
+            // Onde o anexo é usado como documento de controle no Financeiro (specs/23) — o painel
+            // avisa antes de excluir, porque a exclusão leva o vínculo junto.
+            'finance_usage' => $a->financeDocuments->count(),
         ];
     }
 

@@ -139,6 +139,15 @@ class Card extends Model
     }
 
     /**
+     * Linha de custo criada a partir deste card no Financeiro do Evento (specs/23). Um card gera
+     * no máximo uma linha — a ponte reusa a existente em vez de duplicar.
+     */
+    public function financeCostItem(): HasOne
+    {
+        return $this->hasOne(FinanceCostItem::class);
+    }
+
+    /**
      * Envio do formulário externo que originou o card (specs/11) — null nos cards criados na mão.
      */
     public function externalSubmission(): HasOne

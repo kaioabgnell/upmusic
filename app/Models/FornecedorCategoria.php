@@ -25,6 +25,12 @@ class FornecedorCategoria extends Model
         return $this->hasMany(Fornecedor::class);
     }
 
+    /** Descrições pré-cadastradas de custo desta categoria (specs/23). */
+    public function itemPresets(): HasMany
+    {
+        return $this->hasMany(FinanceItemPreset::class);
+    }
+
     public function priceRecords(): HasMany
     {
         return $this->hasMany(PriceRecord::class);

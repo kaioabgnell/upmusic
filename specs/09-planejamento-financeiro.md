@@ -2,6 +2,11 @@
 
 > **Modelo recomendado:** `opus` (Opus 4.8) — módulo de maior complexidade.
 
+> **Substituído pela [specs/23 — Financeiro do Evento](23-financeiro-do-evento.md).** O módulo descrito
+> aqui (planos por empresa/período) foi entregue, mas não cobre o que a planilha do evento exige:
+> documentos, pagamentos por grupo e os três cenários de valor. Ver §14 da specs/23 para o plano de
+> aposentadoria — este documento fica como registro do que existe hoje em `/financeiro/planos`.
+
 ## 1. Objetivo
 
 Migrar o controle hoje mantido em Excel para o sistema, registrando valores previstos e realizados e

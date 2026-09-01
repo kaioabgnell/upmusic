@@ -55,12 +55,17 @@
 
         <div class="space-y-1">
             <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Financeiro</p>
+            {{-- Financeiro do Evento (specs/23): substitui o "Planejamento" (specs/09), que segue
+                 acessível por URL só para consulta do histórico. --}}
             @if ($isManager)
-                @if (false)
-                    <x-nav-item route="plans.index" pattern="plans.*" icon="fa-chart-line" label="Planejamento" />
-                @endif
+                <x-nav-item route="finance.index" pattern="finance.*" except="finance.settings.*"
+                    icon="fa-file-invoice-dollar" label="Financeiro dos Eventos" />
             @endif
             <x-nav-item route="prices.categorias.index" pattern="prices.*" icon="fa-tags" label="Banco de Preços" />
+            @if ($isAdmin)
+                <x-nav-item route="finance.settings.index" pattern="finance.settings.*" icon="fa-sliders"
+                    label="Config. Financeiro" />
+            @endif
         </div>
 
         {{-- Licitações (specs/21): módulo exclusivo do Admin. O badge conta documentos vencidos +

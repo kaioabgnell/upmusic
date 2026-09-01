@@ -11,6 +11,7 @@ import kanban from './kanban';
 import cardsHub from './cards-hub';
 import notifications from './notifications';
 import { bidDocument, bidMatrix, bidNotice } from './licitacoes';
+import { financeCosts, financeRevenues, financeSettlements } from './finance';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler);
 
@@ -26,6 +27,10 @@ Alpine.data('notifications', notifications);
 Alpine.data('bidDocument', bidDocument);
 Alpine.data('bidNotice', bidNotice);
 Alpine.data('bidMatrix', bidMatrix);
+// Financeiro do Evento (specs/23).
+Alpine.data('financeCosts', financeCosts);
+Alpine.data('financeRevenues', financeRevenues);
+Alpine.data('financeSettlements', financeSettlements);
 window.Alpine = Alpine;
 
 Alpine.start();

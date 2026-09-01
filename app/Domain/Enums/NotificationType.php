@@ -9,6 +9,7 @@ namespace App\Domain\Enums;
 enum NotificationType: string
 {
     case CardAssigned = 'card_assigned';
+    case CardSentToFinance = 'card_sent_to_finance';
 
     /**
      * Trecho central do texto exibido no painel. O nome do autor e o "#id - título" são
@@ -18,6 +19,7 @@ enum NotificationType: string
     {
         return match ($this) {
             self::CardAssigned => 'te colocou como responsável do card',
+            self::CardSentToFinance => 'enviou ao Financeiro o card',
         };
     }
 
@@ -25,6 +27,7 @@ enum NotificationType: string
     {
         return match ($this) {
             self::CardAssigned => 'fa-solid fa-user-check',
+            self::CardSentToFinance => 'fa-solid fa-file-invoice-dollar',
         };
     }
 }
