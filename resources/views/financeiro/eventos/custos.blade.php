@@ -151,11 +151,6 @@
                             <th class="px-2 py-2.5 font-medium sticky left-8 bg-surface z-10 min-w-[10rem]">Item</th>
                             <th class="px-2 py-2.5 font-medium min-w-[16rem]">Descrição</th>
                             <th class="px-2 py-2.5 font-medium min-w-[11rem]">Status</th>
-                            <th class="px-2 py-2.5 font-medium min-w-[9rem]">ART</th>
-                            <th class="px-2 py-2.5 font-medium min-w-[12rem]">Empresa</th>
-                            <th class="px-2 py-2.5 font-medium min-w-[11rem]">Autorizado por</th>
-                            <th class="px-2 py-2.5 font-medium w-20 text-right">Diárias</th>
-                            <th class="px-2 py-2.5 font-medium w-20 text-right">Quant.</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.estimate1">Vlr. unit.</th>
                             <th class="px-2 py-2.5 font-medium w-32 text-right" x-show="groups.estimate1">Total prev.</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.estimate2" x-cloak>Vlr. unit. 2</th>
@@ -164,6 +159,11 @@
                             <th class="px-2 py-2.5 font-medium w-32 text-right" x-show="groups.actual">Total real.</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.payments">Pago</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.payments">Falta pagar</th>
+                            <th class="px-2 py-2.5 font-medium min-w-[9rem]">ART</th>
+                            <th class="px-2 py-2.5 font-medium min-w-[12rem]">Empresa</th>
+                            <th class="px-2 py-2.5 font-medium min-w-[11rem]">Autorizado por</th>
+                            <th class="px-2 py-2.5 font-medium w-20 text-right">Diárias</th>
+                            <th class="px-2 py-2.5 font-medium w-20 text-right">Quant.</th>
                             <th class="px-2 py-2.5 font-medium min-w-[15.5rem]" x-show="groups.control">Controle</th>
                             <th class="px-2 py-2.5 w-16"></th>
                         </tr>
@@ -212,6 +212,38 @@
                                     </select>
                                 </td>
 
+                                <td class="px-2 py-1.5" x-show="groups.estimate1">
+                                    <input type="text" inputmode="decimal" x-model="row.unit_estimated_1" @input="touch(row)" :disabled="readonly"
+                                           class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
+                                </td>
+                                <td class="px-2 py-1.5 text-right text-xs text-brand-ink whitespace-nowrap" x-show="groups.estimate1"
+                                    x-text="brl(row.total_estimated_1)"></td>
+
+                                <td class="px-2 py-1.5" x-show="groups.estimate2" x-cloak>
+                                    <input type="text" inputmode="decimal" x-model="row.unit_estimated_2" @input="touch(row)" :disabled="readonly"
+                                           placeholder="—"
+                                           class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
+                                </td>
+                                <td class="px-2 py-1.5 text-right text-xs text-brand-ink whitespace-nowrap" x-show="groups.estimate2" x-cloak
+                                    x-text="row.unit_estimated_2 === null || row.unit_estimated_2 === '' ? '—' : brl(row.total_estimated_2)"></td>
+
+                                <td class="px-2 py-1.5" x-show="groups.actual">
+                                    <input type="text" inputmode="decimal" x-model="row.unit_actual" @input="touch(row)" :disabled="readonly"
+                                           placeholder="Não realizado"
+                                           class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
+                                </td>
+                                <td class="px-2 py-1.5 text-right text-xs font-medium text-brand-ink whitespace-nowrap" x-show="groups.actual"
+                                    x-text="row.unit_actual === null || row.unit_actual === '' ? '—' : brl(row.total_actual)"></td>
+
+                                <td class="px-2 py-1.5 text-right whitespace-nowrap" x-show="groups.payments">
+                                    <button type="button" @click="openPayments(row)"
+                                            class="text-xs text-brand-ink hover:text-brand-orange-deep hover:underline"
+                                            x-text="brl(row.paid)"></button>
+                                </td>
+                                <td class="px-2 py-1.5 text-right text-xs whitespace-nowrap" x-show="groups.payments"
+                                    :class="row.pending > 0 ? 'text-brand-orange-deep' : (row.pending < 0 ? 'text-red-600' : 'text-steel')"
+                                    x-text="row.pending < 0 ? `${brl(row.pending)} (pago a maior)` : brl(row.pending)"></td>
+
                                 <td class="px-2 py-1.5">
                                     <select x-model="row.art_status" @change="save(row)" :disabled="readonly"
                                             class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
@@ -249,38 +281,6 @@
                                     <input type="text" inputmode="decimal" x-model="row.quantity" @input="touch(row)" :disabled="readonly"
                                            class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
-
-                                <td class="px-2 py-1.5" x-show="groups.estimate1">
-                                    <input type="text" inputmode="decimal" x-model="row.unit_estimated_1" @input="touch(row)" :disabled="readonly"
-                                           class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
-                                </td>
-                                <td class="px-2 py-1.5 text-right text-xs text-brand-ink whitespace-nowrap" x-show="groups.estimate1"
-                                    x-text="brl(row.total_estimated_1)"></td>
-
-                                <td class="px-2 py-1.5" x-show="groups.estimate2" x-cloak>
-                                    <input type="text" inputmode="decimal" x-model="row.unit_estimated_2" @input="touch(row)" :disabled="readonly"
-                                           placeholder="—"
-                                           class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
-                                </td>
-                                <td class="px-2 py-1.5 text-right text-xs text-brand-ink whitespace-nowrap" x-show="groups.estimate2" x-cloak
-                                    x-text="row.unit_estimated_2 === null || row.unit_estimated_2 === '' ? '—' : brl(row.total_estimated_2)"></td>
-
-                                <td class="px-2 py-1.5" x-show="groups.actual">
-                                    <input type="text" inputmode="decimal" x-model="row.unit_actual" @input="touch(row)" :disabled="readonly"
-                                           placeholder="Não realizado"
-                                           class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
-                                </td>
-                                <td class="px-2 py-1.5 text-right text-xs font-medium text-brand-ink whitespace-nowrap" x-show="groups.actual"
-                                    x-text="row.unit_actual === null || row.unit_actual === '' ? '—' : brl(row.total_actual)"></td>
-
-                                <td class="px-2 py-1.5 text-right whitespace-nowrap" x-show="groups.payments">
-                                    <button type="button" @click="openPayments(row)"
-                                            class="text-xs text-brand-ink hover:text-brand-orange-deep hover:underline"
-                                            x-text="brl(row.paid)"></button>
-                                </td>
-                                <td class="px-2 py-1.5 text-right text-xs whitespace-nowrap" x-show="groups.payments"
-                                    :class="row.pending > 0 ? 'text-brand-orange-deep' : (row.pending < 0 ? 'text-red-600' : 'text-steel')"
-                                    x-text="row.pending < 0 ? `${brl(row.pending)} (pago a maior)` : brl(row.pending)"></td>
 
                                 <td class="px-2 py-1.5" x-show="groups.control">
                                     <div class="flex items-center gap-1">
@@ -328,7 +328,7 @@
                             <td class="px-2 py-2.5 sticky left-0 bg-surface z-10"></td>
                             <td class="px-2 py-2.5 sticky left-8 bg-surface z-10">TOTAL</td>
                             <td class="px-2 py-2.5 text-steel font-normal">{{ $footer->total }} linha(s)</td>
-                            <td colspan="6"></td>
+                            <td></td>
                             <td class="px-2 py-2.5" x-show="groups.estimate1"></td>
                             <td class="px-2 py-2.5 text-right whitespace-nowrap" x-show="groups.estimate1">{{ $money($footer->e1) }}</td>
                             <td class="px-2 py-2.5" x-show="groups.estimate2" x-cloak></td>
@@ -337,6 +337,7 @@
                             <td class="px-2 py-2.5 text-right whitespace-nowrap" x-show="groups.actual">{{ $money($footer->act) }}</td>
                             <td class="px-2 py-2.5 text-right whitespace-nowrap" x-show="groups.payments">{{ $money($paidTotal) }}</td>
                             <td class="px-2 py-2.5 text-right whitespace-nowrap" x-show="groups.payments">{{ $money($footer->act - $paidTotal) }}</td>
+                            <td colspan="5"></td>
                             <td x-show="groups.control"></td>
                             <td></td>
                         </tr>
