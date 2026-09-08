@@ -36,7 +36,7 @@ class FinanceCostItemController extends FinanceController
         $this->authorize('view', $sheet);
 
         $items = $this->filtered($request, $sheet->id)
-            ->with(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'documents', 'payments'])
+            ->with(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'card:id,board_id', 'documents', 'payments'])
             ->orderBy('position')->orderBy('id')
             ->paginate(100)
             ->withQueryString();

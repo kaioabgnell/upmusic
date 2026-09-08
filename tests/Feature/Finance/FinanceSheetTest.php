@@ -67,6 +67,39 @@ class FinanceSheetTest extends FinanceTestCase
             ->assertOk();
     }
 
+    public function test_linha_com_card_traz_o_board_para_montar_o_link_direto(): void
+    {
+        $event = $this->event();
+        $card = $this->card($this->board(), $event);
+        $item = $this->sheet($event)->costItems()->create(['description' => 'Diária de som', 'card_id' => $card->id]);
+
+        $data = $this->actingAs($this->user())
+            ->get(route('finance.costs.index', $event))
+            ->assertOk()
+            ->viewData('rows');
+
+        $row = collect($data)->firstWhere('id', $item->refresh()->id);
+
+        $this->assertSame($card->id, $row['card_id']);
+        $this->assertSame($card->board_id, $row['card_board_id']);
+    }
+
+    public function test_linha_sem_card_nao_traz_board(): void
+    {
+        $event = $this->event();
+        $item = $this->sheet($event)->costItems()->create(['description' => 'Taxa avulsa']);
+
+        $data = $this->actingAs($this->user())
+            ->get(route('finance.costs.index', $event))
+            ->assertOk()
+            ->viewData('rows');
+
+        $row = collect($data)->firstWhere('id', $item->refresh()->id);
+
+        $this->assertNull($row['card_id']);
+        $this->assertNull($row['card_board_id']);
+    }
+
     public function test_criar_e_atualizar_linha_pela_grade(): void
     {
         $event = $this->event();

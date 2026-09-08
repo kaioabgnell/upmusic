@@ -66,6 +66,11 @@ export function financeCosts(cfg) {
             return this.presets[row.fornecedor_categoria_id] ?? [];
         },
 
+        /** URL do link direto do card (specs/18) — abre o quadro já com o modal do card aberto. */
+        cardUrl(row) {
+            return `${this.cfg.urls.boardCardBase}/${row.card_board_id}/card/${row.card_id}`;
+        },
+
         // ---- Autosave da linha ------------------------------------------------
         touch(row) {
             clearTimeout(this.timers[row.id]);

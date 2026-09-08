@@ -17,7 +17,7 @@ class FinancePresenter
 {
     public static function costItem(FinanceCostItem $item): array
     {
-        $item->loadMissing(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'documents', 'payments']);
+        $item->loadMissing(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'card:id,board_id', 'documents', 'payments']);
 
         $paid = (float) $item->payments->sum('amount');
         $actual = (float) $item->total_actual;
@@ -51,6 +51,9 @@ class FinancePresenter
             'paid' => $paid,
             'pending' => $actual - $paid,
             'card_id' => $item->card_id,
+            // Alimenta o link "abrir o card em nova aba" na grade — a rota de link direto
+            // (specs/18) exige o quadro do card, não só o id dele.
+            'card_board_id' => $item->card?->board_id,
             'notes' => $item->notes,
             'documents' => self::documentChips($item),
         ];

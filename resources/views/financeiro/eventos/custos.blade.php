@@ -89,6 +89,7 @@
                 costBulk: '{{ route('finance.costs.bulk', $evento) }}',
                 documentBase: '{{ url('financeiro/documentos') }}',
                 paymentBase: '{{ url('financeiro/pagamentos') }}',
+                boardCardBase: '{{ url('quadros') }}',
             },
             rows: {{ Illuminate\Support\Js::from($rows) }},
             presets: {{ Illuminate\Support\Js::from($presets) }},
@@ -193,11 +194,15 @@
                                         <input type="text" data-field="description" x-model="row.description" @input="touch(row)"
                                                :disabled="readonly" :list="`presets-${row.fornecedor_categoria_id || 'none'}`"
                                                class="flex-1 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
-                                        {{-- Origem no Kanban: a linha nasceu de um card (specs/23 §6). --}}
-                                        <span x-show="row.card_id" x-cloak
-                                              class="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-brand-orange/15 text-brand-orange-deep"
-                                              :title="`Criada a partir do card #${row.card_id}`"
-                                              x-text="`#${row.card_id}`"></span>
+                                        {{-- Origem no Kanban: a linha nasceu de um card (specs/23 §6). Número e ícone
+                                             abrem o mesmo link (specs/18) — clicar em qualquer um dos dois abre o
+                                             quadro em nova aba, já com o modal do card aberto. --}}
+                                        <a x-show="row.card_id" x-cloak :href="cardUrl(row)" target="_blank" rel="noopener"
+                                           :title="`Abrir o card #${row.card_id} em nova aba`"
+                                           class="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-brand-orange/15 text-brand-orange-deep hover:bg-brand-orange/25">
+                                            <span x-text="`#${row.card_id}`"></span>
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                        </a>
                                         <i class="fa-solid fa-circle-notch fa-spin text-[10px] text-steel"
                                            x-show="savingIds.includes(row.id)" x-cloak></i>
                                     </div>
