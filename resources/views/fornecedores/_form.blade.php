@@ -89,6 +89,32 @@
         </div>
     </div>
 
+    <div class="border-t border-hairline pt-5">
+        <p class="text-xs font-semibold uppercase tracking-wide text-steel mb-3">Dados bancários</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+                <x-input-label for="bank_name" value="Banco" />
+                <x-text-input id="bank_name" name="bank_name" :value="old('bank_name', $isEdit ? $fornecedor->bank_name : '')" class="mt-1" placeholder="Ex.: Banco do Brasil" />
+                <x-input-error :messages="$errors->get('bank_name')" class="mt-1" />
+            </div>
+            <div>
+                <x-input-label for="bank_agency" value="Agência" />
+                <x-text-input id="bank_agency" name="bank_agency" :value="old('bank_agency', $isEdit ? $fornecedor->bank_agency : '')" class="mt-1" placeholder="0000" />
+                <x-input-error :messages="$errors->get('bank_agency')" class="mt-1" />
+            </div>
+            <div>
+                <x-input-label for="bank_account" value="Conta" />
+                <x-text-input id="bank_account" name="bank_account" :value="old('bank_account', $isEdit ? $fornecedor->bank_account : '')" class="mt-1" placeholder="00000-0" />
+                <x-input-error :messages="$errors->get('bank_account')" class="mt-1" />
+            </div>
+            <div>
+                <x-input-label for="pix_key" value="PIX" />
+                <x-text-input id="pix_key" name="pix_key" :value="old('pix_key', $isEdit ? $fornecedor->pix_key : '')" class="mt-1" placeholder="CPF/CNPJ, e-mail, telefone ou chave aleatória" />
+                <x-input-error :messages="$errors->get('pix_key')" class="mt-1" />
+            </div>
+        </div>
+    </div>
+
     <div>
         <x-input-label for="notes" value="Observações" />
         <textarea id="notes" name="notes" rows="2" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md shadow-sm text-sm">{{ old('notes', $isEdit ? $fornecedor->notes : '') }}</textarea>

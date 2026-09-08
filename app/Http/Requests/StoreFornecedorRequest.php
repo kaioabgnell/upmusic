@@ -25,6 +25,13 @@ class StoreFornecedorRequest extends FormRequest
             'document' => ['required', 'string', new CpfOuCnpj, Rule::unique('fornecedores', 'document')->whereNull('deleted_at')],
             'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:20'],
+            // Dados bancários: todos opcionais (nem todo fornecedor recebe por repasse bancário) e
+            // sem validação de formato — agência/conta variam por banco, e a chave PIX pode ser
+            // CPF/CNPJ, e-mail, telefone ou aleatória.
+            'bank_name' => ['nullable', 'string', 'max:100'],
+            'bank_agency' => ['nullable', 'string', 'max:20'],
+            'bank_account' => ['nullable', 'string', 'max:30'],
+            'pix_key' => ['nullable', 'string', 'max:150'],
             'fornecedor_categoria_id' => ['nullable', 'exists:fornecedor_categorias,id'],
             'notes' => ['nullable', 'string'],
             'active' => ['boolean'],
@@ -41,6 +48,9 @@ class StoreFornecedorRequest extends FormRequest
 
     public function attributes(): array
     {
-        return ['type' => 'tipo', 'name' => 'nome', 'document' => 'documento', 'fornecedor_categoria_id' => 'categoria'];
+        return [
+            'type' => 'tipo', 'name' => 'nome', 'document' => 'documento', 'fornecedor_categoria_id' => 'categoria',
+            'bank_name' => 'banco', 'bank_agency' => 'agência', 'bank_account' => 'conta', 'pix_key' => 'chave PIX',
+        ];
     }
 }

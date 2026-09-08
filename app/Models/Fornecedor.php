@@ -16,7 +16,9 @@ class Fornecedor extends Model
     protected $table = 'fornecedores';
 
     protected $fillable = [
-        'type', 'name', 'document', 'email', 'phone', 'fornecedor_categoria_id', 'notes', 'active',
+        'type', 'name', 'document', 'email', 'phone',
+        'bank_name', 'bank_agency', 'bank_account', 'pix_key',
+        'fornecedor_categoria_id', 'notes', 'active',
     ];
 
     protected $casts = [
