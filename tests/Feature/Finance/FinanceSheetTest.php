@@ -52,6 +52,21 @@ class FinanceSheetTest extends FinanceTestCase
             ->assertSee('TOTAL GERAL');
     }
 
+    public function test_grade_de_custos_renderiza_com_documento_recibo_na_linha(): void
+    {
+        $event = $this->event();
+        $sheet = $this->sheet($event);
+        $item = $sheet->costItems()->create(['description' => 'Diária de som']);
+        $item->documents()->create([
+            'kind' => \App\Domain\Enums\FinanceDocumentKind::Recibo->value,
+            'path' => 'x', 'original_name' => 'recibo.pdf',
+        ]);
+
+        $this->actingAs($this->user())
+            ->get(route('finance.costs.index', $event))
+            ->assertOk();
+    }
+
     public function test_criar_e_atualizar_linha_pela_grade(): void
     {
         $event = $this->event();

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Cards;
 
+use App\Domain\Enums\AttachmentKind;
 use App\Domain\Enums\FinanceDocumentKind;
 use App\Domain\Enums\UserRole;
 use App\Models\Board;
@@ -40,6 +41,34 @@ class CardPanelFinanceModalTest extends TestCase
                 "A opção \"{$kind->label()}\" precisa vir do servidor no modal do Financeiro.",
             );
         }
+    }
+
+    /**
+     * O select de Anexos do card (upload no próprio card, não o modal do Financeiro) também é
+     * server-rendered a partir de `AttachmentKind::selectable()` — mesma fonte que
+     * `CardController` usa para validar. "Recibo" precisa aparecer nos dois, sem lista duplicada.
+     */
+    public function test_recibo_aparece_no_select_de_anexos_do_card_e_no_modal_do_financeiro(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true]);
+        $board = Board::create(['name' => 'Orçamentos']);
+        BoardColumn::create(['board_id' => $board->id, 'name' => 'Entrada', 'position' => 1, 'is_entry' => true]);
+
+        $html = $this->actingAs($admin->fresh())
+            ->get(route('boards.show', $board))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertContains(AttachmentKind::Recibo, AttachmentKind::selectable());
+
+        // 2 ocorrências no HTML bruto: o select de Anexos do card (fora de qualquer x-for) e o
+        // select por-anexo do modal do Financeiro — este último vive dentro de um <template
+        // x-for="a in ...">, então o Blade server-renderiza o bloco uma única vez; é o Alpine,
+        // no navegador, quem o clona por anexo em runtime.
+        $this->assertSame(
+            2,
+            substr_count($html, '<option value="recibo">Recibo</option>'),
+        );
     }
 
     public function test_modal_do_financeiro_nao_usa_x_if_no_corpo(): void

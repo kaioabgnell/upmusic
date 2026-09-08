@@ -18,6 +18,10 @@ enum FinanceDocumentKind: string
     case Comprovante = 'comprovante';
     case Art = 'art';
     case Boleto = 'boleto';
+    // Recibo: comprovante de pagamento direto (à vista/à pessoa). Fica FORA de proofKinds() de
+    // propósito — o CONTROLE do arquivo modelo tem exatamente seis colunas, e Recibo não é uma
+    // delas; ver §12/export. Aparece na grade só quando existe, como Geral/Minuta.
+    case Recibo = 'recibo';
     case Geral = 'geral';
     case Minuta = 'minuta';
 
@@ -30,6 +34,7 @@ enum FinanceDocumentKind: string
             self::Comprovante => 'Comprovante',
             self::Art => 'ART',
             self::Boleto => 'Boleto',
+            self::Recibo => 'Recibo',
             self::Geral => 'Geral',
             self::Minuta => 'Minuta',
         };
@@ -45,6 +50,7 @@ enum FinanceDocumentKind: string
             self::Comprovante => 'Compr.',
             self::Art => 'ART',
             self::Boleto => 'Bol.',
+            self::Recibo => 'Rec.',
             self::Geral => 'Geral',
             self::Minuta => 'Min.',
         };
@@ -59,6 +65,7 @@ enum FinanceDocumentKind: string
             self::Comprovante => 'fa-circle-check',
             self::Art => 'fa-stamp',
             self::Boleto => 'fa-barcode',
+            self::Recibo => 'fa-money-check-dollar',
             self::Geral => 'fa-file',
             self::Minuta => 'fa-file-pen',
         };
@@ -80,6 +87,7 @@ enum FinanceDocumentKind: string
             AttachmentKind::Comprovante => self::Comprovante,
             AttachmentKind::Art => self::Art,
             AttachmentKind::Boleto => self::Boleto,
+            AttachmentKind::Recibo => self::Recibo,
             AttachmentKind::Geral => self::Geral,
             AttachmentKind::Minuta => self::Minuta,
         };

@@ -14,6 +14,9 @@ enum AttachmentKind: string
     // controles documentais da planilha nunca chegariam preenchidos pela ponte card -> financeiro.
     case Art = 'art';
     case Boleto = 'boleto';
+    // Recibo: comprovante de pagamento direto (à vista/à pessoa), distinto de Comprovante — não faz
+    // parte das seis colunas do arquivo modelo (ver FinanceDocumentKind::proofKinds()).
+    case Recibo = 'recibo';
 
     public function label(): string
     {
@@ -26,6 +29,7 @@ enum AttachmentKind: string
             self::Minuta => 'Minuta',
             self::Art => 'ART',
             self::Boleto => 'Boleto',
+            self::Recibo => 'Recibo',
         };
     }
 
@@ -38,6 +42,9 @@ enum AttachmentKind: string
      */
     public static function selectable(): array
     {
-        return [self::Geral, self::Orcamento, self::Contrato, self::NotaFiscal, self::Comprovante, self::Art, self::Boleto];
+        return [
+            self::Geral, self::Orcamento, self::Contrato, self::NotaFiscal,
+            self::Comprovante, self::Art, self::Boleto, self::Recibo,
+        ];
     }
 }
