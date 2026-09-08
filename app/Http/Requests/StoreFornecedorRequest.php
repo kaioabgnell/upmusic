@@ -2,10 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Domain\Enums\PessoaTipo;
 use App\Models\Fornecedor;
-use App\Rules\Cnpj;
-use App\Rules\Cpf;
+use App\Rules\CpfOuCnpj;
 use App\Support\Br;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,12 +17,12 @@ class StoreFornecedorRequest extends FormRequest
 
     public function rules(): array
     {
-        $documentRule = $this->input('type') === PessoaTipo::PF->value ? new Cpf : new Cnpj;
-
         return [
             'type' => ['required', Rule::in(['PF', 'PJ'])],
             'name' => ['required', 'string', 'max:180'],
-            'document' => ['required', 'string', $documentRule, Rule::unique('fornecedores', 'document')->whereNull('deleted_at')],
+            // Aceita CPF ou CNPJ independente do "Tipo": há fornecedor PJ pago direto à pessoa
+            // física (e vice-versa) — ver App\Rules\CpfOuCnpj.
+            'document' => ['required', 'string', new CpfOuCnpj, Rule::unique('fornecedores', 'document')->whereNull('deleted_at')],
             'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:20'],
             'fornecedor_categoria_id' => ['nullable', 'exists:fornecedor_categorias,id'],

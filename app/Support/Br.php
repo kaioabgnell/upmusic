@@ -75,6 +75,22 @@ class Br
         return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $c);
     }
 
+    /**
+     * Formata CPF ou CNPJ pela quantidade de dígitos, sem depender do "Tipo" (PF/PJ) do cadastro —
+     * um fornecedor PJ pode ter documento de 11 dígitos (paga-se direto à pessoa) e vice-versa.
+     * Dígito fora dos dois tamanhos volta sem formatação (não deveria acontecer após validação).
+     */
+    public static function formatDocument(?string $value): string
+    {
+        $digits = self::digits($value);
+
+        return match (strlen($digits)) {
+            11 => self::formatCpf($digits),
+            14 => self::formatCnpj($digits),
+            default => $digits,
+        };
+    }
+
     /** Valor em reais no formato BR ("R$ 1.234,56"). */
     public static function formatMoney(float|int|null $value): string
     {

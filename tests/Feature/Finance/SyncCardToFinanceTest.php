@@ -66,6 +66,28 @@ class SyncCardToFinanceTest extends FinanceTestCase
         $this->assertSame(1, FinanceDocument::count());
     }
 
+    public function test_preview_do_modal_devolve_o_tipo_do_anexo_e_o_evento_do_card(): void
+    {
+        $event = $this->event();
+        $card = $this->card($this->board(), $event);
+        $this->attach($card, AttachmentKind::Geral, 'foto.jpg');
+        $this->attach($card, AttachmentKind::NotaFiscal, 'nf.pdf');
+
+        $payload = $this->actingAs($this->user())
+            ->getJson(route('cards.finance.preview', $card))
+            ->assertOk()
+            ->json();
+
+        // O evento do card alimenta o select do modal.
+        $this->assertSame($event->id, $payload['card']['event_id']);
+
+        // Cada anexo chega com o próprio tipo e marcado — nada de cair na primeira opção.
+        $kinds = collect($payload['attachments'])->pluck('suggested_kind', 'name');
+        $this->assertSame(FinanceDocumentKind::Geral->value, $kinds['foto.jpg']);
+        $this->assertSame(FinanceDocumentKind::NotaFiscal->value, $kinds['nf.pdf']);
+        $this->assertTrue(collect($payload['attachments'])->every(fn ($a) => $a['checked'] === true));
+    }
+
     public function test_card_sem_evento_e_recusado(): void
     {
         $card = $this->card($this->board(), $this->event());
@@ -76,17 +98,34 @@ class SyncCardToFinanceTest extends FinanceTestCase
         app(SyncCardToFinance::class)->execute($card->fresh(), $this->user());
     }
 
-    public function test_anexo_geral_e_minuta_nao_viram_documento_automaticamente(): void
+    public function test_todo_anexo_vai_com_o_tipo_escolhido_no_card(): void
     {
         $card = $this->card($this->board(), $this->event());
         $this->attach($card, AttachmentKind::Geral, 'foto.jpg');
         $this->attach($card, AttachmentKind::Minuta, 'minuta.pdf');
+        $this->attach($card, AttachmentKind::Boleto, 'boleto.pdf');
 
         $item = app(SyncCardToFinance::class)->execute($card->fresh(), $this->user());
 
-        // Minuta é a PROPOSTA do fornecedor, não o contrato assinado: promovê-la marcaria o
-        // controle "CONTRATO" antes de existir contrato.
-        $this->assertSame(0, $item->documents()->count());
+        // O tipo escolhido ao anexar é o tipo no Financeiro — ninguém reclassifica nada.
+        $this->assertSame(3, $item->documents()->count());
+        $this->assertEqualsCanonicalizing(
+            [FinanceDocumentKind::Geral, FinanceDocumentKind::Minuta, FinanceDocumentKind::Boleto],
+            $item->documents()->get()->pluck('kind')->all(),
+        );
+    }
+
+    public function test_minuta_nao_faz_a_linha_avancar_para_contrato_ok(): void
+    {
+        $card = $this->card($this->board(), $this->event());
+        $this->attach($card, AttachmentKind::Orcamento);
+        $this->attach($card, AttachmentKind::Minuta, 'minuta.pdf');
+
+        $item = app(SyncCardToFinance::class)->execute($card->fresh(), $this->user());
+
+        // A minuta chega ao Financeiro com o próprio tipo, mas é a PROPOSTA do fornecedor: só o
+        // contrato assinado move o status. Dar a despesa por contratada aqui seria prova falsa.
+        $this->assertSame(FinanceCostStatus::AguardandoContrato, $item->status);
     }
 
     public function test_anexo_novo_em_card_ja_vinculado_vira_documento_pelo_observer(): void

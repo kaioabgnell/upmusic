@@ -24,20 +24,18 @@ class CardAttachmentObserver
 
     public function created(CardAttachment $attachment): void
     {
-        // `geral` e `minuta` não têm mapa automático (specs/23 §6.4): esperam classificação manual.
-        $kind = FinanceDocumentKind::fromAttachmentKind($attachment->kind);
-
-        if (! $kind) {
-            return;
-        }
-
         $item = FinanceCostItem::with('sheet')->where('card_id', $attachment->card_id)->first();
 
         if (! $item || $item->sheet->isClosed()) {
             return;
         }
 
-        $this->documents->fromAttachment($item, $attachment, $kind);
+        // O tipo do anexo é o tipo no Financeiro — o usuário escolheu uma vez, ao anexar.
+        $this->documents->fromAttachment(
+            $item,
+            $attachment,
+            FinanceDocumentKind::fromAttachmentKind($attachment->kind),
+        );
         $this->derive->execute($item);
     }
 }

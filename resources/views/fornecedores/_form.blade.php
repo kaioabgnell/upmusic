@@ -1,14 +1,14 @@
 @php
     $isEdit = isset($fornecedor);
     $type = old('type', $isEdit ? $fornecedor->type->value : 'PJ');
-    $docValue = old('document', $isEdit
-        ? ($fornecedor->type->value === 'PF' ? \App\Support\Br::formatCpf($fornecedor->document) : \App\Support\Br::formatCnpj($fornecedor->document))
-        : '');
+    // Formatado pela quantidade de dígitos, não pelo "Tipo": o documento aceita CPF ou CNPJ
+    // independente de o fornecedor ser PJ ou PF (há PJ pago direto à pessoa física e vice-versa).
+    $docValue = old('document', $isEdit ? \App\Support\Br::formatDocument($fornecedor->document) : '');
     $categoriaId = old('fornecedor_categoria_id', $isEdit ? $fornecedor->fornecedor_categoria_id : '');
 @endphp
 
 <form method="POST" action="{{ $isEdit ? route('fornecedores.update', $fornecedor) : route('fornecedores.store') }}"
-      x-data="fornecedorForm('{{ $type }}', @js($categorias), {{ $categoriaId ?: 'null' }}, '{{ route('fornecedor-categorias.quick') }}', '{{ url('cnpj') }}')"
+      x-data="fornecedorForm('{{ $type }}', @js($categorias), {{ $categoriaId ?: 'null' }}, '{{ route('fornecedor-categorias.quick') }}', '{{ url('cnpj') }}', {{ strlen(\App\Support\Br::digits($docValue)) }})"
       class="bg-white border border-hairline rounded-xl p-6 space-y-5 max-w-2xl">
     @csrf
     @if ($isEdit) @method('PUT') @endif
@@ -23,11 +23,16 @@
             <x-input-error :messages="$errors->get('type')" class="mt-1" />
         </div>
         <div>
-            <x-input-label for="document" x-text="type === 'PF' ? 'CPF' : 'CNPJ'" />
+            {{-- Rótulo, máscara e placeholder seguem o que está sendo DIGITADO (quantidade de
+                 dígitos), não o "Tipo" selecionado: o documento aceita CPF ou CNPJ independente de o
+                 fornecedor ser PJ ou PF — ver StoreFornecedorRequest/App\Rules\CpfOuCnpj. --}}
+            <x-input-label for="document" x-text="documentDigits > 11 ? 'CNPJ' : 'CPF'" />
             <x-text-input id="document" name="document" :value="$docValue" class="mt-1"
-                          x-mask:dynamic="type === 'PF' ? '999.999.999-99' : '99.999.999/9999-99'"
-                          x-bind:placeholder="type === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'"
+                          x-mask:dynamic="$input.replace(/\D/g,'').length > 11 ? '99.999.999/9999-99' : '999.999.999-99'"
+                          x-bind:placeholder="documentDigits > 11 ? '00.000.000/0000-00' : '000.000.000-00'"
+                          @input="documentDigits = $event.target.value.replace(/\D/g,'').length"
                           @blur="lookupCnpj()" required />
+            <p class="mt-1 text-xs text-steel">Aceita CPF ou CNPJ, independente do tipo selecionado.</p>
             <p x-show="cnpjLoading" x-cloak class="mt-1 text-xs text-gray-500">Pesquisando CNPJ...</p>
             <p x-show="cnpjError" x-cloak x-text="cnpjError" class="mt-1 text-xs text-red-600"></p>
             <x-input-error :messages="$errors->get('document')" class="mt-1" />
@@ -105,9 +110,12 @@
 
 @push('scripts')
 <script>
-    function fornecedorForm(initialType, categorias, initialCategoriaId, quickCategoriaUrl, cnpjLookupUrl) {
+    function fornecedorForm(initialType, categorias, initialCategoriaId, quickCategoriaUrl, cnpjLookupUrl, initialDocumentDigits) {
         return {
             type: initialType,
+            // Conta os dígitos digitados no documento — decide rótulo/máscara/placeholder do campo
+            // e não o "Tipo" (PF/PJ), que é só a classificação do fornecedor.
+            documentDigits: initialDocumentDigits,
             categorias: categorias,
             categoriaId: initialCategoriaId,
             categoriaOpen: false,
@@ -123,11 +131,11 @@
                 if (!q) return this.categorias;
                 return this.categorias.filter((c) => c.nome.toLowerCase().includes(q));
             },
-            // Consulta de CNPJ (specs/19) ao sair do campo — preenche a razão social. Só dispara
-            // para PJ e com os 14 dígitos completos (CPF não tem essa consulta).
+            // Consulta de CNPJ (specs/19) ao sair do campo — preenche a razão social. Dispara pela
+            // quantidade de dígitos DIGITADOS, não pelo "Tipo" selecionado: o documento pode ser um
+            // CNPJ mesmo com Tipo = Pessoa Física (e a consulta continua útil nesse caso).
             async lookupCnpj() {
                 this.cnpjError = null;
-                if (this.type !== 'PJ') return;
                 const digits = document.getElementById('document').value.replace(/\D/g, '');
                 if (digits.length !== 14) return;
                 this.cnpjLoading = true;

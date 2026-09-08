@@ -164,7 +164,7 @@
                             <th class="px-2 py-2.5 font-medium w-32 text-right" x-show="groups.actual">Total real.</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.payments">Pago</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.payments">Falta pagar</th>
-                            <th class="px-2 py-2.5 font-medium min-w-[13rem]" x-show="groups.control">Controle</th>
+                            <th class="px-2 py-2.5 font-medium min-w-[15.5rem]" x-show="groups.control">Controle</th>
                             <th class="px-2 py-2.5 w-16"></th>
                         </tr>
                     </thead>
@@ -284,7 +284,10 @@
 
                                 <td class="px-2 py-1.5" x-show="groups.control">
                                     <div class="flex items-center gap-1">
-                                        <template x-for="chip in row.documents" :key="chip.kind">
+                                        {{-- Os seis que provam a despesa aparecem sempre (cinza = pendência real).
+                                             Geral e Minuta vêm do card com o próprio tipo, mas a ausência deles não é
+                                             pendência — só aparecem quando existem. --}}
+                                        <template x-for="chip in row.documents.filter(c => c.proof || c.count > 0)" :key="chip.kind">
                                             <button type="button" @click="openDocuments(row, chip.kind)" :title="chip.label"
                                                     class="relative inline-flex items-center justify-center w-6 h-6 rounded-md border text-[10px] transition-colors"
                                                     :class="chip.count > 0

@@ -54,7 +54,9 @@
                     <td class="px-4 py-3 font-medium text-brand-ink">{{ $f->name }}</td>
                     <td class="px-4 py-3"><x-badge :variant="$f->type->value === 'PJ' ? 'dark' : 'neutral'">{{ $f->type->value }}</x-badge></td>
                     <td class="px-4 py-3 text-steel">
-                        {{ $f->type->value === 'PF' ? \App\Support\Br::formatCpf($f->document) : \App\Support\Br::formatCnpj($f->document) }}
+                        {{-- Formata pela quantidade de dígitos, não pelo "Tipo": PJ pode ter documento
+                             de 11 dígitos (pagamento direto à pessoa) e vice-versa. --}}
+                        {{ \App\Support\Br::formatDocument($f->document) }}
                     </td>
                     <td class="px-4 py-3 text-steel">{{ $f->categoria?->nome ?? '—' }}</td>
                     <td class="px-4 py-3"><x-badge :variant="$f->active ? 'success' : 'danger'">{{ $f->active ? 'Ativo' : 'Inativo' }}</x-badge></td>

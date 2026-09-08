@@ -34,9 +34,11 @@
                 </div>
                 @if ($fornecedor->document)
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                        <span class="text-sm text-steel">CNPJ</span>
+                        <span class="text-sm text-steel">CPF/CNPJ</span>
+                        {{-- Pela quantidade de dígitos, não pelo "Tipo": PJ pode ter documento de 11
+                             dígitos (pagamento direto à pessoa) e vice-versa. --}}
                         <span class="text-sm font-medium text-brand-ink">
-                            {{ $fornecedor->type->value === 'PF' ? Br::formatCpf($fornecedor->document) : Br::formatCnpj($fornecedor->document) }}
+                            {{ Br::formatDocument($fornecedor->document) }}
                         </span>
                     </div>
                 @endif

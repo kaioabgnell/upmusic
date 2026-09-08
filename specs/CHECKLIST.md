@@ -1235,6 +1235,15 @@ de implementação).
   - **Controle documental** com os 6 tipos do arquivo (orçamento, contrato, NF, comprovante, ART,
     boleto); `AttachmentKind` ganhou `art` e `boleto`. Status e ART são derivados dos documentos
     até alguém editar à mão (`status_auto`).
+  - **Tipo de anexo padronizado entre card e Financeiro** _(ajuste pós-entrega)_:
+    `FinanceDocumentKind` passou a espelhar 1:1 o `AttachmentKind` (ganhou `geral` e `minuta`) e
+    `fromAttachmentKind()` virou mapa total. O tipo é escolhido **uma vez**, ao anexar no card, e o
+    modal "Enviar para o Financeiro" já chega com todos os anexos marcados e classificados — antes
+    `geral`/`minuta` chegavam desmarcados e exigiam reclassificação. `minuta` atravessa com o
+    próprio tipo mas **não** move o status (só `contrato` faz isso), então a proteção contra dar a
+    despesa por contratada cedo demais continua valendo. Os chips da grade mostram sempre os seis de
+    prova (`proofKinds()`) e só exibem `geral`/`minuta` quando existem; o export XLSX segue com as
+    seis colunas do arquivo modelo.
   - **Fechamento da prestação de contas** congela a planilha (422 em toda escrita, inclusive para
     Admin — a trava fica em `FinanceController::authorizeWrite()`, não na policy, porque
     `Gate::before` libera o Admin em qualquer policy) e bloqueia excluir no card um anexo que prova

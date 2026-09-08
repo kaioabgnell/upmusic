@@ -152,7 +152,9 @@ class FinanceExportService
         $ws->setTitle('CUSTOS');
 
         $sources = FinancePaymentSource::ordered()->get();
-        $kinds = FinanceDocumentKind::cases();
+        // proofKinds(): o CONTROLE do arquivo modelo tem exatamente seis colunas. Geral/Minuta
+        // existem no sistema mas não fazem parte desse layout.
+        $kinds = FinanceDocumentKind::proofKinds();
 
         $ws->setCellValue('A1', 'EVENTO:')->setCellValue('B1', $sheet->event?->name);
         $ws->setCellValue('A2', 'DATA:')->setCellValue('B2', $sheet->event?->start_date?->format('d/m/Y'));

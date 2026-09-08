@@ -3,9 +3,12 @@
 namespace App\Domain\Enums;
 
 /**
- * O bloco CONTROLE da planilha (colunas V-AA): os seis documentos que provam a despesa.
- * É o mesmo conjunto que já chega como anexo no card — ver o mapa em
- * `FinanceDocumentKind::fromAttachmentKind()`.
+ * Tipo do documento de uma linha de custo — o bloco CONTROLE da planilha (colunas V-AA).
+ *
+ * Espelha 1:1 o `AttachmentKind` do card: o tipo escolhido na hora de anexar o arquivo é o mesmo
+ * que vale no Financeiro, sem reclassificar nada. Os seis primeiros casos são, na ordem, as seis
+ * colunas do arquivo modelo; `Geral` e `Minuta` vêm depois porque existem no card mas não provam
+ * despesa.
  */
 enum FinanceDocumentKind: string
 {
@@ -15,6 +18,8 @@ enum FinanceDocumentKind: string
     case Comprovante = 'comprovante';
     case Art = 'art';
     case Boleto = 'boleto';
+    case Geral = 'geral';
+    case Minuta = 'minuta';
 
     public function label(): string
     {
@@ -25,6 +30,8 @@ enum FinanceDocumentKind: string
             self::Comprovante => 'Comprovante',
             self::Art => 'ART',
             self::Boleto => 'Boleto',
+            self::Geral => 'Geral',
+            self::Minuta => 'Minuta',
         };
     }
 
@@ -38,6 +45,8 @@ enum FinanceDocumentKind: string
             self::Comprovante => 'Compr.',
             self::Art => 'ART',
             self::Boleto => 'Bol.',
+            self::Geral => 'Geral',
+            self::Minuta => 'Min.',
         };
     }
 
@@ -50,17 +59,19 @@ enum FinanceDocumentKind: string
             self::Comprovante => 'fa-circle-check',
             self::Art => 'fa-stamp',
             self::Boleto => 'fa-barcode',
+            self::Geral => 'fa-file',
+            self::Minuta => 'fa-file-pen',
         };
     }
 
     /**
-     * Mapa anexo do card -> documento do financeiro (specs/23 §6.4).
+     * O tipo do anexo do card É o tipo no Financeiro — mapa total, nunca nulo. O usuário escolhe
+     * uma vez, na hora de anexar, e o envio ao Financeiro respeita a escolha.
      *
-     * `geral` e `minuta` ficam de fora de propósito: minuta é a PROPOSTA do fornecedor (specs/19),
-     * não o contrato assinado — promovê-la marcaria o controle "CONTRATO" como resolvido antes de
-     * existir contrato, que é justamente o erro que a prestação de contas precisa evitar.
+     * Minuta continua sendo minuta (e não vira "contrato"): ela é a PROPOSTA do fornecedor
+     * (specs/19), e só o contrato assinado faz o status da linha avançar — ver DeriveCostItemStatus.
      */
-    public static function fromAttachmentKind(AttachmentKind $kind): ?self
+    public static function fromAttachmentKind(AttachmentKind $kind): self
     {
         return match ($kind) {
             AttachmentKind::Orcamento => self::Orcamento,
@@ -69,8 +80,33 @@ enum FinanceDocumentKind: string
             AttachmentKind::Comprovante => self::Comprovante,
             AttachmentKind::Art => self::Art,
             AttachmentKind::Boleto => self::Boleto,
-            AttachmentKind::Geral, AttachmentKind::Minuta => null,
+            AttachmentKind::Geral => self::Geral,
+            AttachmentKind::Minuta => self::Minuta,
         };
+    }
+
+    /**
+     * Tipos que o usuário escolhe ao anexar um arquivo direto no Financeiro. Mesma exclusão do
+     * `AttachmentKind::selectable()`: `Minuta` é atribuída pelo sistema quando o fornecedor envia
+     * pelo link do formulário (specs/19), e deixá-la selecionável permitiria marcar à mão um
+     * arquivo como se tivesse vindo do fornecedor.
+     *
+     * @return array<self>
+     */
+    public static function selectable(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $c) => $c !== self::Minuta));
+    }
+
+    /**
+     * Os seis documentos que PROVAM a despesa — as colunas V-AA do arquivo modelo, na ordem.
+     * `Geral` e `Minuta` ficam de fora: aparecem no card, mas não são prova de gasto.
+     *
+     * @return array<self>
+     */
+    public static function proofKinds(): array
+    {
+        return [self::Orcamento, self::Contrato, self::NotaFiscal, self::Comprovante, self::Art, self::Boleto];
     }
 
     /** @return array<string,string> */

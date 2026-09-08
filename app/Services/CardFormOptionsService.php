@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Domain\Enums\PessoaTipo;
 use App\Models\Empresa;
 use App\Models\Event;
 use App\Models\Fornecedor;
@@ -22,11 +21,13 @@ class CardFormOptionsService
         return [
             'empresas' => Empresa::active()->orderBy('corporate_name')->get(['id', 'corporate_name']),
             'fornecedores' => Fornecedor::active()->with('categoria:id,preco_interno')->orderBy('name')
-                ->get(['id', 'name', 'type', 'document', 'phone', 'email', 'fornecedor_categoria_id'])
+                ->get(['id', 'name', 'document', 'phone', 'email', 'fornecedor_categoria_id'])
                 ->map(fn ($f) => [
                     'id' => $f->id,
                     'name' => $f->name,
-                    'document' => $f->type === PessoaTipo::PF ? Br::formatCpf($f->document) : Br::formatCnpj($f->document),
+                    // Pela quantidade de dígitos, não pelo "Tipo": PJ pode ter documento de 11
+                    // dígitos (pagamento direto à pessoa) e vice-versa.
+                    'document' => Br::formatDocument($f->document),
                     // Telefone/e-mail: exibidos no card quando o quadro permite solicitar minuta ao
                     // fornecedor (specs/19), para contato rápido sem precisar abrir o cadastro.
                     'phone' => $f->phone,

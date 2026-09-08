@@ -46,14 +46,20 @@ class FinanceDocumentController extends FinanceController
                     'size' => $a->size,
                     'attachment_kind' => $a->kind->value,
                     'attachment_label' => $a->kind->label(),
-                    'suggested_kind' => FinanceDocumentKind::fromAttachmentKind($a->kind)?->value,
+                    'suggested_kind' => FinanceDocumentKind::fromAttachmentKind($a->kind)->value,
                 ])->values()
             : collect();
 
         return response()->json([
             'documents' => $documents->map(fn ($d) => FinancePresenter::document($d))->values(),
             'pending_attachments' => $pending,
+            // `kinds` classifica um anexo do card — aceita qualquer tipo, inclusive Minuta, porque
+            // o anexo pode legitimamente ser uma. `upload_kinds` é o upload direto no Financeiro,
+            // onde Minuta é barrada (só o fornecedor a produz, pelo link da specs/19).
             'kinds' => collect(FinanceDocumentKind::cases())->map(fn ($k) => [
+                'value' => $k->value, 'label' => $k->label(), 'icon' => $k->icon(),
+            ])->values(),
+            'upload_kinds' => collect(FinanceDocumentKind::selectable())->map(fn ($k) => [
                 'value' => $k->value, 'label' => $k->label(), 'icon' => $k->icon(),
             ])->values(),
             'item' => FinancePresenter::costItem($item),
@@ -67,7 +73,8 @@ class FinanceDocumentController extends FinanceController
 
         $data = $request->validate([
             'file' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx'],
-            'kind' => ['required', Rule::in(array_column(FinanceDocumentKind::cases(), 'value'))],
+            // selectable(): upload feito à mão não pode se passar por minuta do fornecedor.
+            'kind' => ['required', Rule::in(array_column(FinanceDocumentKind::selectable(), 'value'))],
         ]);
 
         $document = $action->fromUpload($item, $request->file('file'), FinanceDocumentKind::from($data['kind']), $request->user());

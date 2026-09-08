@@ -102,7 +102,7 @@
                         <div class="flex items-center gap-2">
                             <select x-model="uploadKind"
                                     class="text-xs border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
-                                <template x-for="k in drawer.kinds" :key="k.value">
+                                <template x-for="k in drawer.uploadKinds" :key="k.value">
                                     <option :value="k.value" x-text="k.label"></option>
                                 </template>
                             </select>

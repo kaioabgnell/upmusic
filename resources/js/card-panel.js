@@ -575,22 +575,35 @@ function cardPanelBase() {
         async openFinanceModal() {
             this.finance.open = true;
             this.finance.loading = true;
+            // Zera antes de buscar: sem isso o modal reabre exibindo por um instante a seleção do
+            // card anterior.
+            this.finance.data = null;
+            this.finance.selected = {};
+            this.finance.kinds = {};
             try {
                 const data = await this.api(this.cardUrl(this.cardId, '/financeiro/preview'));
                 this.finance.data = data;
+
+                // As <option> de Evento e Item vêm de x-for sobre `finance.data`. Aplicar a seleção
+                // antes de o Alpine renderizá-las deixaria o <select> na primeira opção, com a tela
+                // divergindo do estado. $nextTick garante as options já no DOM.
+                await this.$nextTick();
+
                 this.finance.form = {
-                    event_id: data.card.event_id ?? '',
+                    // O evento que vale é o que está na tela do card — inclusive se o usuário
+                    // acabou de trocá-lo e ainda não salvou. `data.card.event_id` é o valor gravado
+                    // e serve de fallback.
+                    event_id: this.form.event_id || data.card.event_id || '',
                     fornecedor_categoria_id: data.card.fornecedor_categoria_id ?? '',
                     description: data.existing_item?.description ?? data.card.title,
                     unit_estimated_1: this.brNumber(data.card.estimated_value),
                     unit_actual: data.card.actual_value === null ? '' : this.brNumber(data.card.actual_value),
                 };
-                // Anexos com tipo mapeável já vêm marcados; `geral`/`minuta` exigem classificação.
-                this.finance.selected = {};
-                this.finance.kinds = {};
+                // O tipo já foi escolhido ao anexar no card: todo anexo chega marcado e
+                // classificado. O select do modal serve só para corrigir antes de enviar.
                 data.attachments.forEach((a) => {
                     this.finance.selected[a.id] = a.checked;
-                    this.finance.kinds[a.id] = a.suggested_kind ?? 'comprovante';
+                    this.finance.kinds[a.id] = a.suggested_kind;
                 });
             } catch (e) {
                 this.finance.open = false;

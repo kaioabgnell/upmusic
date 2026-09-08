@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Enums\PessoaTipo;
 use App\Http\Requests\StoreFornecedorRequest;
 use App\Http\Requests\UpdateFornecedorRequest;
 use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
-use App\Rules\Cnpj;
-use App\Rules\Cpf;
+use App\Rules\CpfOuCnpj;
 use App\Services\PriceHistoryService;
 use App\Support\Br;
 use Illuminate\Http\Request;
@@ -88,17 +86,16 @@ class FornecedorController extends Controller
         // de duplicidade, já que a coluna armazena só dígitos e Rule::unique compara igualdade literal.
         $request->merge(['document' => Br::digits($request->input('document'))]);
 
-        $documentRule = $request->input('type') === PessoaTipo::PF->value ? new Cpf : new Cnpj;
-
         $data = $request->validate([
             'name' => ['required', 'string', 'max:180'],
             'type' => ['required', Rule::in(['PF', 'PJ'])],
-            'document' => ['required', 'string', $documentRule, Rule::unique('fornecedores', 'document')->whereNull('deleted_at')],
+            // Aceita CPF ou CNPJ independente do "Tipo" — ver App\Rules\CpfOuCnpj.
+            'document' => ['required', 'string', new CpfOuCnpj, Rule::unique('fornecedores', 'document')->whereNull('deleted_at')],
         ], [
             'document.unique' => 'O fornecedor informado já está cadastrado no sistema.',
         ], [
             'name' => 'nome',
-            'document' => $request->input('type') === PessoaTipo::PF->value ? 'CPF' : 'CNPJ',
+            'document' => 'CPF/CNPJ',
         ]);
 
         $fornecedor = Fornecedor::create($data);
@@ -106,7 +103,7 @@ class FornecedorController extends Controller
         return response()->json([
             'id' => $fornecedor->id,
             'name' => $fornecedor->name,
-            'document' => $fornecedor->type === PessoaTipo::PF ? Br::formatCpf($fornecedor->document) : Br::formatCnpj($fornecedor->document),
+            'document' => Br::formatDocument($fornecedor->document),
         ], 201);
     }
 

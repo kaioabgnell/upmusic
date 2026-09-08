@@ -47,22 +47,18 @@ class CardFinanceController extends Controller
                 'description' => $existing->description,
                 'documents_count' => $existing->documents()->count(),
             ] : null,
+            // O tipo escolhido ao anexar no card É o tipo no Financeiro: todo anexo já chega
+            // classificado e marcado, sem ninguém reescolher nada.
             'attachments' => $card->attachments->map(function ($a) {
-                $suggested = FinanceDocumentKind::fromAttachmentKind($a->kind);
-
                 return [
                     'id' => $a->id,
                     'name' => $a->original_name,
                     'attachment_kind' => $a->kind->value,
                     'attachment_label' => $a->kind->label(),
-                    'suggested_kind' => $suggested?->value,
-                    // `geral` e `minuta` chegam desmarcados: exigem classificação manual.
-                    'checked' => $suggested !== null,
+                    'suggested_kind' => FinanceDocumentKind::fromAttachmentKind($a->kind)->value,
+                    'checked' => true,
                 ];
             })->values(),
-            'kinds' => collect(FinanceDocumentKind::cases())->map(fn ($k) => [
-                'value' => $k->value, 'label' => $k->label(),
-            ])->values(),
             'categorias' => FornecedorCategoria::active()->orderBy('nome')->get(['id', 'nome']),
             'presets' => FinanceItemPreset::active()->orderBy('description')
                 ->get(['fornecedor_categoria_id', 'description'])

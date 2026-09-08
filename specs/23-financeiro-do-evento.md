@@ -488,32 +488,46 @@ Ao clicar, antes de gravar, o usuário vê e confirma:
 - **Evento** (select; obrigatório — pré-selecionado com `card->event_id`).
 - **Item/Categoria** (select de `fornecedor_categorias`, pré-selecionado pela categoria do fornecedor).
 - **Descrição** (texto, pré-preenchido com o título do card, com autocomplete de `finance_item_presets`).
-- **Anexos a enviar** — lista dos anexos do card com o tipo de cada um, todos marcados por padrão;
-  anexos `geral`/`minuta` aparecem **desmarcados** com um select para classificar (é o único ponto
-  onde o usuário precisa dizer "isso aqui é um comprovante").
+- **Anexos a enviar** — lista dos anexos do card, **todos marcados e já classificados** com o tipo
+  escolhido no momento do upload. O select ao lado serve só para corrigir um tipo errado antes de
+  enviar; o usuário não reclassifica nada que já tenha classificado no card.
 - **Valores** — previsto e realizado sugeridos, editáveis.
 - Rodapé: *"Os arquivos não são copiados — o Financeiro passa a enxergar os mesmos anexos deste card."*
 
 Se o card já estiver vinculado, o modal muda o título para **"Sincronizar com o Financeiro"** e mostra
 quantos documentos novos serão vinculados.
 
-### 6.4 Mapas de derivação
+### 6.4 Tipo do documento e derivação de status
 
-`AttachmentKind` → `FinanceDocumentKind`:
+**O tipo é escolhido uma vez só: na hora de anexar o arquivo no card.** `FinanceDocumentKind`
+espelha 1:1 o `AttachmentKind`, e `fromAttachmentKind()` é um mapa **total** — nenhum anexo chega ao
+Financeiro sem classificação, e o modal "Enviar para o Financeiro" já traz todos marcados com o tipo
+que vieram. O select do modal existe apenas para **corrigir** uma classificação errada antes de
+enviar.
 
 | Anexo do card | Documento do financeiro |
 |---|---|
-| `orcamento` | `orcamento` |
-| `contrato` | `contrato` |
-| `nota_fiscal` | `nota_fiscal` |
-| `comprovante` | `comprovante` |
-| `art` | `art` |
-| `boleto` | `boleto` |
-| `geral`, `minuta` | **não mapeados** — vão para "Outros anexos do card" no painel de documentos, com botão para classificar manualmente |
+| `orcamento`, `contrato`, `nota_fiscal`, `comprovante`, `art`, `boleto` | o mesmo tipo — são as seis colunas V-AA do arquivo modelo |
+| `geral` | `geral` |
+| `minuta` | `minuta` |
 
-> **Por que `minuta` não vira `contrato` automaticamente:** minuta é a **proposta** do fornecedor
-> (specs/19), não o contrato assinado. Promovê-la sozinha marcaria o controle "CONTRATO" como
-> resolvido antes de existir contrato — exatamente o erro que a prestação de contas precisa evitar.
+> **Por que `minuta` continua sendo `minuta` e não vira `contrato`:** minuta é a **proposta** do
+> fornecedor (specs/19), não o contrato assinado. Ela atravessa para o Financeiro com o próprio tipo
+> — o arquivo fica visível e rastreável —, mas **não** move o status da linha: só `contrato` faz
+> isso. Mapeá-la para `contrato` marcaria o controle como resolvido antes de existir contrato, que é
+> o erro que a prestação de contas precisa evitar.
+
+**Onde cada tipo aparece:**
+
+- **Chips da grade de Custos:** os seis de prova (`FinanceDocumentKind::proofKinds()`) aparecem
+  sempre — cinza é pendência real. `geral` e `minuta` só aparecem quando existem: a ausência deles
+  não é pendência, e um chip cinza sugeriria que falta alguma coisa.
+- **Export XLSX:** só os seis de prova, na ordem do arquivo modelo — é o layout que a contabilidade
+  espera.
+- **Upload direto no Financeiro:** `FinanceDocumentKind::selectable()`, que exclui `minuta` pelo
+  mesmo motivo do `AttachmentKind::selectable()` — ninguém marca à mão um arquivo como se tivesse
+  vindo do fornecedor. Classificar um anexo **do card** aceita qualquer tipo, inclusive `minuta`,
+  porque o anexo pode legitimamente ser uma.
 
 Derivação de `status` (só quando `status_auto = true`; qualquer edição manual grava `status_auto = false`):
 
@@ -799,8 +813,9 @@ fornecedor estruturado, e adivinhar o vínculo produziria uma prestação de con
 - `FinanceCostItemTest` — colunas geradas conferem (`total = unit × qty × diárias`) nos três cenários;
   `unit_actual = null` não conta como realizado 0 no resumo.
 - `SyncCardToFinanceTest` — cria linha a partir do card; **idempotência** (rodar 2×, 1 linha e 1
-  documento); card sem evento → 422; anexo novo em card vinculado vira documento (observer); `geral`
-  e `minuta` **não** viram documento automaticamente.
+  documento); card sem evento → 422; anexo novo em card vinculado vira documento (observer); **todo**
+  anexo vai com o tipo escolhido no card, inclusive `geral` e `minuta`; `minuta` **não** faz a linha
+  avançar para "Contrato OK".
 - `FinanceDocumentTest` — invariante attachment XOR upload; resposta inline com `nosniff` e
   `Content-Type` do conteúdo; exclusão de anexo bloqueada com planilha fechada.
 - `FinancePaymentTest` — pago/falta pagar; pagamento parcial por múltiplas fontes; alerta de
@@ -828,8 +843,10 @@ fornecedor estruturado, e adivinhar o vínculo produziria uma prestação de con
       pode ser ligado/desligado por evento e a linha sem Previsto 2 continua valendo pelo Previsto 1.
 - [ ] Pagamentos por grupo (Caixa do Evento, Sócios, Ticketeira, Bar, …) com pagamento parcial, e
       PAGO / FALTA PAGAR calculados.
-- [ ] Controle documental com os seis tipos (Orçamento, Contrato, NF, Comprovante, ART, Boleto),
-      visível como chips na grade e abrindo o arquivo em nova aba.
+- [ ] Controle documental com os seis tipos de prova (Orçamento, Contrato, NF, Comprovante, ART,
+      Boleto), visível como chips na grade e abrindo o arquivo em nova aba.
+- [ ] O tipo do anexo é escolhido **uma vez**, no card, e vale no Financeiro: o modal de envio já
+      chega com todos marcados e classificados, sem reescolha.
 - [ ] Receitas com descrição por linha (patrocínio identificado), previsto, realizado, recebido,
       falta receber e recebido por.
 - [ ] Resumo Geral com Receita/Custo/Resultado **previsto e realizado**, custo por categoria,

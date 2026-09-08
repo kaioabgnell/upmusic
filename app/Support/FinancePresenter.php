@@ -57,20 +57,27 @@ class FinancePresenter
     }
 
     /**
-     * Os seis "chips" do bloco CONTROLE, sempre na mesma ordem — cinza quando ausente, verde com
+     * Os "chips" do bloco CONTROLE, sempre na mesma ordem — cinza quando ausente, verde com
      * contador quando presente.
+     *
+     * `proof` separa os seis documentos que provam a despesa (colunas V-AA do arquivo modelo) dos
+     * demais: para eles, o chip cinza é uma pendência real e aparece sempre. `Geral` e `Minuta`
+     * chegam do card com o próprio tipo, mas a ausência deles não é pendência — então só aparecem
+     * quando existem, para não sugerir que falta alguma coisa.
      *
      * @return array<int,array<string,mixed>>
      */
     public static function documentChips(FinanceCostItem $item): array
     {
         $counts = $item->documents->groupBy(fn ($d) => $d->kind->value)->map->count();
+        $proof = FinanceDocumentKind::proofKinds();
 
         return collect(FinanceDocumentKind::cases())->map(fn (FinanceDocumentKind $kind) => [
             'kind' => $kind->value,
             'label' => $kind->label(),
             'short' => $kind->shortLabel(),
             'icon' => $kind->icon(),
+            'proof' => in_array($kind, $proof, true),
             'count' => (int) ($counts[$kind->value] ?? 0),
         ])->all();
     }

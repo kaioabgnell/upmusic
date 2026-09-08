@@ -139,8 +139,9 @@ class SyncCardToFinance
     }
 
     /**
-     * Vincula os anexos do card como documentos de controle. `geral` e `minuta` não têm mapa
-     * automático (specs/23 §6.4) e só entram quando o usuário classifica no modal.
+     * Vincula os anexos do card como documentos de controle, cada um com o MESMO tipo escolhido
+     * na hora de anexar (specs/23 §6.4). `$kindOverrides` só existe para o caso de alguém corrigir
+     * a classificação no modal antes de enviar.
      *
      * @return int quantos documentos NOVOS foram criados
      */
@@ -158,13 +159,9 @@ class SyncCardToFinance
                 continue;
             }
 
-            $kind = isset($kindOverrides[$attachment->id])
+            $kind = (isset($kindOverrides[$attachment->id])
                 ? FinanceDocumentKind::tryFrom($kindOverrides[$attachment->id])
-                : FinanceDocumentKind::fromAttachmentKind($attachment->kind);
-
-            if (! $kind) {
-                continue;
-            }
+                : null) ?? FinanceDocumentKind::fromAttachmentKind($attachment->kind);
 
             $this->documents->fromAttachment($item, $attachment, $kind, $actor);
         }

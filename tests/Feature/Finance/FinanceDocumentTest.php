@@ -61,6 +61,22 @@ class FinanceDocumentTest extends FinanceTestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 
+    public function test_upload_direto_nao_pode_se_passar_por_minuta_do_fornecedor(): void
+    {
+        Storage::fake('local');
+        $item = $this->sheet()->costItems()->create(['description' => 'Som'])->refresh();
+
+        // Minuta é atribuída pelo sistema quando o fornecedor envia pelo link (specs/19);
+        // marcá-la à mão faria um arquivo qualquer parecer ter vindo do fornecedor.
+        $this->actingAs($this->user())
+            ->postJson(route('finance.documents.store', $item), [
+                'file' => UploadedFile::fake()->create('qualquer.pdf', 12, 'application/pdf'),
+                'kind' => FinanceDocumentKind::Minuta->value,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('kind');
+    }
+
     public function test_excluir_anexo_do_card_e_bloqueado_com_prestacao_de_contas_fechada(): void
     {
         Storage::fake('local');

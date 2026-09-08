@@ -453,8 +453,8 @@
                                             <i class="fa-solid fa-file-invoice-dollar text-steel mr-1"></i> Financeiro do evento
                                         </p>
                                         <p class="text-xs text-steel mb-2">
-                                            Envia este card como linha de custo da planilha do evento, com os anexos já vinculados
-                                            como orçamento, contrato, nota, comprovante, ART ou boleto.
+                                            Envia este card como linha de custo da planilha do evento. Os anexos vão junto,
+                                            cada um já com o tipo escolhido aqui nos Anexos.
                                         </p>
                                         <button type="button" @click="openFinanceModal()"
                                                 class="inline-flex items-center gap-2 rounded-md bg-brand-orange px-3 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep">
@@ -636,13 +636,19 @@
                 <i class="fa-solid fa-circle-notch fa-spin text-xl"></i>
             </div>
 
-            <template x-if="!finance.loading && finance.data">
-                <div class="space-y-4">
-                    <div x-show="finance.data.existing_item" x-cloak
+            {{-- x-show, não x-if — mesma armadilha documentada no topo deste arquivo: com x-if o
+                 subtree é recriado a cada abertura e o Alpine inicializa o <select x-model> ANTES de
+                 o x-for interno criar as <option>s. Sem opção correspondente o navegador cai na
+                 primeira ("Orçamento" no tipo do anexo, "Selecione o evento" no evento) e a tela
+                 passa a divergir do estado. Com x-show o subtree existe desde o carregamento, e o
+                 openFinanceModal() ainda aplica a seleção num $nextTick, depois das options no DOM. --}}
+            <div x-show="!finance.loading && finance.data" class="space-y-4">
+                <div>
+                    <div x-show="finance.data?.existing_item" x-cloak
                          class="rounded-md border border-brand-orange/40 bg-brand-orange/5 px-3 py-2 text-xs text-brand-ink">
                         Este card já é a linha
-                        <strong>#<span x-text="finance.data.existing_item?.id"></span></strong>
-                        do Financeiro (<span x-text="finance.data.existing_item?.documents_count"></span> documento(s)).
+                        <strong>#<span x-text="finance.data?.existing_item?.id"></span></strong>
+                        do Financeiro (<span x-text="finance.data?.existing_item?.documents_count"></span> documento(s)).
                         O envio vai apenas sincronizar o que mudou.
                     </div>
 
@@ -652,7 +658,7 @@
                             <select x-model="finance.form.event_id"
                                     class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                 <option value="">Selecione o evento</option>
-                                <template x-for="e in finance.data.events" :key="e.id">
+                                <template x-for="e in (finance.data?.events ?? [])" :key="e.id">
                                     <option :value="e.id" x-text="e.name"></option>
                                 </template>
                             </select>
@@ -666,7 +672,7 @@
                             <select x-model="finance.form.fornecedor_categoria_id"
                                     class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                 <option value="">Sem categoria</option>
-                                <template x-for="c in finance.data.categorias" :key="c.id">
+                                <template x-for="c in (finance.data?.categorias ?? [])" :key="c.id">
                                     <option :value="c.id" x-text="c.nome"></option>
                                 </template>
                             </select>
@@ -698,35 +704,37 @@
                     </div>
 
                     <div>
-                        <p class="text-xs font-semibold text-brand-ink mb-2">Anexos a vincular</p>
+                        <div class="flex items-baseline justify-between gap-2 mb-2">
+                            <p class="text-xs font-semibold text-brand-ink">Anexos a vincular</p>
+                            <p class="text-[11px] text-steel">Tipo definido no card</p>
+                        </div>
                         <div class="space-y-2">
-                            <template x-for="a in finance.data.attachments" :key="a.id">
+                            {{-- O tipo já foi escolhido ao anexar o arquivo no card e chega marcado aqui.
+                                 O select fica disponível só para corrigir a classificação antes de enviar.
+                                 As <option> saem do enum (server-rendered): lista estática e sempre presente
+                                 no DOM, então o x-model nunca cai na primeira opção por falta de opção. --}}
+                            <template x-for="a in (finance.data?.attachments ?? [])" :key="a.id">
                                 <div class="flex items-center gap-2 rounded-md border border-hairline px-2.5 py-2">
                                     <input type="checkbox" x-model="finance.selected[a.id]"
                                            class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
                                     <i class="fa-solid fa-file text-steel text-xs"></i>
                                     <span class="flex-1 truncate text-sm text-brand-ink" x-text="a.name" :title="a.name"></span>
-                                    <span x-show="!a.suggested_kind" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600"
-                                          x-text="a.attachment_label"></span>
                                     <select x-model="finance.kinds[a.id]"
+                                            title="Tipo herdado do anexo no card — altere só se estiver errado"
                                             class="text-xs border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
-                                        <template x-for="k in finance.data.kinds" :key="k.value">
-                                            <option :value="k.value" x-text="k.label"></option>
-                                        </template>
+                                        @foreach (\App\Domain\Enums\FinanceDocumentKind::cases() as $kind)
+                                            <option value="{{ $kind->value }}">{{ $kind->label() }}</option>
+                                        @endforeach
                                     </select>
                                 </div>
                             </template>
-                            <p x-show="finance.data.attachments.length === 0" class="text-xs text-steel">
+                            <p x-show="(finance.data?.attachments?.length ?? 0) === 0" class="text-xs text-steel">
                                 Este card ainda não tem anexos. A linha de custo é criada mesmo assim.
                             </p>
                         </div>
-                        <p class="mt-2 text-[11px] text-steel">
-                            Anexos "Geral" e "Minuta" chegam desmarcados: precisam ser classificados antes de virarem
-                            documento de controle.
-                        </p>
                     </div>
                 </div>
-            </template>
+            </div>
         </div>
 
         <div class="px-5 py-3 border-t border-hairline flex items-center justify-between gap-3 shrink-0">

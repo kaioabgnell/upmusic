@@ -55,7 +55,7 @@ export function financeCosts(cfg) {
         timers: {},
 
         // Drawer de documentos / pagamentos da linha.
-        drawer: { open: false, tab: 'documentos', loading: false, row: null, documents: [], pending: [], kinds: [], payments: [] },
+        drawer: { open: false, tab: 'documentos', loading: false, row: null, documents: [], pending: [], kinds: [], uploadKinds: [], payments: [] },
         newPayment: { finance_payment_source_id: '', amount: '', paid_at: '', notes: '' },
         uploadKind: 'comprovante',
 
@@ -193,6 +193,11 @@ export function financeCosts(cfg) {
                 this.drawer.documents = data.documents;
                 this.drawer.pending = data.pending_attachments;
                 this.drawer.kinds = data.kinds;
+                this.drawer.uploadKinds = data.upload_kinds;
+                // O upload direto não oferece "Minuta"; se o chip clicado era esse, cai no padrão.
+                if (!this.drawer.uploadKinds.some((k) => k.value === this.uploadKind)) {
+                    this.uploadKind = 'comprovante';
+                }
                 Object.assign(row, data.item);
             } catch (e) {
                 window.upAlerts.notifyError(e.message);

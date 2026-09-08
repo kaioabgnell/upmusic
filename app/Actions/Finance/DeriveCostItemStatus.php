@@ -13,6 +13,10 @@ use App\Models\FinanceCostItem;
  * O sistema sugere, o usuário decide: assim que alguém edita o status à mão, `status_auto` vira
  * false e esta Action não encosta mais no campo. `NaoAplicado` nunca é atribuído automaticamente —
  * é decisão humana.
+ *
+ * Só ORÇAMENTO, CONTRATO e NOTA FISCAL movem o status. `Minuta` chega ao Financeiro com o próprio
+ * tipo (é a proposta do fornecedor, specs/19) e por isso NÃO faz a linha avançar para
+ * "Contrato OK" — quem faz isso é o contrato assinado. `Geral` também não move nada.
  */
 class DeriveCostItemStatus
 {
