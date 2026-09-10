@@ -200,7 +200,10 @@
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(Object.values(data.errors || {}).flat()[0] || 'Erro ao cadastrar.');
+                    // A lista chega do servidor em ordem alfabética (specs/19); um push simples
+                    // quebraria isso jogando a categoria nova pro fim. Reordena do mesmo jeito.
                     this.categorias.push({ id: data.id, nome: data.nome });
+                    this.categorias.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
                     this.categoriaId = data.id;
                     this.categoriaOpen = false;
                     window.upAlerts.notifySuccess('Categoria cadastrada.');
