@@ -44,6 +44,13 @@
                 <x-nav-item route="empresas.index" pattern="empresas.*" icon="fa-building" label="Empresas" />
             @endif
             <x-nav-item route="fornecedores.index" pattern="fornecedores.*" icon="fa-truck-field" label="Fornecedores" />
+            @if ($isManager && ! $isEventScoped)
+                {{-- Submenu de Fornecedores: gestão de categorias (restrito a Admin/Coordenador, specs/20). --}}
+                <div class="pl-4">
+                    <x-nav-item route="fornecedor-categorias.index" pattern="fornecedor-categorias.*" icon="fa-tags"
+                        label="Categorias" />
+                </div>
+            @endif
             @if ($isManager)
                 <x-nav-item route="eventos.index" pattern="eventos.*" icon="fa-calendar-days" label="Eventos" />
                 @unless ($isEventScoped)
