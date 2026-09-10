@@ -691,15 +691,30 @@
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-2">
+                        {{-- Os dois usam maskMoneyDigits() (dígito digitado = centavo, estilo caixa
+                             eletrônico): o $money do @alpinejs/mask embola dígitos puros sem vírgula
+                             (ex.: "0000" viraria "0.000" em vez de "0,00" — e o valor salvo ficaria
+                             100x maior). maskMoneyDigits() não tem essa ambiguidade em nenhum dos
+                             dois, esteja o campo pré-preenchido ou vazio. --}}
                         <div>
                             <label class="text-xs text-steel">Valor unitário previsto</label>
-                            <input type="text" x-model="finance.form.unit_estimated_1" inputmode="decimal" placeholder="0,00"
-                                   class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
+                                <input type="text" inputmode="decimal" :value="finance.form.unit_estimated_1"
+                                       @input="finance.form.unit_estimated_1 = maskMoneyDigits($event.target.value)"
+                                       placeholder="0,00"
+                                       class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                            </div>
                         </div>
                         <div>
                             <label class="text-xs text-steel">Valor unitário realizado</label>
-                            <input type="text" x-model="finance.form.unit_actual" inputmode="decimal" placeholder="Ainda não realizado"
-                                   class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
+                                <input type="text" inputmode="decimal" :value="finance.form.unit_actual"
+                                       @input="finance.form.unit_actual = maskMoneyDigits($event.target.value)"
+                                       placeholder="Ainda não realizado"
+                                       class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                            </div>
                         </div>
                     </div>
 

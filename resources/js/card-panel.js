@@ -651,6 +651,23 @@ function cardPanelBase() {
                 : Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
 
+        /**
+         * Máscara "dígito é centavo, da direita pra esquerda" (estilo caixa eletrônico) — usada nos
+         * dois campos de valor do modal "Sincronizar com o Financeiro" ("Valor unitário previsto" e
+         * "Valor unitário realizado"). O `$money` do @alpinejs/mask embola quando a pessoa digita
+         * puros dígitos sem passar pela vírgula (ex.: "0000" vira "0.000" em vez de "0,00") — o
+         * número chegaria ERRADO ao backend (100x maior), não só feio na tela; e isso acontece tanto
+         * num campo que começa vazio quanto num que a pessoa apaga e redigita do zero. Aqui não
+         * existe essa ambiguidade: cada dígito digitado É um centavo, então colar ou digitar sem
+         * vírgula nunca produz o valor errado.
+         */
+        maskMoneyDigits(raw) {
+            const digits = raw.replace(/\D/g, '');
+            return digits === ''
+                ? ''
+                : (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+
         // ---- Transferência / conclusão / reabertura ----------------------------
         async doTransfer() {
             if (!this.transferBoardId) return;

@@ -80,4 +80,29 @@ class CardPanelFinanceModalTest extends TestCase
         $this->assertStringNotContainsString('x-if="!finance.loading && finance.data"', $blade);
         $this->assertStringContainsString('x-show="!finance.loading && finance.data"', $blade);
     }
+
+    /**
+     * "Valor unitário previsto" e "Valor unitário realizado" precisam usar `maskMoneyDigits()`
+     * (dígito digitado = centavo, estilo caixa eletrônico) nos dois — não o plugin de máscara do
+     * Alpine, que embola dígitos puros digitados sem vírgula (ex.: "0000" vira "0.000" em vez de
+     * "0,00", e pior: o número chegaria 100x maior ao salvar). Isso já quebrou os dois campos em
+     * momentos diferentes: primeiro o realizado (que começa vazio), depois o previsto (quando
+     * alguém apaga o valor pré-preenchido e redigita do zero) — por isso os dois precisam do mesmo
+     * mecanismo, não só o que falhou por último.
+     */
+    public function test_valores_do_modal_do_financeiro_usam_mascara_sem_ambiguidade(): void
+    {
+        $blade = file_get_contents(resource_path('views/boards/partials/card-panel.blade.php'));
+
+        foreach (['unit_estimated_1', 'unit_actual'] as $field) {
+            // Nem x-model direto, nem o $money antigo — só maskMoneyDigits() nesses dois campos.
+            // (O resto do arquivo — os valores do CARD em si, fora do modal do Financeiro — continua
+            // podendo usar o $money normalmente; não é o que está quebrado aqui.)
+            $this->assertStringNotContainsString("x-model=\"finance.form.{$field}\"", $blade);
+            $this->assertMatchesRegularExpression(
+                '/:value="finance\.form\.'.$field.'"\s+@input="finance\.form\.'.$field.' = maskMoneyDigits\(\$event\.target\.value\)"/',
+                $blade,
+            );
+        }
+    }
 }

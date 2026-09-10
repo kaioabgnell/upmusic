@@ -17,10 +17,12 @@ use Illuminate\Validation\ValidationException;
  * A ponte Kanban -> Financeiro (specs/23 §6): leva o card e os anexos dele para a linha de custo do
  * evento, acabando com o "subir tudo no card e subir tudo de novo na planilha".
  *
- * Três gatilhos chamam esta Action:
+ * Quatro gatilhos chamam esta Action:
  *   1. o botão "Enviar para o Financeiro" no painel do card;
  *   2. a entrada do card num quadro com `boards.feeds_finance` (MoveCard/TransferCard);
- *   3. o CardAttachmentObserver, quando chega anexo novo num card já vinculado.
+ *   3. o CardAttachmentObserver, quando chega anexo novo num card já vinculado;
+ *   4. o CardObserver, quando um card JÁ vinculado tem título/fornecedor/valores alterados —
+ *      mantém a linha existente espelhando o card sem precisar reabrir o modal manualmente.
  *
  * É IDEMPOTENTE: rodar de novo no mesmo card não duplica linha nem documento — reusa a linha
  * existente e só vincula o que apareceu depois. Os arquivos NÃO são copiados: `finance_documents`
@@ -76,8 +78,12 @@ class SyncCardToFinance
                 $item = $sheet->costItems()->create(
                     $this->sanitize($overrides) + $this->defaultsFromCard($card, $sheet->id)
                 )->refresh();
-            } elseif ($overrides) {
-                $item->update($this->sanitize($overrides));
+            } else {
+                // Linha já existe: sempre reespelha do card (título, fornecedor, valores) — é
+                // assim que uma edição no card, sem ninguém reabrir o modal, chega no Financeiro.
+                // Overrides à esquerda continuam vencendo o espelhado, para o que a pessoa
+                // confirmou/corrigiu no modal não ser pisado pelo valor bruto do card.
+                $item->update($this->sanitize($overrides) + $this->mirrorFromCard($card));
             }
 
             $linked = $this->linkAttachments($card, $item, $actor, $attachmentIds, $kindOverrides);
@@ -95,19 +101,31 @@ class SyncCardToFinance
     /** Campos pré-preenchidos a partir do card. O financeiro pode editar tudo depois. */
     private function defaultsFromCard(Card $card, int $sheetId): array
     {
-        return [
+        return $this->mirrorFromCard($card) + [
             'finance_sheet_id' => $sheetId,
             'card_id' => $card->id,
-            'fornecedor_categoria_id' => $card->fornecedor?->fornecedor_categoria_id,
-            'description' => $card->title,
-            'fornecedor_id' => $card->fornecedor_id,
             'authorized_by' => $card->assignee_id,
             'daily_count' => 1,
             'quantity' => 1,
-            'unit_estimated_1' => (float) ($card->estimated_value ?? 0),
-            'unit_actual' => $this->actualFromCard($card),
             'position' => (int) FinanceCostItem::where('finance_sheet_id', $sheetId)->max('position') + 1,
         ];
+    }
+
+    /**
+     * Campos que a linha do Financeiro sempre espelha do card, na criação e em toda resincronia
+     * (specs/23 §6.6) — título, fornecedor (e a categoria dele) e os valores previsto/realizado.
+     * `unit_estimated_2` (Vlr. unit. 2/"refinado") fica de fora de propósito: é campo só do
+     * Financeiro, sem equivalente no card.
+     */
+    private function mirrorFromCard(Card $card): array
+    {
+        return array_filter([
+            'description' => $card->title,
+            'fornecedor_id' => $card->fornecedor_id,
+            'fornecedor_categoria_id' => $card->fornecedor?->fornecedor_categoria_id,
+            'unit_estimated_1' => (float) ($card->estimated_value ?? 0),
+            'unit_actual' => $this->actualFromCard($card),
+        ], fn ($v) => $v !== null);
     }
 
     /**
