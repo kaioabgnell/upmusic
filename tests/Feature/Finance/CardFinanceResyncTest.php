@@ -42,11 +42,15 @@ class CardFinanceResyncTest extends FinanceTestCase
             'valor_sem_nota' => 900,
             'valor_com_nota' => 950,
             'negociado' => CardNegociado::ComNota->value,
+            'unit_value' => 940,
         ]);
 
+        // Previsto = o valor negociado (com nota, porque é o cenário marcado no card); realizado =
+        // o valor unitário. O "Banco de Preços" (1500) deixou de alimentar o previsto: é referência
+        // de consulta, não o preço combinado com este fornecedor.
         $item->refresh();
-        $this->assertEquals(1500, (float) $item->unit_estimated_1);
-        $this->assertEquals(950, (float) $item->unit_actual);
+        $this->assertEquals(950, (float) $item->unit_estimated_1);
+        $this->assertEquals(940, (float) $item->unit_actual);
     }
 
     public function test_editar_titulo_e_fornecedor_do_card_ja_vinculado_atualiza_a_linha_sozinho(): void

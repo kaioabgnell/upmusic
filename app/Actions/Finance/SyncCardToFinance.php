@@ -83,7 +83,7 @@ class SyncCardToFinance
                 // assim que uma edição no card, sem ninguém reabrir o modal, chega no Financeiro.
                 // Overrides à esquerda continuam vencendo o espelhado, para o que a pessoa
                 // confirmou/corrigiu no modal não ser pisado pelo valor bruto do card.
-                $item->update($this->sanitize($overrides) + $this->mirrorFromCard($card));
+                $item->update($this->sanitize($overrides) + $this->mirrorFromCard($card, $item));
             }
 
             $linked = $this->linkAttachments($card, $item, $actor, $attachmentIds, $kindOverrides);
@@ -98,7 +98,13 @@ class SyncCardToFinance
         });
     }
 
-    /** Campos pré-preenchidos a partir do card. O financeiro pode editar tudo depois. */
+    /**
+     * Campos pré-preenchidos a partir do card. O financeiro pode editar tudo depois.
+     *
+     * `quantity` vem do card só aqui (criação): depois disso, quantidade e diárias passam a ser do
+     * financeiro — é ele quem desdobra "1 contrato" em "20 diárias × 3 equipes" na grade, e uma
+     * edição no card não pode desfazer isso (specs/23 §3: o card sugere, o financeiro decide).
+     */
     private function defaultsFromCard(Card $card, int $sheetId): array
     {
         return $this->mirrorFromCard($card) + [
@@ -106,7 +112,7 @@ class SyncCardToFinance
             'card_id' => $card->id,
             'authorized_by' => $card->assignee_id,
             'daily_count' => 1,
-            'quantity' => 1,
+            'quantity' => (float) ($card->quantity ?? 1),
             'position' => (int) FinanceCostItem::where('finance_sheet_id', $sheetId)->max('position') + 1,
         ];
     }
@@ -117,30 +123,76 @@ class SyncCardToFinance
      * `unit_estimated_2` (Vlr. unit. 2/"refinado") fica de fora de propósito: é campo só do
      * Financeiro, sem equivalente no card.
      */
-    private function mirrorFromCard(Card $card): array
+    private function mirrorFromCard(Card $card, ?FinanceCostItem $item = null): array
     {
         return array_filter([
             'description' => $card->title,
             'fornecedor_id' => $card->fornecedor_id,
             'fornecedor_categoria_id' => $card->fornecedor?->fornecedor_categoria_id,
-            'unit_estimated_1' => (float) ($card->estimated_value ?? 0),
-            'unit_actual' => $this->actualFromCard($card),
+            'unit_estimated_1' => $this->unitEstimatedFor($card),
+            'unit_actual' => $this->unitActualFor($card, $item),
         ], fn ($v) => $v !== null);
     }
 
     /**
-     * Realizado sugerido (specs/23 §6.5). O valor negociado do card tem precedência sobre
-     * `actual_value` porque é o número que o financeiro efetivamente paga.
+     * Unitário PREVISTO a partir do card.
+     *
+     * "Valor previsto com/sem nota" é o TOTAL do orçamento — é assim que se negocia com o
+     * fornecedor ("o serviço sai por 420"), e é o que a pessoa digita ali. A coluna do Financeiro é
+     * POR UNIDADE e o total dela é gerado (`unitário × quantidade × diárias`), então mandar o total
+     * direto multiplicaria a despesa pela quantidade: 420 num card de 2 diárias virava R$ 840.
+     * A conversão mora aqui, dividindo pela quantidade do próprio card.
+     *
+     * O "Banco de Preços" (`estimated_value`) é a exceção: já é um preço por unidade (vem da média
+     * do histórico), então entra sem divisão. Ele é o último recurso, para o card que não tem
+     * nenhum valor negociado preenchido.
      */
-    private function actualFromCard(Card $card): ?float
+    public function unitEstimatedFor(Card $card): ?float
     {
-        $value = match ($card->negociado) {
+        $total = match ($card->negociado) {
+            CardNegociado::ComNota => $card->valor_com_nota,
+            CardNegociado::SemNota => $card->valor_sem_nota,
+            default => $card->valor_com_nota ?? $card->valor_sem_nota,
+        };
+
+        if ($total === null) {
+            return $card->estimated_value === null ? null : (float) $card->estimated_value;
+        }
+
+        $quantity = (float) ($card->quantity ?? 1);
+
+        return $quantity > 0 ? round((float) $total / $quantity, 2) : (float) $total;
+    }
+
+    /**
+     * Unitário REALIZADO: o "Valor unitário" do card — o preço por unidade que o fornecedor
+     * cobrou de fato, que é o número comparável entre eventos (specs/15).
+     *
+     * O card antigo não tem unitário, só o TOTAL. Copiar esse total para a coluna unitária é o que
+     * sempre foi feito, e continua valendo enquanto a linha for 1 × 1 (aí total e unitário são o
+     * mesmo número). Se o financeiro já desdobrou a linha em diárias/quantidade, reescrever o
+     * unitário com um total multiplicaria a despesa por esse fator — então nesse caso não se mexe
+     * no valor que o financeiro ajustou.
+     */
+    public function unitActualFor(Card $card, ?FinanceCostItem $item = null): ?float
+    {
+        if ($card->unit_value !== null) {
+            return (float) $card->unit_value;
+        }
+
+        $total = match ($card->negociado) {
             CardNegociado::ComNota => $card->valor_com_nota,
             CardNegociado::SemNota => $card->valor_sem_nota,
             default => $card->actual_value,
         };
 
-        return $value === null ? null : (float) $value;
+        if ($total === null) {
+            return null;
+        }
+
+        $multiplier = $item === null ? 1.0 : (float) $item->quantity * (float) $item->daily_count;
+
+        return $multiplier === 1.0 ? (float) $total : null;
     }
 
     /** Só os campos que o modal pode confirmar; nada de mass assignment cego do request. */

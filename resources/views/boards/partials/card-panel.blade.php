@@ -295,26 +295,63 @@
                                     <p x-show="estimatedValueCheck" x-cloak class="mt-1 text-xs" :class="estimatedValueCheck?.above ? 'text-red-600' : 'text-green-600'" x-text="estimatedValueCheck?.message"></p>
                                 </div>
                                 
+                                {{-- Quantidade + valor unitário: é o que torna o preço comparável entre
+                                     eventos (specs/15) e o que a linha do Financeiro espera receber —
+                                     lá o total é `unitário × quantidade × diárias` (specs/23 §2).
+                                     Os três valores abaixo são POR UNIDADE; o total sai da multiplicação. --}}
                                 <div>
-                                    <label class="text-sm font-medium text-brand-ink">Valor sem nota</label>
+                                    <label class="text-sm font-medium text-brand-ink">Quantidade</label>
+                                    <input type="text" inputmode="decimal" x-model="form.quantity" placeholder="1"
+                                           class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                    <p class="mt-1 text-xs text-steel" x-text="unidadeLabel"></p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-brand-ink">Valor unitário</label>
+                                    <div class="relative mt-1">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
+                                        <input type="text" inputmode="decimal" :value="form.unit_value"
+                                               @input="form.unit_value = maskMoneyDigits($event.target.value)"
+                                               placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                    </div>
+                                    <p class="mt-1 text-xs text-steel">Preço de cada unidade — é ele que vai para o Banco de Preços.</p>
+                                </div>
+                                {{-- Os previstos são o TOTAL do orçamento (é assim que se negocia com o
+                                     fornecedor). A linha do Financeiro é por unidade, então o valor é
+                                     dividido pela quantidade na hora de enviar — o texto abaixo mostra
+                                     esse número antes, para ninguém ser surpreendido pelo total de lá. --}}
+                                <div>
+                                    <label class="text-sm font-medium text-brand-ink">Valor previsto sem nota</label>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
                                         <input type="text" inputmode="decimal" x-model="form.valor_sem_nota" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
+                                    <p x-show="previstoPorUnidade(form.valor_sem_nota)" x-cloak class="mt-1 text-xs text-steel">
+                                        Total previsto — <span x-text="`R$ ${previstoPorUnidade(form.valor_sem_nota)}`"></span> por unidade.
+                                    </p>
                                 </div>
                                 <div>
-                                    <label class="text-sm font-medium text-brand-ink">Valor com nota</label>
+                                    <label class="text-sm font-medium text-brand-ink">Valor previsto com nota</label>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
                                         <input type="text" inputmode="decimal" x-model="form.valor_com_nota" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
+                                    <p x-show="previstoPorUnidade(form.valor_com_nota)" x-cloak class="mt-1 text-xs text-steel">
+                                        Total previsto — <span x-text="`R$ ${previstoPorUnidade(form.valor_com_nota)}`"></span> por unidade.
+                                    </p>
                                 </div>
                                 <div>
                                     <label class="text-sm font-medium text-brand-ink">Valor realizado</label>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
-                                        <input type="text" inputmode="decimal" x-model="form.actual_value" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        {{-- Calculado (unitário × quantidade), como o TOTAL da planilha do
+                                             Financeiro. Card antigo, sem unitário, segue editável à mão. --}}
+                                        <input type="text" inputmode="decimal" x-show="!form.unit_value" x-model="form.actual_value"
+                                               x-mask:dynamic="$money($input, ',')" placeholder="0,00"
+                                               class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        <input type="text" x-show="form.unit_value" x-cloak :value="totalRealizado" readonly tabindex="-1"
+                                               class="w-full pl-9 border-gray-300 bg-surface text-brand-ink rounded-md text-sm cursor-default">
                                     </div>
+                                    <p x-show="form.unit_value" x-cloak class="mt-1 text-xs text-steel">Valor unitário × quantidade.</p>
                                 </div>
                                 <div class="flex items-end gap-4 pb-1">
                                     <label class="inline-flex items-center gap-2 text-sm text-brand-ink">

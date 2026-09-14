@@ -29,6 +29,9 @@ class CreateCard
                 ->where('board_column_id', $columnId)
                 ->max('position') + 1;
 
+            $unitValue = $data['unit_value'] ?? null;
+            $quantity = $data['quantity'] ?? 1;
+
             $card = $board->cards()->create([
                 'board_column_id' => $columnId,
                 'empresa_id' => $data['empresa_id'] ?? null,
@@ -39,7 +42,12 @@ class CreateCard
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
                 'estimated_value' => $data['estimated_value'] ?? null,
-                'actual_value' => $data['actual_value'] ?? null,
+                'unit_value' => $unitValue,
+                'quantity' => $quantity,
+                // Total realizado é DERIVADO do unitário, como na planilha do Financeiro
+                // (specs/23 §2: TOTAL = unitário × quantidade). Card sem unitário — os antigos e os
+                // que vêm do formulário externo/captura — mantém o total que foi informado.
+                'actual_value' => $unitValue !== null ? $unitValue * $quantity : ($data['actual_value'] ?? null),
                 'valor_sem_nota' => $data['valor_sem_nota'] ?? null,
                 'valor_com_nota' => $data['valor_com_nota'] ?? null,
                 'negociado' => $data['negociado'] ?? null,

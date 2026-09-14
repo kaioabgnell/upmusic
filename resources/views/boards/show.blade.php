@@ -225,8 +225,8 @@
                         <th class="px-4 py-3 font-medium">Prioridade</th>
                         <th class="px-4 py-3 font-medium">Prazo</th>
                         <th class="px-4 py-3 font-medium">Banco de Preços</th>
-                        <th class="px-4 py-3 font-medium">Valor sem nota</th>
-                        <th class="px-4 py-3 font-medium">Valor com nota</th>
+                        <th class="px-4 py-3 font-medium">Valor previsto sem nota</th>
+                        <th class="px-4 py-3 font-medium">Valor previsto com nota</th>
                         <th class="px-4 py-3 font-medium">Negociado</th>
                         <th class="px-4 py-3 font-medium text-right">Anexos / Comentários</th>
                     </x-slot>

@@ -36,7 +36,7 @@ class CardObserver
      * vinculado precisa chegar na planilha sozinho, sem alguém reabrir o modal "Sincronizar".
      */
     private const FINANCE_MIRROR_FIELDS = [
-        'title', 'fornecedor_id', 'estimated_value', 'actual_value',
+        'title', 'fornecedor_id', 'estimated_value', 'actual_value', 'unit_value',
         'valor_sem_nota', 'valor_com_nota', 'negociado',
     ];
 

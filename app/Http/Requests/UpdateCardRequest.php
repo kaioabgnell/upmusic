@@ -26,6 +26,9 @@ class UpdateCardRequest extends FormRequest
             'assignee_id' => ['nullable', 'exists:users,id'],
             'estimated_value' => ['nullable', 'numeric'],
             'actual_value' => ['nullable', 'numeric'],
+            'unit_value' => ['nullable', 'numeric', 'min:0'],
+            // Mesma faixa de `finance_cost_items.quantity`, que recebe este valor na sincronia.
+            'quantity' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'valor_sem_nota' => ['nullable', 'numeric'],
             'valor_com_nota' => ['nullable', 'numeric'],
             'negociado' => ['nullable', Rule::enum(CardNegociado::class)],
@@ -40,6 +43,8 @@ class UpdateCardRequest extends FormRequest
         $this->merge([
             'estimated_value' => Br::money($this->input('estimated_value')),
             'actual_value' => Br::money($this->input('actual_value')),
+            'unit_value' => Br::money($this->input('unit_value')),
+            'quantity' => Br::money($this->input('quantity')),
             'valor_sem_nota' => Br::money($this->input('valor_sem_nota')),
             'valor_com_nota' => Br::money($this->input('valor_com_nota')),
             'negociado' => $this->input('negociado') ?: null,
@@ -78,6 +83,6 @@ class UpdateCardRequest extends FormRequest
 
     public function attributes(): array
     {
-        return ['title' => 'título', 'empresa_id' => 'empresa', 'fornecedor_id' => 'fornecedor', 'event_id' => 'evento', 'assignee_id' => 'responsável', 'due_date' => 'prazo'];
+        return ['title' => 'título', 'empresa_id' => 'empresa', 'fornecedor_id' => 'fornecedor', 'event_id' => 'evento', 'assignee_id' => 'responsável', 'due_date' => 'prazo', 'unit_value' => 'valor unitário', 'quantity' => 'quantidade'];
     }
 }

@@ -18,7 +18,7 @@ class Card extends Model
 
     protected $fillable = [
         'board_id', 'board_column_id', 'empresa_id', 'fornecedor_id', 'event_id', 'assignee_id', 'created_by',
-        'title', 'description', 'estimated_value', 'actual_value',
+        'title', 'description', 'estimated_value', 'actual_value', 'unit_value', 'quantity',
         'valor_sem_nota', 'valor_com_nota', 'negociado', 'due_date',
         'priority', 'origin', 'position', 'concluded_at', 'concluded_by', 'archived_at', 'archived_by',
     ];
@@ -26,6 +26,8 @@ class Card extends Model
     protected $casts = [
         'estimated_value' => 'decimal:2',
         'actual_value' => 'decimal:2',
+        'unit_value' => 'decimal:2',
+        'quantity' => 'decimal:2',
         'valor_sem_nota' => 'decimal:2',
         'valor_com_nota' => 'decimal:2',
         'negociado' => CardNegociado::class,

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Actions\Finance\SyncCardToFinance;
-use App\Domain\Enums\CardNegociado;
 use App\Domain\Enums\FinanceDocumentKind;
 use App\Http\Controllers\Controller;
 use App\Models\Card;
@@ -23,7 +22,7 @@ use Illuminate\Http\Request;
 class CardFinanceController extends Controller
 {
     /** Dados do modal de confirmação: sugestões + anexos com o tipo de cada um. */
-    public function preview(Card $card)
+    public function preview(Card $card, SyncCardToFinance $action)
     {
         $this->authorize('update', $card);
 
@@ -39,8 +38,12 @@ class CardFinanceController extends Controller
                 'event_name' => $card->event?->name,
                 'fornecedor_id' => $card->fornecedor_id,
                 'fornecedor_categoria_id' => $card->fornecedor?->fornecedor_categoria_id,
-                'estimated_value' => (float) ($card->estimated_value ?? 0),
-                'actual_value' => $this->suggestedActual($card),
+                // Os dois valores do modal são UNITÁRIOS, como as colunas que eles alimentam — e
+                // saem da MESMA Action que vai gravar a linha. Quando o modal tinha a própria cópia
+                // dessa regra, ele mostrava um número e o Financeiro gravava outro.
+                'unit_estimated' => $action->unitEstimatedFor($card),
+                'unit_actual' => $action->unitActualFor($card),
+                'quantity' => (float) ($card->quantity ?? 1),
             ],
             'existing_item' => $existing ? [
                 'id' => $existing->id,
@@ -109,17 +112,5 @@ class CardFinanceController extends Controller
             'url' => route('finance.costs.index', ['evento' => $item->sheet->event_id]).'#linha-'.$item->id,
             'message' => 'Card enviado ao Financeiro do evento.',
         ], 201);
-    }
-
-    /** Mesma regra do §6.5: o valor negociado tem precedência sobre `actual_value`. */
-    private function suggestedActual(Card $card): ?float
-    {
-        $value = match ($card->negociado) {
-            CardNegociado::ComNota => $card->valor_com_nota,
-            CardNegociado::SemNota => $card->valor_sem_nota,
-            default => $card->actual_value,
-        };
-
-        return $value === null ? null : (float) $value;
     }
 }

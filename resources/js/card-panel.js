@@ -113,6 +113,7 @@ function cardPanelBase() {
             return {
                 title: '', description: '', empresa_id: '', fornecedor_id: '', event_id: '', assignee_id: '',
                 due_date: '', priority: 'media', estimated_value: '', actual_value: '',
+                unit_value: '', quantity: '1',
                 valor_sem_nota: '', valor_com_nota: '', negociado: '',
                 board_column_id: columnId, fields,
             };
@@ -183,6 +184,9 @@ function cardPanelBase() {
                     due_date: c.due_date ?? '', priority: c.priority,
                     estimated_value: this.moneyFromDecimal(c.estimated_value),
                     actual_value: this.moneyFromDecimal(c.actual_value),
+                    unit_value: this.moneyFromDecimal(c.unit_value),
+                    // Quantidade é contagem, não dinheiro: "20", "2,5" — sem casas forçadas.
+                    quantity: c.quantity === null || c.quantity === undefined ? '1' : String(Number(c.quantity)).replace('.', ','),
                     valor_sem_nota: this.moneyFromDecimal(c.valor_sem_nota),
                     valor_com_nota: this.moneyFromDecimal(c.valor_com_nota),
                     negociado: c.negociado ?? '',
@@ -278,6 +282,36 @@ function cardPanelBase() {
         // ---- Fornecedor (select pesquisável + cadastro rápido) ----------------
         get selectedFornecedor() {
             return this.cfg.fornecedores.find((f) => f.id === Number(this.form.fornecedor_id)) || null;
+        },
+
+        /**
+         * Total realizado = valor unitário × quantidade, a mesma conta que a planilha do Financeiro
+         * faz na coluna TOTAL (specs/23 §2). Fica como campo calculado no card para não existirem
+         * dois números discordando do mesmo gasto.
+         */
+        get totalRealizado() {
+            const unit = this.parseMoneyBR(this.form.unit_value);
+            if (unit === null) return this.form.actual_value;
+            return this.moneyFromDecimal(unit * (this.parseMoneyBR(this.form.quantity) ?? 1));
+        },
+
+        /**
+         * Quanto um total previsto representa POR UNIDADE. É esse número que a coluna "Vlr. unit."
+         * do Financeiro recebe — lá o total é gerado (unitário × quantidade × diárias), então mandar
+         * o total inteiro multiplicaria a despesa pela quantidade. Só aparece na tela com
+         * quantidade maior que 1, que é quando total e unitário deixam de ser a mesma coisa.
+         */
+        previstoPorUnidade(total) {
+            const value = this.parseMoneyBR(total);
+            const qty = this.parseMoneyBR(this.form.quantity) ?? 1;
+            if (value === null || qty <= 1) return null;
+            return this.moneyFromDecimal(value / qty);
+        },
+
+        /** Unidade da categoria do fornecedor ("Diária", "Hora"…) — é o que a quantidade conta. */
+        get unidadeLabel() {
+            const unidade = this.selectedFornecedor?.unidade;
+            return unidade ? `Em ${unidade.toLowerCase()}, conforme a categoria do fornecedor.` : 'Quantas unidades foram contratadas.';
         },
 
         // Link "clique para conversar" do WhatsApp (specs/19) a partir do telefone cadastrado do
@@ -596,8 +630,11 @@ function cardPanelBase() {
                     event_id: this.form.event_id || data.card.event_id || '',
                     fornecedor_categoria_id: data.card.fornecedor_categoria_id ?? '',
                     description: data.existing_item?.description ?? data.card.title,
-                    unit_estimated_1: this.brNumber(data.card.estimated_value),
-                    unit_actual: data.card.actual_value === null ? '' : this.brNumber(data.card.actual_value),
+                    // Os dois campos do modal são UNITÁRIOS: o previsto vem do valor negociado
+                    // (com/sem nota) e o realizado vem do "Valor unitário" do card. O backend já
+                    // resolve a precedência — aqui é só formatar.
+                    unit_estimated_1: data.card.unit_estimated === null ? '' : this.brNumber(data.card.unit_estimated),
+                    unit_actual: data.card.unit_actual === null ? '' : this.brNumber(data.card.unit_actual),
                 };
                 // O tipo já foi escolhido ao anexar no card: todo anexo chega marcado e
                 // classificado. O select do modal serve só para corrigir antes de enviar.

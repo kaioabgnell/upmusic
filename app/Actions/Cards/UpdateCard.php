@@ -16,6 +16,9 @@ class UpdateCard
     public function execute(Card $card, array $data, ?User $actor = null): Card
     {
         return DB::transaction(function () use ($card, $data, $actor) {
+            $unitValue = $data['unit_value'] ?? null;
+            $quantity = $data['quantity'] ?? 1;
+
             $card->update([
                 'title' => $data['title'] ?? $card->title,
                 'description' => $data['description'] ?? null,
@@ -24,7 +27,12 @@ class UpdateCard
                 'event_id' => $data['event_id'] ?? null,
                 'assignee_id' => $data['assignee_id'] ?? null,
                 'estimated_value' => $data['estimated_value'] ?? null,
-                'actual_value' => $data['actual_value'] ?? null,
+                'unit_value' => $unitValue,
+                'quantity' => $quantity,
+                // Total realizado é DERIVADO do unitário, como na planilha do Financeiro
+                // (specs/23 §2: TOTAL = unitário × quantidade). Card sem unitário mantém o total
+                // informado à mão, para não zerar o histórico de quem ainda não usa o unitário.
+                'actual_value' => $unitValue !== null ? $unitValue * $quantity : ($data['actual_value'] ?? null),
                 'valor_sem_nota' => $data['valor_sem_nota'] ?? null,
                 'valor_com_nota' => $data['valor_com_nota'] ?? null,
                 'negociado' => $data['negociado'] ?? null,

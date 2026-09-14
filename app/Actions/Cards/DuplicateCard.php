@@ -34,6 +34,8 @@ class DuplicateCard
                 'description' => $card->description,
                 'estimated_value' => $card->estimated_value,
                 'actual_value' => $card->actual_value,
+                'unit_value' => $card->unit_value,
+                'quantity' => $card->quantity,
                 'due_date' => $card->due_date?->format('Y-m-d'),
                 'priority' => $card->priority->value,
                 'fields' => $fields,

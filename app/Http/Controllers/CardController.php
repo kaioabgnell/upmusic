@@ -381,6 +381,8 @@ class CardController extends Controller
             'assignee' => $card->assignee?->name,
             'estimated_value' => $card->estimated_value,
             'actual_value' => $card->actual_value,
+            'unit_value' => $card->unit_value,
+            'quantity' => $card->quantity,
             'valor_sem_nota' => $card->valor_sem_nota,
             'valor_com_nota' => $card->valor_com_nota,
             'negociado' => $card->negociado?->value,

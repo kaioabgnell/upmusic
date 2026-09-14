@@ -20,7 +20,7 @@ class CardFormOptionsService
     {
         return [
             'empresas' => Empresa::active()->orderBy('corporate_name')->get(['id', 'corporate_name']),
-            'fornecedores' => Fornecedor::active()->with('categoria:id,preco_interno')->orderBy('name')
+            'fornecedores' => Fornecedor::active()->with('categoria:id,unidade,preco_interno')->orderBy('name')
                 ->get(['id', 'name', 'document', 'phone', 'email', 'fornecedor_categoria_id'])
                 ->map(fn ($f) => [
                     'id' => $f->id,
@@ -35,6 +35,9 @@ class CardFormOptionsService
                     // Usado no modal de card para avisar se o "Valor previsto" ultrapassa o Preço
                     // Interno cadastrado na categoria do fornecedor (ver card-panel.js).
                     'preco_interno' => $f->categoria?->preco_interno !== null ? (float) $f->categoria->preco_interno : null,
+                    // Unidade da categoria (diária, hora, unidade): é o que a "Quantidade" do card
+                    // conta, e o que torna o valor unitário comparável entre eventos (specs/15).
+                    'unidade' => $f->categoria?->unidade?->label(),
                 ])
                 ->values(),
             // Coordenador restrito por evento (specs/20) só vê/filtra/seleciona os eventos vinculados —
