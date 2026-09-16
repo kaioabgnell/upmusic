@@ -20,7 +20,8 @@ enum FinanceDocumentKind: string
     case Boleto = 'boleto';
     // Recibo: comprovante de pagamento direto (à vista/à pessoa). Fica FORA de proofKinds() de
     // propósito — o CONTROLE do arquivo modelo tem exatamente seis colunas, e Recibo não é uma
-    // delas; ver §12/export. Aparece na grade só quando existe, como Geral/Minuta.
+    // delas. Aparece na grade e no export só quando existe arquivo, como Geral/Minuta: são colunas
+    // extras, depois das seis do modelo, que o import continua lendo por posição fixa.
     case Recibo = 'recibo';
     case Geral = 'geral';
     case Minuta = 'minuta';

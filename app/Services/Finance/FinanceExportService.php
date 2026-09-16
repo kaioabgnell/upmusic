@@ -3,8 +3,11 @@
 namespace App\Services\Finance;
 
 use App\Domain\Enums\FinanceDocumentKind;
+use App\Models\FinanceCostItem;
+use App\Models\FinanceDocument;
 use App\Models\FinancePaymentSource;
 use App\Models\FinanceSheet;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -136,7 +139,7 @@ class FinanceExportService
 
         $ws->setCellValue("A{$row}", 'TOTAL GERAL:');
         foreach (['B', 'C', 'D', 'E'] as $col) {
-            $ws->setCellValue("{$col}{$row}", "=SUM({$col}4:{$col}".($row - 1).')');
+            $ws->setCellValue("{$col}{$row}", $this->sumOrZero($col, 4, $row));
         }
         $this->headerStyle($ws, "A{$row}");
         $this->money($ws, ["B4:E{$row}"]);
@@ -152,9 +155,7 @@ class FinanceExportService
         $ws->setTitle('CUSTOS');
 
         $sources = FinancePaymentSource::ordered()->get();
-        // proofKinds(): o CONTROLE do arquivo modelo tem exatamente seis colunas. Geral/Minuta
-        // existem no sistema mas não fazem parte desse layout.
-        $kinds = FinanceDocumentKind::proofKinds();
+        $kinds = $this->controlKinds($sheet);
 
         $ws->setCellValue('A1', 'EVENTO:')->setCellValue('B1', $sheet->event?->name);
         $ws->setCellValue('A2', 'DATA:')->setCellValue('B2', $sheet->event?->start_date?->format('d/m/Y'));
@@ -176,9 +177,18 @@ class FinanceExportService
             $this->headerStyle($ws, [$i + 1, 7]);
         }
 
+        // Onde começa o bloco CONTROLE: 14 colunas fixas + uma por grupo de pagamento + PAGO e
+        // FALTA PAGAR. É nele que os links dos arquivos são aplicados, linha a linha.
+        $controlFirstColumn = 14 + $sources->count() + 2 + 1;
+
         $row = 8;
         $items = $sheet->costItems()
-            ->with(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'documents', 'payments'])
+            // `documents.attachment`: o nome exibido do documento que veio do card mora no anexo —
+            // sem isso é um lazy load por linha (e o guard de N+1 derruba a exportação fora de produção).
+            ->with([
+                'categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name',
+                'documents.attachment:id,original_name', 'payments',
+            ])
             ->orderBy('position')->orderBy('id')->get();
 
         foreach ($items as $item) {
@@ -201,23 +211,33 @@ class FinanceExportService
             ],
                 $sources->map(fn ($s) => (float) $item->payments->where('finance_payment_source_id', $s->id)->sum('amount'))->all(),
                 [$paid, (float) $item->total_actual - $paid],
-                // O controle vira "X" quando existe documento — o arquivo exportado não carrega
-                // os anexos, só diz o que existe no sistema.
-                array_map(fn (FinanceDocumentKind $k) => $item->documents->where('kind', $k)->count() ? 'X' : '', $kinds),
+                array_column($documentCells = $this->documentCells($item, $kinds), 'text'),
             );
 
             foreach ($values as $i => $value) {
                 $ws->setCellValue([$i + 1, $row], $value);
             }
+
+            // O arquivo em si continua fora do .xlsx (a planilha circula por e-mail); o que vai
+            // junto é o link para abri-lo no sistema.
+            foreach ($documentCells as $offset => $cell) {
+                if ($cell['url'] === null) {
+                    continue;
+                }
+
+                $coordinate = $ws->getCell([$controlFirstColumn + $offset, $row])->getCoordinate();
+                $ws->getCell($coordinate)->getHyperlink()->setUrl($cell['url']);
+                $ws->getStyle($coordinate)->getFont()->setUnderline(true)->getColor()->setARGB('FF1D4ED8');
+            }
+
             $row++;
         }
 
-        $last = max($row - 1, 8);
         $ws->setCellValue("B{$row}", 'TOTAL GERAL:');
         $this->headerStyle($ws, "B{$row}");
         foreach (range(9, 14 + $sources->count() + 2) as $colIndex) {
             $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
-            $ws->setCellValue("{$col}{$row}", "=SUM({$col}8:{$col}{$last})");
+            $ws->setCellValue("{$col}{$row}", $this->sumOrZero($col, 8, $row));
         }
 
         $moneyStart = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9);
@@ -228,7 +248,91 @@ class FinanceExportService
         $ws->getColumnDimension('B')->setWidth(40);
         $ws->getColumnDimension('C')->setWidth(24);
         $ws->getColumnDimension('E')->setWidth(28);
+
+        // As colunas de CONTROLE agora carregam o nome do arquivo, não mais um "X".
+        foreach (range(0, count($kinds) - 1) as $offset) {
+            $column = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($controlFirstColumn + $offset);
+            $ws->getColumnDimension($column)->setWidth(30);
+        }
+
         $ws->freezePane('C8');
+    }
+
+    /**
+     * Quais tipos viram coluna no bloco CONTROLE.
+     *
+     * Os seis do arquivo modelo (V-AA) vêm sempre e nessa ordem: o import lê essas colunas por
+     * POSIÇÃO FIXA, então mexer nelas quebraria a volta da planilha. Os demais tipos — Recibo,
+     * Geral, Minuta — entram depois e só quando a planilha tem algum arquivo deles, que é a mesma
+     * regra da coluna CONTROLE na tela: um tipo sem arquivo não é pendência, é só ruído.
+     *
+     * @return array<FinanceDocumentKind>
+     */
+    private function controlKinds(FinanceSheet $sheet): array
+    {
+        $used = FinanceDocument::query()
+            ->whereIn('finance_cost_item_id', $sheet->costItems()->select('id'))
+            ->pluck('kind')
+            ->map(fn ($kind) => $kind instanceof FinanceDocumentKind ? $kind->value : (string) $kind)
+            ->all();
+
+        $extras = array_filter(
+            FinanceDocumentKind::cases(),
+            fn (FinanceDocumentKind $kind) => ! in_array($kind, FinanceDocumentKind::proofKinds(), true)
+                && in_array($kind->value, $used, true),
+        );
+
+        return array_merge(FinanceDocumentKind::proofKinds(), array_values($extras));
+    }
+
+    /**
+     * Uma célula por tipo de documento do bloco CONTROLE.
+     *
+     * A coluna era um "X" opaco: dizia que o comprovante existe, mas quem recebe a planilha
+     * (contabilidade, sócios) tinha de entrar no sistema e procurar o arquivo. Agora ela mostra o
+     * nome do arquivo e leva até ele — o link exige login, então a planilha não vira um caminho
+     * aberto para documento de despesa.
+     *
+     * Com mais de um arquivo do mesmo tipo (parcelas de um pagamento, por exemplo) a célula linka o
+     * primeiro e conta o resto: uma célula só comporta um hyperlink, e a lista completa continua na
+     * aba Custos do sistema.
+     *
+     * @param  array<FinanceDocumentKind>  $kinds
+     * @return array<int,array{text:string,url:?string}>
+     */
+    private function documentCells(FinanceCostItem $item, array $kinds): array
+    {
+        return array_map(function (FinanceDocumentKind $kind) use ($item) {
+            $documents = $item->documents->where('kind', $kind);
+            $first = $documents->first();
+
+            if (! $first) {
+                return ['text' => '', 'url' => null];
+            }
+
+            $others = $documents->count() - 1;
+
+            return [
+                'text' => Str::limit($first->displayName(), 40).($others > 0 ? " (+{$others})" : ''),
+                'url' => route('finance.documents.show', $first),
+            ];
+        }, $kinds);
+    }
+
+    /**
+     * `=SUM()` da coluna, da primeira linha de dados até a última — ou 0 quando não há nenhuma.
+     *
+     * Sem essa guarda, a planilha sem linhas gera `=SUM(B4:B3)`: um intervalo invertido que o Excel
+     * normaliza para `B3:B4`, o que inclui a própria célula do total e faz o arquivo abrir com o
+     * aviso de referência circular. Acontecia em qualquer evento ainda sem receitas lançadas.
+     *
+     * @param  int  $totalRow  linha onde o TOTAL GERAL será escrito (logo após a última linha)
+     */
+    private function sumOrZero(string $column, int $firstRow, int $totalRow): string|float
+    {
+        $lastRow = $totalRow - 1;
+
+        return $lastRow >= $firstRow ? "=SUM({$column}{$firstRow}:{$column}{$lastRow})" : 0.0;
     }
 
     private function headerStyle($ws, $cell): void

@@ -19,6 +19,22 @@
         $isAdmin = auth()->user()->isAdmin();
         // Coordenador restrito por evento (specs/20): esconde os cadastros que ele não pode acessar.
         $isEventScoped = auth()->user()->isEventScoped();
+
+        // Quadros no menu: mesma régua do BoardController::index — admin/coordenador veem todos,
+        // usuário comum só os que tem vínculo em `user_board`. Ser responsável por um card não
+        // coloca o quadro aqui (é leitura avulsa, ver BoardPolicy::view).
+        $menuBoards = \App\Models\Board::query()
+            ->when(
+                ! $isManager,
+                fn ($q) => $q->whereHas('users', fn ($u) => $u->whereKey(auth()->id()))
+            )
+            ->orderBy('position')->orderBy('name')
+            ->get(['id', 'name', 'icon']);
+
+        // Quadro aberto agora: `boards.show` e o link direto do card (specs/18) compartilham o
+        // parâmetro, então os dois acendem o submenu certo.
+        $currentBoard = request()->route('board');
+        $currentBoardId = $currentBoard instanceof \App\Models\Board ? $currentBoard->id : $currentBoard;
     @endphp
     <nav class="sidebar-nav flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div class="space-y-1">
@@ -27,7 +43,16 @@
 
         <div class="space-y-1">
             <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Quadros</p>
-            <x-nav-item route="boards.index" pattern="boards.*" icon="fa-table-columns" label="Quadros / Processos" />
+            {{-- `except`: sem isso o item da lista acenderia junto com o submenu do quadro aberto,
+                 já que `boards.*` casa com `boards.show`. --}}
+            <x-nav-item route="boards.index" pattern="boards.*" except="boards.show*"
+                icon="fa-table-columns" label="Quadros / Processos" />
+            @foreach ($menuBoards as $menuBoard)
+                <div class="pl-4">
+                    <x-nav-item route="boards.show" :params="[$menuBoard]" :active="$currentBoardId == $menuBoard->id"
+                        :icon="$menuBoard->icon ?: 'fa-table-columns'" :label="$menuBoard->name" />
+                </div>
+            @endforeach
             <x-nav-item route="cards.index" pattern="cards.index" icon="fa-layer-group" label="Todos os Cards" />
             @if ($isAdmin)
                 <x-nav-item route="captures.index" pattern="captures.*" icon="fa-bolt" label="Captura rápida" />
