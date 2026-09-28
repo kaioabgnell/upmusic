@@ -26,6 +26,7 @@ use App\Http\Controllers\Finance\FinanceImportExportController;
 use App\Http\Controllers\Finance\FinanceItemPresetController;
 use App\Http\Controllers\Finance\FinancePaymentController;
 use App\Http\Controllers\Finance\FinancePaymentSourceController;
+use App\Http\Controllers\Finance\FinanceReportController;
 use App\Http\Controllers\Finance\FinanceRevenueController;
 use App\Http\Controllers\Finance\FinanceSettlementController;
 use App\Http\Controllers\Finance\FinanceSheetController;
@@ -282,6 +283,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
             Route::get('receitas', [FinanceRevenueController::class, 'index'])->name('finance.revenues.index');
             Route::post('receitas', [FinanceRevenueController::class, 'store'])->name('finance.revenues.store');
+
+            Route::get('relatorio', [FinanceReportController::class, 'show'])->name('finance.report');
 
             Route::get('custos', [FinanceCostItemController::class, 'index'])->name('finance.costs.index');
             Route::post('custos', [FinanceCostItemController::class, 'store'])->name('finance.costs.store');

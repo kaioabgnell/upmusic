@@ -92,19 +92,82 @@ class FinanceSummaryService
         $rows = FinanceCostItem::where('finance_cost_items.finance_sheet_id', $sheet->id)
             ->leftJoin('fornecedor_categorias as fc', 'fc.id', '=', 'finance_cost_items.fornecedor_categoria_id')
             ->selectRaw(sprintf(
-                "COALESCE(fc.nome, 'Sem categoria') as label, SUM(total_estimated_1) e1, SUM(%s) cur, SUM(total_actual) act",
+                "COALESCE(fc.nome, 'Sem categoria') as label, SUM(total_estimated_1) e1, SUM(%s) cur, "
+                .'SUM(total_actual) act, '
+                // Subconsulta correlacionada, não mais um join: somar `finance_payments` junto do
+                // join de categoria multiplicaria os SUM de total_* pelo número de pagamentos da
+                // linha (fan-out), inflando previsto e realizado de quem pagou parcelado.
+                .'SUM((select COALESCE(SUM(p.amount),0) from finance_payments p '
+                .'where p.finance_cost_item_id = finance_cost_items.id)) paid',
                 FinanceCostItem::currentEstimateSql(),
             ))
             ->groupBy('label')
             ->orderByDesc('cur')
             ->get();
 
-        return $rows->map(fn ($r) => [
-            'label' => $r->label,
-            'estimated_1' => (float) $r->e1,
-            'estimated' => (float) $r->cur,
-            'actual' => (float) $r->act,
-        ] + $this->deviation((float) $r->cur, (float) $r->act))->all();
+        return $rows->map(function ($r) {
+            $actual = (float) $r->act;
+            $paid = (float) $r->paid;
+
+            return [
+                'label' => $r->label,
+                'estimated_1' => (float) $r->e1,
+                'estimated' => (float) $r->cur,
+                'actual' => $actual,
+                'paid' => $paid,
+                'pending' => $actual - $paid,
+            ] + $this->deviation((float) $r->cur, $actual);
+        })->all();
+    }
+
+    /**
+     * EVOLUÇÃO DE CAIXA: entradas, saídas e saldo acumulado por mês (specs/23 §17 — era "fora de
+     * escopo, entra como evolução se pedido").
+     *
+     * Por MÊS, não por dia: o gasto de um evento se espalha entre o fechamento do contrato e o
+     * último pagamento, e a curva diária vira uma serra de picos isolados que não mostra tendência.
+     *
+     * As duas pontas têm granularidades diferentes, e isso é do modelo: cada pagamento é uma linha
+     * com data própria, enquanto a receita guarda um único `received_at` e um total acumulado por
+     * linha — a entrada aparece de uma vez, no mês em que foi marcada como recebida. Pagamento sem
+     * data cai no mês em que foi lançado; receita sem data fica de fora, porque não há nem quando
+     * nem lançamento a que recorrer.
+     *
+     * @return array<int,array{month:string,label:string,in:float,out:float,balance:float}>
+     */
+    public function cashFlow(FinanceSheet $sheet): array
+    {
+        $out = FinancePayment::whereIn(
+            'finance_cost_item_id',
+            FinanceCostItem::where('finance_sheet_id', $sheet->id)->select('id')
+        )
+            ->selectRaw("DATE_FORMAT(COALESCE(paid_at, created_at), '%Y-%m') ym, SUM(amount) total")
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
+
+        $in = FinanceRevenue::where('finance_sheet_id', $sheet->id)
+            ->whereNotNull('received_at')
+            ->where('received_value', '>', 0)
+            ->selectRaw("DATE_FORMAT(received_at, '%Y-%m') ym, SUM(received_value) total")
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
+
+        $months = $in->keys()->merge($out->keys())->unique()->sort()->values();
+        $balance = 0.0;
+
+        return $months->map(function (string $month) use ($in, $out, &$balance) {
+            $entrada = (float) ($in[$month] ?? 0);
+            $saida = (float) ($out[$month] ?? 0);
+            $balance += $entrada - $saida;
+
+            return [
+                'month' => $month,
+                'label' => \Carbon\Carbon::createFromFormat('Y-m', $month)->translatedFormat('M/y'),
+                'in' => $entrada,
+                'out' => $saida,
+                'balance' => round($balance, 2),
+            ];
+        })->all();
     }
 
     /**
@@ -295,13 +358,21 @@ class FinanceSummaryService
         return $out;
     }
 
-    /** @return array{deviation:float,pct:float|null} */
+    /**
+     * `pct` é % de REALIZAÇÃO (quanto do previsto já virou gasto: 90% = ainda dentro do teto);
+     * `deviation_pct` é o quanto se passou ou sobrou em relação ao previsto (+10% = estourou em
+     * 10%). São números diferentes e a UI usa os dois — o primeiro no resumo, o segundo nas tags
+     * de cada item.
+     *
+     * @return array{deviation:float,pct:float|null,deviation_pct:float|null}
+     */
     private function deviation(float $estimated, float $actual): array
     {
         return [
             'deviation' => $actual - $estimated,
             // Divisão por zero devolve null; a UI mostra "—", nunca "0%".
             'pct' => $estimated > 0 ? round($actual / $estimated * 100, 1) : null,
+            'deviation_pct' => $estimated > 0 ? round(($actual - $estimated) / $estimated * 100, 1) : null,
         ];
     }
 }

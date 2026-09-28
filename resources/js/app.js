@@ -5,7 +5,12 @@ import './pwa';
 import Alpine from 'alpinejs';
 import mask from '@alpinejs/mask';
 import Sortable from 'sortablejs';
-import { Chart, LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler } from 'chart.js';
+import {
+    Chart, LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler,
+    // Pizza e barras: usados no Relatório do evento (specs/23). O Chart.js v4 não registra nada
+    // sozinho — sem estes, o gráfico falha com "pie is not a registered controller".
+    PieController, DoughnutController, ArcElement, BarController, BarElement, CategoryScale,
+} from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import kanban from './kanban';
 import cardsHub from './cards-hub';
@@ -13,7 +18,10 @@ import notifications from './notifications';
 import { bidDocument, bidMatrix, bidNotice } from './licitacoes';
 import { financeCosts, financeRevenues, financeSettlements } from './finance';
 
-Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler);
+Chart.register(
+    LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler,
+    PieController, DoughnutController, ArcElement, BarController, BarElement, CategoryScale,
+);
 
 window.Sortable = Sortable;
 window.Chart = Chart;

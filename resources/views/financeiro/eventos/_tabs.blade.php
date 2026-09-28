@@ -6,6 +6,7 @@
         ['key' => 'resumo',   'label' => 'Resumo Geral', 'icon' => 'fa-chart-pie',  'route' => route('finance.show', $evento)],
         ['key' => 'receitas', 'label' => 'Receitas',     'icon' => 'fa-arrow-trend-up', 'route' => route('finance.revenues.index', $evento)],
         ['key' => 'custos',   'label' => 'Custos',       'icon' => 'fa-arrow-trend-down', 'route' => route('finance.costs.index', $evento)],
+        ['key' => 'relatorio', 'label' => 'Relatório',   'icon' => 'fa-chart-column', 'route' => route('finance.report', $evento)],
     ];
 @endphp
 

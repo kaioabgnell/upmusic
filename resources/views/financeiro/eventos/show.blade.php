@@ -113,25 +113,82 @@
 
     <div class="grid gap-4 lg:grid-cols-3 mb-6">
         {{-- CUSTO POR ITEM --}}
-        <div class="lg:col-span-2 bg-white border border-hairline rounded-xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-hairline flex items-center justify-between">
+        {{-- Busca client-side: as categorias já vêm todas renderizadas do servidor, então filtrar
+             aqui é instantâneo e não recarrega a tela. `Str::ascii` guarda cada rótulo sem acento
+             para "seguranca" também achar "Segurança". --}}
+        <div class="lg:col-span-2 bg-white border border-hairline rounded-xl overflow-hidden"
+             x-data="{
+                busca: '',
+                itens: {{ Illuminate\Support\Js::from(collect($byCategory)->map(fn ($l) => Str::ascii(mb_strtolower($l['label'])))->values()) }},
+                normalizar(texto) {
+                    return texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+                },
+                combina(item) {
+                    const termo = this.normalizar(this.busca);
+                    return termo === '' || item.includes(termo);
+                },
+                get nenhum() {
+                    return this.itens.length > 0 && this.itens.every((item) => ! this.combina(item));
+                },
+             }">
+            <div class="px-4 py-3 border-b border-hairline flex items-center justify-between gap-2">
                 <h3 class="font-semibold text-brand-ink"><i class="fa-solid fa-chart-simple text-brand-orange mr-2"></i>Custo por item</h3>
-                <span class="text-xs text-steel">Previsto vs. realizado</span>
+                <div class="flex items-center gap-2 shrink-0">
+                    {{-- Estourou o previsto vigente do evento: é a leitura que a pessoa procura
+                         primeiro ao abrir o resumo, então vem no cabeçalho, não escondida numa linha. --}}
+                    @if ($summary['deviation']['deviation'] > 0)
+                        <x-badge variant="danger" icon="fa-triangle-exclamation">
+                            Acima do teto · {{ $money($summary['deviation']['deviation']) }}
+                        </x-badge>
+                    @endif
+                    <span class="text-xs text-steel">Previsto vs. realizado</span>
+                </div>
             </div>
             @if (empty($byCategory))
                 <x-empty-state icon="fa-table-list" title="Sem linhas de custo"
                     message="Envie um card do Kanban para o financeiro ou adicione linhas na aba Custos." />
             @else
-                <div class="p-4 space-y-3">
+                <div class="px-4 pt-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-steel"></i>
+                        <input type="search" x-model="busca" placeholder="Filtrar item"
+                               class="w-full pl-9 h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
+                    </div>
+                </div>
+
+                {{-- Altura de ~12 itens: a lista cresce com o evento e empurrava o resto da tela
+                     (andamento, controle documental, acerto de sócios) para fora da primeira dobra. --}}
+                <div class="p-4 space-y-3 overflow-y-auto" style="max-height: 42rem">
+                    <p x-show="nenhum" x-cloak class="py-6 text-center text-sm text-steel">
+                        Nenhum item encontrado para <span class="font-medium text-brand-ink" x-text="busca.trim()"></span>.
+                    </p>
                     @foreach ($byCategory as $line)
-                        <div>
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-brand-ink">{{ $line['label'] }}</span>
-                                <span class="text-steel">
+                        <div x-show="combina({{ Illuminate\Support\Js::from(Str::ascii(mb_strtolower($line['label']))) }})">
+                            <div class="flex items-center justify-between gap-2 text-sm">
+                                <span class="text-brand-ink truncate">{{ $line['label'] }}</span>
+                                <span class="text-steel shrink-0">
                                     {{ $money($line['estimated']) }} <span class="text-hairline">/</span>
                                     <span class="text-brand-ink font-medium">{{ $money($line['actual']) }}</span>
                                 </span>
                             </div>
+
+                            {{-- Diferença em relação ao previsto: vermelho estourou, verde sobrou.
+                                 Sem previsto lançado não há teto a comparar, e a tag não aparece. --}}
+                            @if ($line['deviation_pct'] !== null && abs($line['deviation']) >= 0.01)
+                                @php($acima = $line['deviation'] > 0)
+                                <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-medium
+                                                 {{ $acima ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700' }}">
+                                        <i class="fa-solid {{ $acima ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down' }}"></i>
+                                        {{ $acima ? '+' : '−' }}{{ $money(abs($line['deviation'])) }}
+                                        ({{ $acima ? '+' : '−' }}{{ number_format(abs($line['deviation_pct']), 1, ',', '.') }}%)
+                                    </span>
+                                    @if ($acima)
+                                        <span class="text-red-700 font-medium">Acima do teto</span>
+                                    @endif
+                                </div>
+                            @endif
+
                             <div class="mt-1.5 space-y-1">
                                 <div class="h-2 rounded-full bg-surface overflow-hidden">
                                     <div class="h-full bg-brand-ink/70" style="width: {{ max(1, $line['estimated'] / $maxCategoria * 100) }}%"></div>
@@ -140,6 +197,25 @@
                                     <div class="h-full bg-brand-orange" style="width: {{ max(1, $line['actual'] / $maxCategoria * 100) }}%"></div>
                                 </div>
                             </div>
+
+                            {{-- Do valor REAL: o que a linha custou, o que já saiu do caixa e o que
+                                 ainda vai sair. O previsto não entra aqui — não se paga previsão. --}}
+                            <dl class="mt-1.5 grid grid-cols-3 gap-2 text-[11px]">
+                                <div class="flex items-center justify-between gap-1 rounded-md bg-surface px-2 py-1">
+                                    <dt class="text-steel">Total</dt>
+                                    <dd class="font-medium text-brand-ink">{{ $money($line['actual']) }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-1 rounded-md bg-surface px-2 py-1">
+                                    <dt class="text-steel">Pago</dt>
+                                    <dd class="font-medium text-brand-ink">{{ $money($line['paid']) }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-1 rounded-md bg-surface px-2 py-1">
+                                    <dt class="text-steel">Falta</dt>
+                                    <dd class="font-medium {{ $line['pending'] > 0 ? 'text-brand-orange-deep' : 'text-brand-ink' }}">
+                                        {{ $money($line['pending']) }}
+                                    </dd>
+                                </div>
+                            </dl>
                         </div>
                     @endforeach
                 </div>
@@ -202,8 +278,8 @@
         </div>
     </div>
 
-    {{-- ACERTO SÓCIOS + configuração da planilha --}}
-    <div class="grid gap-4 lg:grid-cols-2">
+    {{-- ACERTO SÓCIOS --}}
+    <div class="grid gap-4">
         <div class="bg-white border border-hairline rounded-xl overflow-hidden"
              x-data="financeSettlements({
                 partners: {{ Illuminate\Support\Js::from($settlements) }},
@@ -266,6 +342,12 @@
                 </div>
             </form>
         </div>
+
+        {{-- CONFIGURAÇÃO DA PLANILHA — desativada a pedido, para ser reativada depois.
+             ATENÇÃO ao reativar/remover de vez: este card não tem só a configuração. Junto dele
+             saíram da tela FECHAR/REABRIR a prestação de contas e IMPORTAR planilha preenchida —
+             as rotas continuam de pé (finance.config.update, finance.close, finance.reopen,
+             finance.import.preview), mas não há mais nenhum botão levando a elas.
 
         <div class="bg-white border border-hairline rounded-xl overflow-hidden">
             <div class="px-4 py-3 border-b border-hairline">
@@ -342,5 +424,7 @@
                 </form>
             </div>
         </div>
+
+        --}}
     </div>
 </x-app-layout>
