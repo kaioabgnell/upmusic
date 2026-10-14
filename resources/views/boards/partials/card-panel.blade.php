@@ -289,7 +289,10 @@
                                     </div>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
-                                        <input type="text" inputmode="decimal" x-model="form.estimated_value" x-mask:dynamic="$money($input, ',')" @blur="checkEstimatedValueVsPrecoInterno()" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        <input type="text" inputmode="decimal" :value="form.estimated_value"
+                                               @input="form.estimated_value = maskMoneyDigits($event.target.value)"
+                                               @blur="checkEstimatedValueVsPrecoInterno()" placeholder="0,00"
+                                               class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
                                     {{-- Aviso comparando com o Preço Interno da categoria do fornecedor selecionado — calculado ao sair do campo. --}}
                                     <p x-show="estimatedValueCheck" x-cloak class="mt-1 text-xs" :class="estimatedValueCheck?.above ? 'text-red-600' : 'text-green-600'" x-text="estimatedValueCheck?.message"></p>
@@ -323,7 +326,9 @@
                                     <label class="text-sm font-medium text-brand-ink">Valor previsto sem nota</label>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
-                                        <input type="text" inputmode="decimal" x-model="form.valor_sem_nota" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        <input type="text" inputmode="decimal" :value="form.valor_sem_nota"
+                                               @input="form.valor_sem_nota = maskMoneyDigits($event.target.value)"
+                                               placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
                                     <p x-show="previstoPorUnidade(form.valor_sem_nota)" x-cloak class="mt-1 text-xs text-steel">
                                         Total previsto — <span x-text="`R$ ${previstoPorUnidade(form.valor_sem_nota)}`"></span> por unidade.
@@ -333,7 +338,9 @@
                                     <label class="text-sm font-medium text-brand-ink">Valor previsto com nota</label>
                                     <div class="relative mt-1">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
-                                        <input type="text" inputmode="decimal" x-model="form.valor_com_nota" x-mask:dynamic="$money($input, ',')" placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                        <input type="text" inputmode="decimal" :value="form.valor_com_nota"
+                                               @input="form.valor_com_nota = maskMoneyDigits($event.target.value)"
+                                               placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                     </div>
                                     <p x-show="previstoPorUnidade(form.valor_com_nota)" x-cloak class="mt-1 text-xs text-steel">
                                         Total previsto — <span x-text="`R$ ${previstoPorUnidade(form.valor_com_nota)}`"></span> por unidade.
@@ -345,8 +352,10 @@
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
                                         {{-- Calculado (unitário × quantidade), como o TOTAL da planilha do
                                              Financeiro. Card antigo, sem unitário, segue editável à mão. --}}
-                                        <input type="text" inputmode="decimal" x-show="!form.unit_value" x-model="form.actual_value"
-                                               x-mask:dynamic="$money($input, ',')" placeholder="0,00"
+                                        <input type="text" inputmode="decimal" x-show="!form.unit_value"
+                                               :value="form.actual_value"
+                                               @input="form.actual_value = maskMoneyDigits($event.target.value)"
+                                               placeholder="0,00"
                                                class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                         <input type="text" x-show="form.unit_value" x-cloak :value="totalRealizado" readonly tabindex="-1"
                                                class="w-full pl-9 border-gray-300 bg-surface text-brand-ink rounded-md text-sm cursor-default">

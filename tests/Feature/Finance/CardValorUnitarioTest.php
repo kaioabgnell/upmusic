@@ -204,6 +204,46 @@ class CardValorUnitarioTest extends FinanceTestCase
         $this->assertEquals(290, (float) PriceRecord::where('card_id', $card->id)->sole()->price);
     }
 
+    /**
+     * Todos os valores do card usam a mesma máscara (dígito digitado = centavo). A antiga embolava
+     * dígitos puros sem vírgula — "1500" virava "1.500" em vez de "15,00", e o valor chegava 100x
+     * maior ao salvar. Digitar o mesmo número em dois campos lado a lado tem de dar o mesmo valor.
+     */
+    public function test_valores_do_card_usam_a_mesma_mascara_de_centavos(): void
+    {
+        $blade = file_get_contents(resource_path('views/boards/partials/card-panel.blade.php'));
+
+        foreach (['unit_value', 'valor_sem_nota', 'valor_com_nota', 'estimated_value', 'actual_value'] as $campo) {
+            $this->assertMatchesRegularExpression(
+                '/:value="form\.'.$campo.'"\s+@input="form\.'.$campo.' = maskMoneyDigits\(\$event\.target\.value\)"/',
+                $blade,
+                "O campo {$campo} precisa usar maskMoneyDigits.",
+            );
+            $this->assertStringNotContainsString("x-model=\"form.{$campo}\"", $blade);
+        }
+
+        // O Banco de Preços não é só mais um campo de dinheiro: ao sair dele, o card compara o
+        // valor com o Preço Interno da categoria do fornecedor. Trocar a máscara não pode levar
+        // esse aviso junto.
+        $this->assertStringContainsString('@blur="checkEstimatedValueVsPrecoInterno()"', $blade);
+
+        // Nenhum campo do painel pode voltar para a máscara antiga: ela convivendo com a nova é
+        // que fazia o mesmo número digitado dar resultados diferentes em dois campos vizinhos.
+        $this->assertStringNotContainsString('x-mask:dynamic="$money', $blade);
+    }
+
+    /**
+     * O Banco de Preços é preenchido sozinho com a média do histórico ao escolher o fornecedor.
+     * Com `:value` no lugar de `x-model`, isso só continua aparecendo na tela porque a atribuição
+     * é feita no estado (`form.estimated_value`), e não no input.
+     */
+    public function test_banco_de_precos_continua_preenchido_pela_media_do_fornecedor(): void
+    {
+        $js = file_get_contents(resource_path('js/card-panel.js'));
+
+        $this->assertStringContainsString('this.form.estimated_value = this.moneyFromDecimal(average)', $js);
+    }
+
     public function test_formulario_do_card_mostra_unitario_quantidade_e_os_previstos_renomeados(): void
     {
         $board = $this->board();
@@ -224,6 +264,38 @@ class CardValorUnitarioTest extends FinanceTestCase
         // previsto por unidade, e deixar os dois nomes circulando confunde quem preenche.
         $this->assertStringNotContainsString('>Valor sem nota<', $html);
         $this->assertStringNotContainsString('>Valor com nota<', $html);
+    }
+
+    /**
+     * No modal, as duas listas são alfabéticas. O evento vinha por data (mais recente primeiro):
+     * quem já sabe o nome que procura tinha de varrer a lista inteira para achá-lo.
+     */
+    public function test_modal_lista_eventos_e_categorias_em_ordem_alfabetica(): void
+    {
+        // Criados fora de ordem e com acento, que é onde a ordenação costuma escorregar.
+        $this->categoria('Som');
+        $this->categoria('Árvore de Natal');
+        $this->categoria('Limpeza');
+
+        // Datas decrescentes propositalmente invertidas em relação ao alfabeto: se a ordenação
+        // ainda fosse por data, "Zacarias" (o mais recente) viria primeiro.
+        \App\Models\Event::create(['name' => 'Zacarias Fest', 'start_date' => '2026-12-01', 'end_date' => '2026-12-02', 'active' => true]);
+        \App\Models\Event::create(['name' => 'Árvore Fest', 'start_date' => '2026-11-01', 'end_date' => '2026-11-02', 'active' => true]);
+        \App\Models\Event::create(['name' => 'Bola Fest', 'start_date' => '2026-10-01', 'end_date' => '2026-10-02', 'active' => true]);
+
+        $card = $this->card($this->board(), $this->event());
+
+        $payload = $this->actingAs($this->user())
+            ->getJson(route('cards.finance.preview', $card))
+            ->assertOk()
+            ->json();
+
+        foreach (['events' => 'name', 'categorias' => 'nome'] as $lista => $campo) {
+            $nomes = collect($payload[$lista])->pluck($campo)->all();
+            $ordenados = collect($nomes)->sortBy(fn ($n) => \Illuminate\Support\Str::ascii(mb_strtolower($n)))->values()->all();
+
+            $this->assertSame($ordenados, $nomes, "A lista de {$lista} do modal não está em ordem alfabética.");
+        }
     }
 
     public function test_modal_do_financeiro_sugere_os_dois_unitarios_do_card(): void

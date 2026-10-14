@@ -189,7 +189,7 @@
                                         </span>
                                     </template>
                                 </div>
-                                <p x-show="card.estimated_value !== null" class="text-xs font-medium text-brand-ink mt-2">R$ <span x-text="formatMoneyBR(card.estimated_value)"></span></p>
+                                <p x-show="card.actual_value !== null" class="text-xs font-medium text-brand-ink mt-2">R$ <span x-text="formatMoneyBR(card.actual_value)"></span></p>
                             </div>
                         </template>
                     </div>

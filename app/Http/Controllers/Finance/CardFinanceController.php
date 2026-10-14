@@ -67,7 +67,9 @@ class CardFinanceController extends Controller
                 ->get(['fornecedor_categoria_id', 'description'])
                 ->groupBy('fornecedor_categoria_id')
                 ->map(fn ($g) => $g->pluck('description')->values()),
-            'events' => Event::active()->orderByDesc('start_date')->get(['id', 'name']),
+            // Alfabética, não por data: aqui a pessoa já sabe o nome do evento que procura, e numa
+            // lista ordenada por data ela teria de varrer item a item para achá-lo.
+            'events' => Event::active()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

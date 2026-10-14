@@ -41,6 +41,9 @@ class CardPresenter
             },
             'priority' => $card->priority->value,
             'estimated_value' => $card->estimated_value,
+            // A face do card no Kanban mostra o realizado: é o que a pessoa quer ver de relance no
+            // quadro ("quanto isso custou"), não o preço de referência do Banco de Preços.
+            'actual_value' => $card->actual_value,
             'valor_sem_nota' => $card->valor_sem_nota,
             'valor_com_nota' => $card->valor_com_nota,
             'negociado' => $card->negociado?->value,
