@@ -156,7 +156,7 @@
                             <th class="px-2 py-2.5 font-medium w-32 text-right" x-show="groups.estimate1">Total prev.</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.estimate2" x-cloak>Vlr. unit. 2</th>
                             <th class="px-2 py-2.5 font-medium w-32 text-right" x-show="groups.estimate2" x-cloak>Total prev. 2</th>
-                            <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.actual">Vlr. unit. real.</th>
+                            <th class="px-2 py-2.5 font-medium w-36 text-right" x-show="groups.actual">Vlr. unit. real.</th>
                             <th class="px-2 py-2.5 font-medium w-32 text-right" x-show="groups.actual">Total real.</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.payments">Pago</th>
                             <th class="px-2 py-2.5 font-medium w-28 text-right" x-show="groups.payments">Falta pagar</th>
@@ -165,7 +165,7 @@
                             <th class="px-2 py-2.5 font-medium min-w-[11rem]">Autorizado por</th>
                             <th class="px-2 py-2.5 font-medium w-20 text-right">Diárias</th>
                             <th class="px-2 py-2.5 font-medium w-20 text-right">Quant.</th>
-                            <th class="px-2 py-2.5 font-medium min-w-[15.5rem]" x-show="groups.control">Controle</th>
+                            <th class="px-2 py-2.5 font-medium w-24" x-show="groups.control">Controle</th>
                             <th class="px-2 py-2.5 w-16"></th>
                         </tr>
                     </thead>
@@ -233,21 +233,28 @@
                                     x-text="row.unit_estimated_2 === null || row.unit_estimated_2 === '' ? '—' : brl(row.total_estimated_2)"></td>
 
                                 <td class="px-2 py-1.5" x-show="groups.actual">
-                                    <input type="text" inputmode="decimal" x-model="row.unit_actual" @input="touch(row)" :disabled="readonly"
-                                           placeholder="Não realizado"
+                                    {{-- Mesma máscara dos valores do card/Financeiro (dígito digitado = centavo):
+                                         `row.unit_actual` já nasce em string BR (ver normalizeCostRow em finance.js),
+                                         então aqui é só espelhar — nunca reconverter o valor em cada tecla. --}}
+                                    <input type="text" inputmode="decimal" :value="row.unit_actual"
+                                           @input="row.unit_actual = maskMoneyDigits($event.target.value); touch(row)"
+                                           :disabled="readonly" placeholder="Não realizado"
                                            class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
                                 <td class="px-2 py-1.5 text-right text-xs font-medium text-brand-ink whitespace-nowrap" x-show="groups.actual"
-                                    x-text="row.unit_actual === null || row.unit_actual === '' ? '—' : brl(row.total_actual)"></td>
+                                    x-text="row.unit_actual === '' ? '—' : brl(row.total_actual)"></td>
 
                                 <td class="px-2 py-1.5 text-right whitespace-nowrap" x-show="groups.payments">
                                     <button type="button" @click="openPayments(row)"
                                             class="text-xs text-brand-ink hover:text-brand-orange-deep hover:underline"
                                             x-text="brl(row.paid)"></button>
                                 </td>
+                                {{-- "pago a mais" vira tooltip nativo (title), não mais texto ao lado do número —
+                                     só aparece passando o mouse, sem disputar espaço com o valor. --}}
                                 <td class="px-2 py-1.5 text-right text-xs whitespace-nowrap" x-show="groups.payments"
                                     :class="row.pending > 0 ? 'text-brand-orange-deep' : (row.pending < 0 ? 'text-red-600' : 'text-steel')"
-                                    x-text="row.pending < 0 ? `${brl(row.pending)} (pago a mais)` : brl(row.pending)"></td>
+                                    :title="row.pending < 0 ? 'Pago a mais' : null"
+                                    x-text="brl(row.pending)"></td>
 
                                 <td class="px-2 py-1.5">
                                     <select x-model="row.art_status" @change="save(row)" :disabled="readonly"
@@ -287,23 +294,35 @@
                                            class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
 
-                                <td class="px-2 py-1.5" x-show="groups.control">
-                                    <div class="flex items-center gap-1">
-                                        {{-- Os seis que provam a despesa aparecem sempre (cinza = pendência real).
-                                             Geral e Minuta vêm do card com o próprio tipo, mas a ausência deles não é
-                                             pendência — só aparecem quando existem. --}}
-                                        <template x-for="chip in row.documents.filter(c => c.proof || c.count > 0)" :key="chip.kind">
-                                            <button type="button" @click="openDocuments(row, chip.kind)" :title="chip.label"
-                                                    class="relative inline-flex items-center justify-center w-6 h-6 rounded-md border text-[10px] transition-colors"
-                                                    :class="chip.count > 0
-                                                        ? 'border-green-300 bg-green-50 text-green-700'
-                                                        : 'border-hairline text-steel hover:border-brand-orange hover:text-brand-orange-deep'">
-                                                <i class="fa-solid" :class="chip.icon"></i>
-                                                <span x-show="chip.count > 1" x-cloak
-                                                      class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[0.9rem] h-3.5 px-1 rounded-full bg-brand-ink text-white text-[9px]"
-                                                      x-text="chip.count"></span>
-                                            </button>
-                                        </template>
+                                <td class="px-2 py-1.5" x-show="groups.control" x-data="{ controlOpen: false }" @click.outside="controlOpen = false">
+                                    {{-- Os ícones inline viravam uma fileira de até 9 botões por linha — trocado
+                                         por um único botão-resumo que abre um menu com a lista completa (ícone +
+                                         nome + número), reduzindo o que a grade mostra sem esconder informação. --}}
+                                    <div class="relative inline-block">
+                                        <button type="button" @click="controlOpen = !controlOpen"
+                                                class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-medium transition-colors"
+                                                :class="row.documents.some(c => c.proof && c.count === 0)
+                                                    ? 'border-brand-orange/40 bg-brand-orange/5 text-brand-orange-deep'
+                                                    : 'border-hairline text-steel hover:border-brand-orange hover:text-brand-orange-deep'">
+                                            <i class="fa-solid fa-folder-open"></i>
+                                            <span x-text="row.documents.filter(c => c.proof || c.count > 0).length"></span>
+                                        </button>
+                                        <div x-show="controlOpen" x-cloak x-transition
+                                             class="absolute left-0 z-20 mt-1 w-56 bg-white border border-hairline rounded-md shadow-lg p-1.5 space-y-0.5">
+                                            {{-- Os seis que provam a despesa aparecem sempre (cinza = pendência real).
+                                                 Geral, Minuta e Recibo vêm do card com o próprio tipo, mas a ausência
+                                                 deles não é pendência — só aparecem quando existem. --}}
+                                            <template x-for="chip in row.documents.filter(c => c.proof || c.count > 0)" :key="chip.kind">
+                                                <button type="button" @click="openDocuments(row, chip.kind); controlOpen = false"
+                                                        class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-xs text-left"
+                                                        :class="chip.count > 0 ? 'text-green-700' : 'text-steel'">
+                                                    <i class="fa-solid w-4 text-center shrink-0" :class="chip.icon"></i>
+                                                    <span class="flex-1 truncate" x-text="`${chip.label} (${chip.count})`"></span>
+                                                </button>
+                                            </template>
+                                            <p x-show="row.documents.filter(c => c.proof || c.count > 0).length === 0"
+                                               class="text-xs text-steel px-2 py-1.5">Nenhum documento.</p>
+                                        </div>
                                     </div>
                                 </td>
 

@@ -24,9 +24,10 @@ class FinancePaymentTest extends FinanceTestCase
         );
         $this->assertStringNotContainsString('x-model="newPayment.amount"', $drawer);
 
-        // Uma fonte só para a máscara, importada pelos dois componentes.
-        $this->assertStringContainsString("import { maskMoneyDigits } from './money'", file_get_contents(resource_path('js/finance.js')));
-        $this->assertStringContainsString("import { maskMoneyDigits } from './money'", file_get_contents(resource_path('js/card-panel.js')));
+        // Uma fonte só para a máscara, importada pelos dois componentes (junto de outros helpers
+        // do mesmo módulo, por isso o regex em vez de casar a linha do import inteira).
+        $this->assertMatchesRegularExpression('/import \{[^}]*\bmaskMoneyDigits\b[^}]*\} from .\.\/money./', file_get_contents(resource_path('js/finance.js')));
+        $this->assertMatchesRegularExpression('/import \{[^}]*\bmaskMoneyDigits\b[^}]*\} from .\.\/money./', file_get_contents(resource_path('js/card-panel.js')));
     }
 
     public function test_pago_e_falta_pagar_saem_da_soma_dos_pagamentos(): void

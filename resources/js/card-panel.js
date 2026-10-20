@@ -18,7 +18,7 @@
  * este objeto solto (sem `columns`/`cfg`, que só existem no host), quebrando com
  * "Cannot read properties of undefined" antes mesmo do componente terminar de montar.
  */
-import { maskMoneyDigits } from './money';
+import { maskMoneyDigits, moneyFromDecimal, parseMoneyBR } from './money';
 
 function cardPanelBase() {
     return {
@@ -792,22 +792,13 @@ function cardPanelBase() {
             }
         },
 
-        // ---- Máscara de dinheiro (R$) -------------------------------------------
-        // Formata o valor vindo do banco (ex.: "1500.00") para o padrão BR ("1.500,00")
-        // ao abrir um card existente. A digitação em si é mascarada pelo plugin
-        // @alpinejs/mask (x-mask:dynamic="$money($input, ',')" no card-panel).
+        // ---- Máscara de dinheiro (R$) — ver `money.js` -------------------------
         moneyFromDecimal(value) {
-            if (value === null || value === undefined || value === '') return '';
-            const num = Number(value);
-            return Number.isNaN(num) ? '' : num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return moneyFromDecimal(value);
         },
 
-        // Caminho inverso de moneyFromDecimal: o input mascarado guarda "1.500,00" (BR); aqui
-        // convertemos de volta para número pra poder comparar com o Preço Interno da categoria.
         parseMoneyBR(value) {
-            if (value === null || value === undefined || value === '') return null;
-            const num = Number(String(value).replace(/\./g, '').replace(',', '.'));
-            return Number.isNaN(num) ? null : num;
+            return parseMoneyBR(value);
         },
 
         // Ao sair do campo "Banco de Preços", compara com o Preço Interno da categoria do fornecedor

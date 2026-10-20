@@ -56,16 +56,21 @@
                                            :disabled="readonly" placeholder="Patrocinador, cota, lote…" maxlength="180"
                                            class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
+                                {{-- Mesma máscara dos valores do card/Financeiro (dígito digitado = centavo):
+                                     cada campo já nasce em string BR (ver normalizeRevenueRow em finance.js). --}}
                                 <td class="px-3 py-1.5">
-                                    <input type="text" inputmode="decimal" x-model="row.estimated_value" @input="touch(row)" :disabled="readonly"
+                                    <input type="text" inputmode="decimal" :value="row.estimated_value"
+                                           @input="row.estimated_value = maskMoneyDigits($event.target.value); touch(row)" :disabled="readonly"
                                            class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
                                 <td class="px-3 py-1.5">
-                                    <input type="text" inputmode="decimal" x-model="row.actual_value" @input="touch(row)" :disabled="readonly"
+                                    <input type="text" inputmode="decimal" :value="row.actual_value"
+                                           @input="row.actual_value = maskMoneyDigits($event.target.value); touch(row)" :disabled="readonly"
                                            class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
                                 <td class="px-3 py-1.5">
-                                    <input type="text" inputmode="decimal" x-model="row.received_value" @input="touch(row)" :disabled="readonly"
+                                    <input type="text" inputmode="decimal" :value="row.received_value"
+                                           @input="row.received_value = maskMoneyDigits($event.target.value); touch(row)" :disabled="readonly"
                                            class="w-full text-right border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
                                 </td>
                                 {{-- Coluna gerada no banco: somente leitura, sempre igual a realizado - recebido. --}}

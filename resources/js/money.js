@@ -16,3 +16,27 @@ export function maskMoneyDigits(raw) {
         ? ''
         : (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+/**
+ * Decimal cru do backend (ex.: `1234.5` ou `null`) -> string BR para exibição ("1.234,50").
+ *
+ * É o complemento de `maskMoneyDigits`: todo valor monetário que chega de uma resposta do servidor
+ * é um número puro (JSON não tem formato BR), mas o campo mascarado só aceita e só produz strings
+ * BR — sem essa conversão no ponto de entrada, o campo mostraria "1234.5" (ponto, sem milhar) até a
+ * primeira edição. Vazio/null vira string vazia, não "0,00": são estados diferentes (ver
+ * `maskMoneyDigits`).
+ */
+export function moneyFromDecimal(value) {
+    if (value === null || value === undefined || value === '') return '';
+    const num = Number(value);
+
+    return Number.isNaN(num) ? '' : num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Caminho inverso de `moneyFromDecimal`: "1.234,50" (BR) -> 1234.5. Contas no cliente antes do round-trip ao servidor. */
+export function parseMoneyBR(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(String(value).replace(/\./g, '').replace(',', '.'));
+
+    return Number.isNaN(num) ? null : num;
+}

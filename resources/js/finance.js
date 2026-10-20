@@ -8,7 +8,7 @@
  * feedback imediato.
  */
 
-import { maskMoneyDigits } from './money';
+import { maskMoneyDigits, moneyFromDecimal } from './money';
 
 const brl = (value) =>
     (Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -42,10 +42,20 @@ async function request(url, method = 'GET', body = null) {
     return data;
 }
 
+/**
+ * `unit_actual` entra sempre como decimal cru do servidor (criação, autosave, duplicar) — aqui já
+ * nasce como string BR, no mesmo formato que `maskMoneyDigits` escreve ao digitar. Sem essa
+ * normalização, a linha mostraria "1234.5" (ponto, sem milhar) logo após salvar, até a próxima
+ * edição manual do campo.
+ */
+function normalizeCostRow(row) {
+    return { ...row, unit_actual: moneyFromDecimal(row.unit_actual) };
+}
+
 export function financeCosts(cfg) {
     return {
         cfg,
-        rows: cfg.rows ?? [],
+        rows: (cfg.rows ?? []).map(normalizeCostRow),
         readonly: cfg.readonly ?? false,
         usesSecondEstimate: cfg.usesSecondEstimate ?? false,
         presets: cfg.presets ?? {},
@@ -86,7 +96,7 @@ export function financeCosts(cfg) {
             this.savingIds = [...this.savingIds, row.id];
             try {
                 const saved = await request(`${this.cfg.urls.costBase}/${row.id}`, 'PUT', this.payload(row));
-                Object.assign(row, saved);
+                Object.assign(row, normalizeCostRow(saved));
                 this.savedIds = [...this.savedIds, row.id];
                 setTimeout(() => { this.savedIds = this.savedIds.filter((id) => id !== row.id); }, 1500);
             } catch (e) {
@@ -132,7 +142,7 @@ export function financeCosts(cfg) {
                     quantity: 1,
                     unit_estimated_1: 0,
                 });
-                this.rows.push(created);
+                this.rows.push(normalizeCostRow(created));
                 this.$nextTick(() => {
                     document.getElementById(`linha-${created.id}`)?.querySelector('input[data-field="description"]')?.focus();
                 });
@@ -144,7 +154,7 @@ export function financeCosts(cfg) {
         async duplicate(row) {
             try {
                 const copy = await request(`${this.cfg.urls.costBase}/${row.id}/duplicar`, 'POST');
-                this.rows.splice(this.rows.indexOf(row) + 1, 0, copy);
+                this.rows.splice(this.rows.indexOf(row) + 1, 0, normalizeCostRow(copy));
                 window.upAlerts.notifySuccess('Linha duplicada. Os documentos não são copiados.');
             } catch (e) {
                 window.upAlerts.notifyError(e.message);
@@ -342,15 +352,29 @@ export function financeCosts(cfg) {
     };
 }
 
+/**
+ * Previsto/realizado/recebido entram como decimal cru do servidor — nascem aqui já em string BR,
+ * no mesmo formato que `maskMoneyDigits` escreve ao digitar (ver `normalizeCostRow`, mesma razão).
+ */
+function normalizeRevenueRow(row) {
+    return {
+        ...row,
+        estimated_value: moneyFromDecimal(row.estimated_value),
+        actual_value: moneyFromDecimal(row.actual_value),
+        received_value: moneyFromDecimal(row.received_value),
+    };
+}
+
 export function financeRevenues(cfg) {
     return {
         cfg,
-        rows: cfg.rows ?? [],
+        rows: (cfg.rows ?? []).map(normalizeRevenueRow),
         readonly: cfg.readonly ?? false,
         timers: {},
         savingIds: [],
         brl,
         num,
+        maskMoneyDigits,
 
         touch(row) {
             clearTimeout(this.timers[row.id]);
@@ -372,7 +396,7 @@ export function financeRevenues(cfg) {
                     received_at: row.received_at || null,
                     notes: row.notes || null,
                 });
-                Object.assign(row, saved);
+                Object.assign(row, normalizeRevenueRow(saved));
             } catch (e) {
                 window.upAlerts.notifyError(e.message);
             } finally {
@@ -388,7 +412,7 @@ export function financeRevenues(cfg) {
                     actual_value: 0,
                     received_value: 0,
                 });
-                this.rows.push(created);
+                this.rows.push(normalizeRevenueRow(created));
                 this.$nextTick(() => {
                     document.getElementById(`receita-${created.id}`)?.querySelector('input[data-field="description"]')?.focus();
                 });
