@@ -19,6 +19,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'role', 'setor_id', 'phone', 'avatar_path', 'active',
+        'can_access_rentals',
     ];
 
     protected $hidden = [
@@ -30,6 +31,7 @@ class User extends Authenticatable
         'password' => 'hashed',
         'role' => UserRole::class,
         'active' => 'boolean',
+        'can_access_rentals' => 'boolean',
     ];
 
     // Relacionamentos -------------------------------------------------------
@@ -71,6 +73,28 @@ class User extends Authenticatable
     public function isCoordenador(): bool
     {
         return $this->role === UserRole::Coordenador;
+    }
+
+    /**
+     * Gestão de Locações (specs/24 §11) — módulo isolado dos quadros/eventos. Admin e coordenador
+     * sem escopo de evento acessam automaticamente; usuário só com o checkbox habilitado.
+     */
+    public function canAccessRentals(): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+        if ($this->isCoordenador()) {
+            return ! $this->isEventScoped();
+        }
+
+        return $this->role === UserRole::Usuario && $this->can_access_rentals;
+    }
+
+    /** Encerrar/reabrir/reativar pedido, cadastrar/excluir item e ver investimento (specs/24 §11). */
+    public function canManageRentals(): bool
+    {
+        return $this->isAdmin() || ($this->isCoordenador() && ! $this->isEventScoped());
     }
 
     public function canAccessBoard(Board $board): bool

@@ -140,6 +140,12 @@ class Card extends Model
         return $this->hasOne(CardSupplierForm::class);
     }
 
+    /** Link público de Solicitação de Nota deste card. */
+    public function invoiceRequest(): HasOne
+    {
+        return $this->hasOne(CardInvoiceRequest::class);
+    }
+
     /**
      * Linha de custo criada a partir deste card no Financeiro do Evento (specs/23). Um card gera
      * no máximo uma linha — a ponte reusa a existente em vez de duplicar.

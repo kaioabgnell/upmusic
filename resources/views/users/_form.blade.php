@@ -105,6 +105,20 @@
         </div>
     </div>
 
+    {{-- Gestão de Locações (specs/24 §11) — só o perfil Usuário precisa do checkbox; admin e
+         coordenador sem escopo de evento já acessam automaticamente. --}}
+    <div x-show="role === 'usuario'" x-cloak class="border-t border-hairline pt-5">
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="can_access_rentals" value="1"
+                   @checked(old('can_access_rentals', $isEdit ? $user->can_access_rentals : false))
+                   class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+            <span class="text-sm text-brand-ink">
+                <i class="fa-solid fa-boxes-stacked text-steel mr-1"></i>
+                Acesso à Gestão de Locações
+            </span>
+        </label>
+    </div>
+
     {{-- Vínculo de quadros (somente perfil Usuário) --}}
     <div x-show="role === 'usuario'" x-cloak class="border-t border-hairline pt-5">
         <x-input-label value="Quadros com acesso" />

@@ -9,6 +9,26 @@ use Illuminate\Validation\ValidationException;
 /** PAGO / FALTA PAGAR e a quebra por grupo de pagamento (specs/23 §4.4 e §7). */
 class FinancePaymentTest extends FinanceTestCase
 {
+    /**
+     * O valor do pagamento usa a mesma máscara dos valores do card (dígito digitado = centavo).
+     * A função mora em `money.js` e é importada pelos dois componentes Alpine — duplicar lógica de
+     * dinheiro é como as duas máscaras passaram a divergir da primeira vez.
+     */
+    public function test_valor_do_pagamento_usa_a_mascara_de_centavos_compartilhada(): void
+    {
+        $drawer = file_get_contents(resource_path('views/financeiro/eventos/_drawer.blade.php'));
+
+        $this->assertMatchesRegularExpression(
+            '/:value="newPayment\.amount"\s+@input="newPayment\.amount = maskMoneyDigits\(\$event\.target\.value\)"/',
+            $drawer,
+        );
+        $this->assertStringNotContainsString('x-model="newPayment.amount"', $drawer);
+
+        // Uma fonte só para a máscara, importada pelos dois componentes.
+        $this->assertStringContainsString("import { maskMoneyDigits } from './money'", file_get_contents(resource_path('js/finance.js')));
+        $this->assertStringContainsString("import { maskMoneyDigits } from './money'", file_get_contents(resource_path('js/card-panel.js')));
+    }
+
     public function test_pago_e_falta_pagar_saem_da_soma_dos_pagamentos(): void
     {
         $sheet = $this->sheet();

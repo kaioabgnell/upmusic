@@ -1258,6 +1258,21 @@ de implementação).
     (specs/09) seguem acessíveis por URL só para consulta do histórico — ver specs/23 §14.
   - Cobertura: `tests/Feature/Finance` (54 testes verdes), `pint --dirty` e `npm run build` limpos.
 
+- [x] **Gestão de Locações** (specs/24): módulo novo, isolado de cards/eventos — inventário de itens
+  próprios (LED, mesa, telão, som...), Kanban de Pedidos de Locação (Orçamento → Confirmada →
+  Em uso → Devolvida → Encerrada + Cancelada), disponibilidade por período só informativa (nunca
+  bloqueia), linhas de item com snapshot de nome/preço, desconto, custos simples (sublocação) com
+  pagamentos parciais e recebimentos parciais, histórico de etapas/avisos/motivos. Sem relatórios,
+  lançamentos avulsos nem sublocação de terceiros na v1 — ver specs/24 §16/§17.
+  - 7 tabelas novas (`rental_items`, `rental_orders`, `rental_order_items`, `rental_order_costs`,
+    `rental_cost_payments`, `rental_receipts`, `rental_order_logs`) + `users.can_access_rentals`.
+  - Acesso (specs/24 §11): admin e coordenador sem escopo de evento entram automaticamente; `usuario`
+    só com o checkbox "Acesso à Gestão de Locações" no cadastro; coordenador restrito por evento
+    (specs/20) não vê o módulo. Encerrar/reabrir/reativar/excluir pedido e cadastrar/editar/excluir
+    item exigem admin/coordenador.
+  - Menu "Locações" (Painel, Pedidos, Itens) na sidebar, visível via `@can('access-rentals')`.
+  - Cobertura: `tests/Feature/Rentals` (34 testes verdes), `pint --dirty` e `npm run build` limpos.
+
 ---
 
 ### Status por fase

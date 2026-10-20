@@ -53,6 +53,7 @@ class UserController extends Controller
     {
         $data = $request->validated();
         $data['password'] = Hash::make($data['password']);
+        $this->normalizeRentalsAccess($data);
 
         $user = User::create($data);
         $this->syncBoards($user, $request);
@@ -90,6 +91,7 @@ class UserController extends Controller
         } else {
             $data['password'] = Hash::make($data['password']);
         }
+        $this->normalizeRentalsAccess($data);
 
         $user->update($data);
         $this->syncBoards($user, $request);
@@ -115,6 +117,17 @@ class UserController extends Controller
 
         return redirect()->route('users.index')
             ->with('success', 'Usuário excluído com sucesso.');
+    }
+
+    /**
+     * O checkbox de acesso à Gestão de Locações (specs/24 §11) só tem efeito para o perfil Usuário
+     * — admin e coordenador sem escopo de evento já acessam automaticamente (User::canAccessRentals()).
+     */
+    private function normalizeRentalsAccess(array &$data): void
+    {
+        if (($data['role'] ?? null) !== UserRole::Usuario->value) {
+            $data['can_access_rentals'] = false;
+        }
     }
 
     private function formData(): array

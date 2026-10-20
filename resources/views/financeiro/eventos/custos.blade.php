@@ -247,7 +247,7 @@
                                 </td>
                                 <td class="px-2 py-1.5 text-right text-xs whitespace-nowrap" x-show="groups.payments"
                                     :class="row.pending > 0 ? 'text-brand-orange-deep' : (row.pending < 0 ? 'text-red-600' : 'text-steel')"
-                                    x-text="row.pending < 0 ? `${brl(row.pending)} (pago a maior)` : brl(row.pending)"></td>
+                                    x-text="row.pending < 0 ? `${brl(row.pending)} (pago a mais)` : brl(row.pending)"></td>
 
                                 <td class="px-2 py-1.5">
                                     <select x-model="row.art_status" @change="save(row)" :disabled="readonly"

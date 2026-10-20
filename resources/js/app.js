@@ -17,6 +17,8 @@ import cardsHub from './cards-hub';
 import notifications from './notifications';
 import { bidDocument, bidMatrix, bidNotice } from './licitacoes';
 import { financeCosts, financeRevenues, financeSettlements } from './finance';
+import { rentalsBoard, rentalsItems } from './rentals';
+import { maskMoneyDigits } from './money';
 
 Chart.register(
     LineController, LineElement, PointElement, LinearScale, TimeScale, Legend, Tooltip, Filler,
@@ -25,6 +27,9 @@ Chart.register(
 
 window.Sortable = Sortable;
 window.Chart = Chart;
+// Páginas públicas (formulário externo/Solicitação de Nota) não têm o x-data dos componentes do
+// Financeiro/card-panel — ficam fora desse escopo e precisam da máscara direto no window.
+window.maskMoneyDigits = maskMoneyDigits;
 
 Alpine.plugin(mask);
 Alpine.data('kanban', kanban);
@@ -39,6 +44,9 @@ Alpine.data('bidMatrix', bidMatrix);
 Alpine.data('financeCosts', financeCosts);
 Alpine.data('financeRevenues', financeRevenues);
 Alpine.data('financeSettlements', financeSettlements);
+// Gestão de Locações (specs/24).
+Alpine.data('rentalsBoard', rentalsBoard);
+Alpine.data('rentalsItems', rentalsItems);
 window.Alpine = Alpine;
 
 Alpine.start();

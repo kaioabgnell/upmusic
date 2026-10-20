@@ -9,7 +9,7 @@
         <p class="text-sm text-steel mt-2 max-w-sm mx-auto">
             Recebemos seus dados e a nota fiscal. Nossa equipe fará a análise. Obrigado!
         </p>
-        <a href="{{ route('external.form.show', $form->token) }}"
+        <a href="{{ $againUrl ?? route('external.form.show', $form->token) }}"
            class="mt-6 inline-flex items-center gap-2 rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">
             <i class="fa-solid fa-plus"></i> Enviar outro
         </a>

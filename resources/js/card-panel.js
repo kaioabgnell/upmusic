@@ -18,6 +18,8 @@
  * este objeto solto (sem `columns`/`cfg`, que só existem no host), quebrando com
  * "Cannot read properties of undefined" antes mesmo do componente terminar de montar.
  */
+import { maskMoneyDigits } from './money';
+
 function cardPanelBase() {
     return {
         panelOpen: false,
@@ -463,6 +465,56 @@ function cardPanelBase() {
 
         // Link direto do card (specs/18) — sempre aponta para o Kanban, mesmo se o modal foi aberto
         // pela listagem global "Todos os cards" (que não tem URL própria por card).
+        /**
+         * Gera (ou reaproveita) o link público de Solicitação de Nota deste card e o entrega pronto
+         * para encaminhar. O link é sempre o mesmo por card: mandar de novo para a mesma pessoa não
+         * invalida o que ela já tinha.
+         */
+        async shareInvoiceRequest() {
+            try {
+                const r = await this.api(this.cardUrl(this.cardId, '/nota/link'), 'POST');
+                // A cópia pode falhar fora de HTTPS/localhost — por isso o link também aparece no
+                // diálogo, com botão próprio de copiar, em vez de depender só da área de
+                // transferência automática.
+                navigator.clipboard?.writeText(r.url)?.catch(() => {});
+
+                // Markup próprio (não o `input:` do SweetAlert2): o input dele fica com o cursor no
+                // fim do texto ao receber o valor, e como a URL é longa, o campo rola e mostra só o
+                // token no final — exatamente o trecho que menos identifica o link. Aqui zeramos o
+                // scroll para o começo (domínio/rota) ficar visível, igual ao padrão já usado no
+                // link de minuta do fornecedor (campo + botão "Copiar" lado a lado).
+                await window.Swal.fire({
+                    title: 'Solicitação de Nota',
+                    customClass: { title: 'up-modal-title' },
+                    html: `
+                        <p class="text-sm text-left text-steel">Envie para o responsável preencher os dados e anexar a nota fiscal — o envio entra neste card.</p>
+                        <div class="mt-3 flex items-center gap-2">
+                            <input id="invoice-request-link" type="text" value="${r.url}" readonly
+                                   class="flex-1 min-w-0 border-gray-300 bg-surface rounded-md text-xs text-steel">
+                            <button type="button" id="invoice-request-copy"
+                                    class="shrink-0 rounded-md border border-hairline px-3 py-2 text-xs font-medium text-brand-ink hover:bg-surface">
+                                <i class="fa-solid fa-copy"></i> Copiar
+                            </button>
+                        </div>
+                    `,
+                    confirmButtonText: 'Fechar',
+                    confirmButtonColor: '#ff8c1e',
+                    didOpen: (el) => {
+                        const input = el.querySelector('#invoice-request-link');
+                        input.scrollLeft = 0;
+                        input.setSelectionRange(0, 0);
+
+                        el.querySelector('#invoice-request-copy').addEventListener('click', () => {
+                            navigator.clipboard.writeText(r.url);
+                            window.upAlerts.notifySuccess('Link copiado.');
+                        });
+                    },
+                });
+            } catch (e) {
+                window.upAlerts.notifyError(e.message);
+            }
+        },
+
         shareCard() {
             const url = `${window.location.origin}/quadros/${this.form.board_id}/card/${this.cardId}`;
             navigator.clipboard.writeText(url);
@@ -688,21 +740,9 @@ function cardPanelBase() {
                 : Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
 
-        /**
-         * Máscara "dígito é centavo, da direita pra esquerda" (estilo caixa eletrônico) — usada nos
-         * dois campos de valor do modal "Sincronizar com o Financeiro" ("Valor unitário previsto" e
-         * "Valor unitário realizado"). O `$money` do @alpinejs/mask embola quando a pessoa digita
-         * puros dígitos sem passar pela vírgula (ex.: "0000" vira "0.000" em vez de "0,00") — o
-         * número chegaria ERRADO ao backend (100x maior), não só feio na tela; e isso acontece tanto
-         * num campo que começa vazio quanto num que a pessoa apaga e redigita do zero. Aqui não
-         * existe essa ambiguidade: cada dígito digitado É um centavo, então colar ou digitar sem
-         * vírgula nunca produz o valor errado.
-         */
+        /** Máscara de dinheiro de todos os valores do painel — ver `money.js`. */
         maskMoneyDigits(raw) {
-            const digits = raw.replace(/\D/g, '');
-            return digits === ''
-                ? ''
-                : (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return maskMoneyDigits(raw);
         },
 
         // ---- Transferência / conclusão / reabertura ----------------------------

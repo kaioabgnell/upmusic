@@ -170,7 +170,9 @@
                             @endforeach
                         </select>
                         <div class="grid grid-cols-2 gap-2">
-                            <input type="text" inputmode="decimal" x-model="newPayment.amount" placeholder="0,00"
+                            <input type="text" inputmode="decimal" :value="newPayment.amount"
+                                   @input="newPayment.amount = maskMoneyDigits($event.target.value)"
+                                   placeholder="0,00"
                                    class="border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                             <input type="date" x-model="newPayment.paid_at"
                                    class="border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">

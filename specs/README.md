@@ -29,6 +29,7 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 21 | [Módulo de Licitações](21-modulo-licitacoes.md) | Novo módulo (Admin): empresas licitantes, cofre de certidões com alerta de vencimento, análise de edital por IA (Gemini) e ranking de aptidão | `opus` |
 | 22 | [Notificações](22-notificacoes.md) | Melhoria pós-entrega: sino na topbar com contador de não lidas, painel com scroll infinito (10 em 10), filtro "não lidas" e link direto para o card | `opus` |
 | 23 | [Financeiro do Evento](23-financeiro-do-evento.md) | Novo módulo: substitui a planilha `FINANCEIRO - MODELO.xlsx` — planilha financeira por evento (resumo/receitas/custos), previsto x realizado, pagamentos, controle documental e ponte que leva os anexos do card para a linha de custo | `opus` |
+| 24 | [Gestão de Locações](24-gestao-de-locacoes.md) | Novo módulo: inventário de itens próprios (LED, mesas, telões, som), Kanban de pedidos de locação com etapas fixas, disponibilidade por período (informativa) e financeiro próprio (receita prevista/realizada/recebida e custos com pagamentos), isolado dos eventos | `opus` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

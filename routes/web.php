@@ -13,6 +13,7 @@ use App\Http\Controllers\BoardFieldController;
 use App\Http\Controllers\CaptureController;
 use App\Http\Controllers\CaptureTokenController;
 use App\Http\Controllers\CardController;
+use App\Http\Controllers\CardInvoiceRequestController;
 use App\Http\Controllers\CardSupplierFormController;
 use App\Http\Controllers\CnpjLookupController;
 use App\Http\Controllers\DashboardController;
@@ -41,6 +42,15 @@ use App\Http\Controllers\PriceHistoryController;
 use App\Http\Controllers\PriceRecordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicFormController;
+use App\Http\Controllers\PublicInvoiceRequestController;
+use App\Http\Controllers\Rentals\RentalAvailabilityController;
+use App\Http\Controllers\Rentals\RentalBoardController;
+use App\Http\Controllers\Rentals\RentalCostController;
+use App\Http\Controllers\Rentals\RentalCostPaymentController;
+use App\Http\Controllers\Rentals\RentalItemController;
+use App\Http\Controllers\Rentals\RentalOrderController;
+use App\Http\Controllers\Rentals\RentalOrderLineController;
+use App\Http\Controllers\Rentals\RentalReceiptController;
 use App\Http\Controllers\SetorController;
 use App\Http\Controllers\SupplierFormController;
 use App\Http\Controllers\TemplateController;
@@ -74,6 +84,12 @@ Route::get('/minuta/{token}', [SupplierFormController::class, 'show'])->name('su
 Route::post('/minuta/{token}', [SupplierFormController::class, 'submit'])
     ->middleware('throttle:10,1')->name('supplier.form.submit');
 Route::get('/minuta/{token}/sucesso', [SupplierFormController::class, 'success'])->name('supplier.form.success');
+
+// Solicitação de Nota (link por card, sem autenticação): o envio entra no card de origem.
+Route::get('/nota/{token}', [PublicInvoiceRequestController::class, 'show'])->name('invoice-request.show');
+Route::post('/nota/{token}', [PublicInvoiceRequestController::class, 'submit'])
+    ->middleware('throttle:10,1')->name('invoice-request.submit');
+Route::get('/nota/{token}/sucesso', [PublicInvoiceRequestController::class, 'success'])->name('invoice-request.success');
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -166,6 +182,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Link de minuta do fornecedor (specs/19) — gerar/desativar; página pública fica fora do grupo auth.
     Route::post('cards/{card}/minuta/link', [CardSupplierFormController::class, 'generate'])->name('supplier.link.generate');
     Route::delete('cards/{card}/minuta/link', [CardSupplierFormController::class, 'disable'])->name('supplier.link.disable');
+    Route::post('cards/{card}/nota/link', [CardInvoiceRequestController::class, 'generate'])->name('invoice-request.generate');
     // Ponte Kanban -> Financeiro (specs/23 §6). Fica no bloco de cards de propósito: quem edita o
     // card empurra a despesa para o financeiro, mesmo sem acesso ao módulo (autorizado pela
     // CardPolicy). Rotas literais antes do wildcard de anexos.
@@ -311,6 +328,62 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('precos/categorias/{fornecedorCategoria}/registros', [PriceRecordController::class, 'store'])->name('prices.store');
         Route::put('precos/registros/{priceRecord}', [PriceRecordController::class, 'update'])->name('prices.update');
         Route::delete('precos/registros/{priceRecord}', [PriceRecordController::class, 'destroy'])->name('prices.destroy');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Gestão de Locações (specs/24) — departamento isolado de cards/boards/events/financeiro
+    |--------------------------------------------------------------------------
+    | `can:access-rentals`: admin e coordenador sem escopo de evento entram sempre; `usuario` só com
+    | o checkbox habilitado no cadastro (ver User::canAccessRentals()). Encerrar/reabrir/reativar/
+    | excluir pedido e cadastrar/editar/excluir item exigem `manage-rentals` (admin/coordenador),
+    | verificado nas Policies dentro dos controllers.
+    */
+    Route::middleware('can:access-rentals')->prefix('locacoes')->name('rentals.')->group(function () {
+        Route::get('/', [RentalBoardController::class, 'index'])->name('board');
+        Route::get('disponibilidade', [RentalAvailabilityController::class, 'index'])->name('availability');
+
+        // Itens do inventário — rotas literais antes do wildcard {item}.
+        Route::prefix('itens')->name('items.')->group(function () {
+            Route::get('/', [RentalItemController::class, 'index'])->name('index');
+            Route::get('buscar', [RentalItemController::class, 'search'])->name('search');
+            Route::get('novo', [RentalItemController::class, 'create'])->name('create');
+            Route::post('/', [RentalItemController::class, 'store'])->name('store');
+            Route::get('{item}', [RentalItemController::class, 'show'])->name('show');
+            Route::get('{item}/editar', [RentalItemController::class, 'edit'])->name('edit');
+            Route::put('{item}', [RentalItemController::class, 'update'])->name('update');
+            Route::delete('{item}', [RentalItemController::class, 'destroy'])->name('destroy');
+        });
+
+        // Pedidos de locação.
+        Route::prefix('pedidos')->name('orders.')->group(function () {
+            Route::get('/', [RentalOrderController::class, 'index'])->name('index');
+            Route::post('/', [RentalOrderController::class, 'store'])->name('store');
+            Route::get('{pedido}', [RentalOrderController::class, 'show'])->name('show');
+            Route::put('{pedido}', [RentalOrderController::class, 'update'])->name('update');
+            Route::delete('{pedido}', [RentalOrderController::class, 'destroy'])->name('destroy');
+            Route::post('{pedido}/mover', [RentalOrderController::class, 'move'])->name('move');
+            Route::post('{pedido}/devolucao', [RentalOrderController::class, 'return'])->name('return');
+            Route::post('{pedido}/encerrar', [RentalOrderController::class, 'close'])->name('close');
+            Route::post('{pedido}/reabrir', [RentalOrderController::class, 'reopen'])->name('reopen');
+            Route::post('{pedido}/cancelar', [RentalOrderController::class, 'cancel'])->name('cancel');
+            Route::post('{pedido}/reativar', [RentalOrderController::class, 'reactivate'])->name('reactivate');
+
+            Route::post('{pedido}/itens', [RentalOrderLineController::class, 'store'])->name('lines.store');
+            Route::post('{pedido}/itens/recalcular-diarias', [RentalOrderLineController::class, 'recalculateDailyCounts'])->name('lines.recalculate');
+            Route::post('{pedido}/custos', [RentalCostController::class, 'store'])->name('costs.store');
+            Route::post('{pedido}/recebimentos', [RentalReceiptController::class, 'store'])->name('receipts.store');
+        });
+
+        Route::put('itens-pedido/{linha}', [RentalOrderLineController::class, 'update'])->name('orders.lines.update');
+        Route::delete('itens-pedido/{linha}', [RentalOrderLineController::class, 'destroy'])->name('orders.lines.destroy');
+
+        Route::put('custos/{custo}', [RentalCostController::class, 'update'])->name('orders.costs.update');
+        Route::delete('custos/{custo}', [RentalCostController::class, 'destroy'])->name('orders.costs.destroy');
+        Route::post('custos/{custo}/pagamentos', [RentalCostPaymentController::class, 'store'])->name('orders.payments.store');
+        Route::delete('pagamentos/{pagamento}', [RentalCostPaymentController::class, 'destroy'])->name('orders.payments.destroy');
+
+        Route::delete('recebimentos/{recebimento}', [RentalReceiptController::class, 'destroy'])->name('orders.receipts.destroy');
     });
 
     /*

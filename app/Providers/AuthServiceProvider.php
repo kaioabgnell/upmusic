@@ -19,6 +19,8 @@ use App\Models\Event;
 use App\Models\FinanceSheet;
 use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
+use App\Models\RentalItem;
+use App\Models\RentalOrder;
 use App\Models\Setor;
 use App\Models\User;
 use App\Policies\BidModulePolicy;
@@ -31,6 +33,8 @@ use App\Policies\EventPolicy;
 use App\Policies\FinanceSheetPolicy;
 use App\Policies\FornecedorCategoriaPolicy;
 use App\Policies\FornecedorPolicy;
+use App\Policies\RentalItemPolicy;
+use App\Policies\RentalOrderPolicy;
 use App\Policies\SetorPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -57,6 +61,10 @@ class AuthServiceProvider extends ServiceProvider
         // Financeiro do Evento (specs/23) — escopo por evento igual ao dos cards.
         FinanceSheet::class => FinanceSheetPolicy::class,
 
+        // Gestão de Locações (specs/24) — departamento isolado dos quadros/eventos.
+        RentalItem::class => RentalItemPolicy::class,
+        RentalOrder::class => RentalOrderPolicy::class,
+
         // Módulo de Licitações — exclusivo do Admin (ver specs/21 §7).
         BidCompany::class => BidModulePolicy::class,
         BidDocument::class => BidModulePolicy::class,
@@ -75,5 +83,9 @@ class AuthServiceProvider extends ServiceProvider
     {
         // Admin tem acesso total (ver specs/04). Retornar null deixa a decisão para a policy.
         Gate::before(fn (User $user) => $user->isAdmin() ? true : null);
+
+        // Gestão de Locações (specs/24 §11) — usados pelo menu e pelo middleware das rotas do módulo.
+        Gate::define('access-rentals', fn (User $user) => $user->canAccessRentals());
+        Gate::define('manage-rentals', fn (User $user) => $user->canManageRentals());
     }
 }

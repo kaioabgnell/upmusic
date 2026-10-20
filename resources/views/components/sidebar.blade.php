@@ -100,6 +100,18 @@
             @endif
         </div>
 
+        {{-- Gestão de Locações (specs/24): departamento isolado dos quadros/eventos — inventário e
+             pedidos de LED, mesa, telão, som... Admin e coordenador sem escopo de evento entram
+             sempre; usuário comum só com o checkbox habilitado (User::canAccessRentals()). --}}
+        @can('access-rentals')
+            <div class="space-y-1">
+                <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Locações</p>
+                <x-nav-item route="rentals.board" pattern="rentals.board" icon="fa-table-columns" label="Painel" />
+                <x-nav-item route="rentals.orders.index" pattern="rentals.orders.*" icon="fa-file-invoice-dollar" label="Pedidos" />
+                <x-nav-item route="rentals.items.index" pattern="rentals.items.*" icon="fa-boxes-stacked" label="Itens" />
+            </div>
+        @endcan
+
         {{-- Licitações (specs/21): módulo exclusivo do Admin. O badge conta documentos vencidos +
              vencendo e vem do mesmo cache do painel (TTL curto, invalidado ao mexer no acervo). --}}
         @if ($isAdmin)

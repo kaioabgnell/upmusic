@@ -8,6 +8,8 @@
  * feedback imediato.
  */
 
+import { maskMoneyDigits } from './money';
+
 const brl = (value) =>
     (Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -61,6 +63,8 @@ export function financeCosts(cfg) {
 
         brl,
         num,
+        // Mesma máscara dos valores do card: o valor do pagamento é digitado em centavos.
+        maskMoneyDigits,
 
         presetsFor(row) {
             return this.presets[row.fornecedor_categoria_id] ?? [];

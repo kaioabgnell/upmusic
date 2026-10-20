@@ -1,5 +1,10 @@
+{{-- Mesma página para os dois links públicos: o formulário do quadro (specs/11, cria card) e a
+     Solicitação de Nota de um card (entra no card existente). Quem chama pela segunda passa
+     `displayTitle`, `submitUrl` e `prefill`; o formulário do quadro segue derivando tudo de `$form`. --}}
 @php
-    $displayTitle = $form->event ? "Envie os dados para o evento {$form->event->name}" : ($form->title ?? 'Envio de dados e nota fiscal');
+    $displayTitle ??= $form->event ? "Envie os dados para o evento {$form->event->name}" : ($form->title ?? 'Envio de dados e nota fiscal');
+    $submitUrl ??= route('external.form.submit', $form->token);
+    $prefill ??= [];
 @endphp
 <x-public-layout>
     <x-slot name="title">{{ $displayTitle }} — UpMusic</x-slot>
@@ -16,7 +21,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('external.form.submit', $form->token) }}" enctype="multipart/form-data" class="mt-6 space-y-4">
+        <form method="POST" action="{{ $submitUrl }}" enctype="multipart/form-data" class="mt-6 space-y-4">
             @csrf
 
             {{-- Honeypot anti-bot (oculto) --}}
@@ -24,13 +29,13 @@
 
             <div>
                 <label for="cnpj" class="text-sm font-medium text-brand-ink">CNPJ da empresa *</label>
-                <input id="cnpj" name="cnpj" value="{{ old('cnpj') }}" x-data x-mask="99.999.999/9999-99" placeholder="00.000.000/0000-00" required
+                <input id="cnpj" name="cnpj" value="{{ old('cnpj', $prefill['cnpj'] ?? null) }}" x-data x-mask="99.999.999/9999-99" placeholder="00.000.000/0000-00" required
                        class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
             </div>
 
             <div>
                 <label for="name" class="text-sm font-medium text-brand-ink">Empresa *</label>
-                <input id="name" name="name" value="{{ old('name') }}" required
+                <input id="name" name="name" value="{{ old('name', $prefill['name'] ?? null) }}" required
                        class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
             </div>
 
@@ -42,9 +47,13 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div x-data="{ value: @js(old('value', '')) }">
                     <label for="value" class="text-sm font-medium text-brand-ink">Valor (R$) *</label>
-                    <input id="value" name="value" value="{{ old('value') }}" inputmode="decimal" placeholder="0,00" required
+                    {{-- Mesma máscara dos valores do card/Financeiro (dígito digitado = centavo):
+                         exposta em window.maskMoneyDigits porque esta página não tem o x-data dos
+                         componentes do painel/Financeiro — ver app.js. --}}
+                    <input id="value" name="value" :value="value" @input="value = window.maskMoneyDigits($event.target.value)"
+                           inputmode="decimal" placeholder="0,00" required
                            class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                 </div>
                 <div>

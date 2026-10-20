@@ -25,6 +25,8 @@ class StoreUserRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'active' => ['boolean'],
+            // Gestão de Locações (specs/24 §11) — só tem efeito para o perfil Usuário.
+            'can_access_rentals' => ['boolean'],
             'boards' => ['array'],
             'boards.*' => ['integer', 'exists:boards,id'],
             'events' => ['array'],
@@ -39,7 +41,10 @@ class StoreUserRequest extends FormRequest
             $this->merge(['role' => UserRole::Usuario->value]);
         }
 
-        $this->merge(['active' => $this->boolean('active')]);
+        $this->merge([
+            'active' => $this->boolean('active'),
+            'can_access_rentals' => $this->boolean('can_access_rentals'),
+        ]);
     }
 
     public function attributes(): array

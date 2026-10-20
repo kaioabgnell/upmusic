@@ -24,7 +24,7 @@
                             <i class="fa-solid fa-ellipsis-vertical"></i>
                         </button>
                         <div x-show="actionsMenuOpen" x-cloak x-transition
-                             class="absolute right-0 top-full mt-1 w-48 bg-white border border-hairline rounded-md shadow-lg z-10 py-1">
+                             class="absolute right-0 top-full mt-1 w-64 bg-white border border-hairline rounded-md shadow-lg z-10 py-1">
                             <button type="button" @click="actionsMenuOpen = false; duplicate()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
                                 <i class="fa-regular fa-clone w-4 text-steel"></i> Duplicar Card
                             </button>
@@ -36,6 +36,11 @@
                             </button>
                             <button type="button" @click="actionsMenuOpen = false; shareCard()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
                                 <i class="fa-solid fa-share-nodes w-4 text-steel"></i> Compartilhar Card
+                            </button>
+                            {{-- Link público para um terceiro mandar dados e NF deste card — o envio entra
+                                 aqui (anexo + histórico), sem criar card novo. --}}
+                            <button type="button" @click="actionsMenuOpen = false; shareInvoiceRequest()" class="w-full text-left px-3 py-2 text-sm text-brand-ink hover:bg-surface flex items-center gap-2">
+                                <i class="fa-solid fa-file-invoice w-4 text-steel"></i> Compartilhar Solicitação de Nota
                             </button>
                             <div class="border-t border-hairline my-1"></div>
                             <button type="button" @click="actionsMenuOpen = false; remove()" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
