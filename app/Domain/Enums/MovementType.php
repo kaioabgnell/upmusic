@@ -13,6 +13,7 @@ enum MovementType: string
     case Approval = 'approval';
     case Rejection = 'rejection';
     case MinutaRecebida = 'minuta_recebida';
+    case NotaRecebida = 'nota_recebida';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum MovementType: string
             self::Approval => 'Card aprovado',
             self::Rejection => 'Card reprovado (arquivado)',
             self::MinutaRecebida => 'Minuta recebida do fornecedor',
+            self::NotaRecebida => 'Nota fiscal recebida pelo link',
         };
     }
 }

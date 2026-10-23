@@ -10,9 +10,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Chips do bloco CONTROLE na grade de Custos (specs/23 §4.5, §8.4). "Recibo" foi adicionado como
- * documento não-prova (como Geral/Minuta): tem ícone próprio e aparece na grade só quando existe,
- * mas fica fora de `proofKinds()` para não mexer no layout de seis colunas do arquivo exportado.
+ * Chips do bloco CONTROLE na grade de Custos (specs/23 §4.5, §8.4). "Recibo" e "Fatura" foram
+ * adicionados como documentos não-prova (como Geral/Minuta): têm ícone próprio e aparecem na grade
+ * só quando existem, mas ficam fora de `proofKinds()` para não mexer no layout de seis colunas do
+ * arquivo exportado.
  */
 class FinancePresenterTest extends TestCase
 {
@@ -50,11 +51,34 @@ class FinancePresenterTest extends TestCase
         $this->assertSame(1, $chips['recibo']['count']);
     }
 
-    public function test_seis_documentos_de_prova_continuam_os_mesmos_apos_adicionar_recibo(): void
+    public function test_fatura_tem_icone_proprio_e_nao_e_marcado_como_prova(): void
+    {
+        $item = $this->costItem();
+
+        $chips = collect(FinancePresenter::costItem($item)['documents'])->keyBy('kind');
+
+        $this->assertSame('fa-file-invoice', $chips['fatura']['icon']);
+        $this->assertSame('Fatura', $chips['fatura']['label']);
+        $this->assertFalse($chips['fatura']['proof'], 'Fatura não é uma das seis colunas do arquivo modelo — ver FinanceDocumentKind::proofKinds().');
+        $this->assertSame(0, $chips['fatura']['count']);
+    }
+
+    public function test_chip_da_fatura_conta_o_documento_quando_anexado(): void
+    {
+        $item = $this->costItem();
+        $item->documents()->create(['kind' => FinanceDocumentKind::Fatura->value, 'path' => 'x', 'original_name' => 'fatura.pdf']);
+
+        $chips = collect(FinancePresenter::costItem($item->refresh())['documents'])->keyBy('kind');
+
+        $this->assertSame(1, $chips['fatura']['count']);
+    }
+
+    public function test_seis_documentos_de_prova_continuam_os_mesmos_apos_adicionar_recibo_e_fatura(): void
     {
         // Guarda de regressão: o export XLSX usa proofKinds() para as seis colunas fixas do
-        // arquivo modelo (V-AA). Recibo não pode entrar aí.
+        // arquivo modelo (V-AA). Recibo e Fatura não podem entrar aí.
         $this->assertCount(6, FinanceDocumentKind::proofKinds());
         $this->assertNotContains(FinanceDocumentKind::Recibo, FinanceDocumentKind::proofKinds());
+        $this->assertNotContains(FinanceDocumentKind::Fatura, FinanceDocumentKind::proofKinds());
     }
 }

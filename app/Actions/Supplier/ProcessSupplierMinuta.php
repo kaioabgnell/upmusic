@@ -2,9 +2,9 @@
 
 namespace App\Actions\Supplier;
 
+use App\Actions\Cards\AdvanceCardToNextColumn;
 use App\Domain\Enums\AttachmentKind;
 use App\Domain\Enums\MovementType;
-use App\Models\Card;
 use App\Models\CardSupplierForm;
 use App\Models\CardSupplierSubmission;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ProcessSupplierMinuta
 {
+    public function __construct(private AdvanceCardToNextColumn $advance) {}
+
     public function execute(CardSupplierForm $form, UploadedFile $file, ?string $note = null, ?string $ip = null): CardSupplierSubmission
     {
         return DB::transaction(function () use ($form, $file, $note, $ip) {
@@ -41,45 +43,9 @@ class ProcessSupplierMinuta
                 'ip' => $ip,
             ]);
 
-            $this->advanceToNextColumn($card);
+            $this->advance->execute($card, MovementType::MinutaRecebida);
 
             return $submission;
         });
-    }
-
-    /**
-     * Avança o card para a próxima coluna do quadro por posição — mesma noção de "próxima coluna"
-     * já usada pela aprovação de etapa (specs/17, BoardColumn::nextColumn()). Sem usuário logado (o
-     * envio é público, do fornecedor), então a movimentação fica sem `user_id`. Se o card já estiver
-     * na última coluna, não há para onde avançar: fica como está, sem erro (é um efeito automático,
-     * não uma ação com feedback de falha para o fornecedor).
-     */
-    private function advanceToNextColumn(Card $card): void
-    {
-        $nextColumn = $card->column->nextColumn();
-
-        if (! $nextColumn) {
-            return;
-        }
-
-        $fromColumnId = $card->board_column_id;
-
-        $position = (int) $card->board->cards()
-            ->where('board_column_id', $nextColumn->id)
-            ->max('position') + 1;
-
-        $card->update([
-            'board_column_id' => $nextColumn->id,
-            'position' => $position,
-        ]);
-
-        $card->movements()->create([
-            'user_id' => null,
-            'from_board_id' => $card->board_id,
-            'to_board_id' => $card->board_id,
-            'from_column_id' => $fromColumnId,
-            'to_column_id' => $nextColumn->id,
-            'type' => MovementType::MinutaRecebida->value,
-        ]);
     }
 }

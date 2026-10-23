@@ -17,6 +17,9 @@ enum AttachmentKind: string
     // Recibo: comprovante de pagamento direto (à vista/à pessoa), distinto de Comprovante — não faz
     // parte das seis colunas do arquivo modelo (ver FinanceDocumentKind::proofKinds()).
     case Recibo = 'recibo';
+    // Fatura: cobrança consolidada do fornecedor (ex.: fatura mensal), distinta de Nota Fiscal —
+    // mesma situação do Recibo, não faz parte das seis colunas do arquivo modelo.
+    case Fatura = 'fatura';
 
     public function label(): string
     {
@@ -30,6 +33,7 @@ enum AttachmentKind: string
             self::Art => 'ART',
             self::Boleto => 'Boleto',
             self::Recibo => 'Recibo',
+            self::Fatura => 'Fatura',
         };
     }
 
@@ -44,7 +48,7 @@ enum AttachmentKind: string
     {
         return [
             self::Geral, self::Orcamento, self::Contrato, self::NotaFiscal,
-            self::Comprovante, self::Art, self::Boleto, self::Recibo,
+            self::Comprovante, self::Art, self::Boleto, self::Recibo, self::Fatura,
         ];
     }
 }

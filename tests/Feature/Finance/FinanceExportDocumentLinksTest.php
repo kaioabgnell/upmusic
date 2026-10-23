@@ -106,6 +106,24 @@ class FinanceExportDocumentLinksTest extends FinanceTestCase
         );
     }
 
+    /** Mesmo contrato do Recibo (teste acima) — "Fatura" é outro tipo fora das seis do modelo. */
+    public function test_fatura_vira_coluna_com_link_quando_tem_arquivo(): void
+    {
+        Storage::fake('local');
+        $item = $this->costItem();
+        $fatura = $this->upload($item, 'fatura-mensal.pdf', FinanceDocumentKind::Fatura);
+
+        $sheet = $this->costsSheet();
+        $column = 14 + \App\Models\FinancePaymentSource::ordered()->count() + 2 + 1 + 6;
+
+        $this->assertSame('FATURA', $sheet->getCell([$column, 7])->getValue());
+        $this->assertSame('fatura-mensal.pdf', $sheet->getCell([$column, 8])->getValue());
+        $this->assertSame(
+            route('finance.documents.show', $fatura),
+            $sheet->getCell([$column, 8])->getHyperlink()->getUrl(),
+        );
+    }
+
     /** As seis colunas do modelo seguem nas mesmas posições — o import as lê por posição fixa. */
     public function test_colunas_do_modelo_nao_se_deslocam_com_os_tipos_extras(): void
     {

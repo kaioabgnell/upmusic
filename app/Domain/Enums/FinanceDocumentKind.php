@@ -23,6 +23,9 @@ enum FinanceDocumentKind: string
     // delas. Aparece na grade e no export só quando existe arquivo, como Geral/Minuta: são colunas
     // extras, depois das seis do modelo, que o import continua lendo por posição fixa.
     case Recibo = 'recibo';
+    // Fatura: cobrança consolidada do fornecedor. Mesma situação do Recibo — fora das seis colunas
+    // do arquivo modelo, aparece na grade e no export só quando existe arquivo.
+    case Fatura = 'fatura';
     case Geral = 'geral';
     case Minuta = 'minuta';
 
@@ -36,6 +39,7 @@ enum FinanceDocumentKind: string
             self::Art => 'ART',
             self::Boleto => 'Boleto',
             self::Recibo => 'Recibo',
+            self::Fatura => 'Fatura',
             self::Geral => 'Geral',
             self::Minuta => 'Minuta',
         };
@@ -52,6 +56,7 @@ enum FinanceDocumentKind: string
             self::Art => 'ART',
             self::Boleto => 'Bol.',
             self::Recibo => 'Rec.',
+            self::Fatura => 'Fat.',
             self::Geral => 'Geral',
             self::Minuta => 'Min.',
         };
@@ -67,6 +72,7 @@ enum FinanceDocumentKind: string
             self::Art => 'fa-stamp',
             self::Boleto => 'fa-barcode',
             self::Recibo => 'fa-money-check-dollar',
+            self::Fatura => 'fa-file-invoice',
             self::Geral => 'fa-file',
             self::Minuta => 'fa-file-pen',
         };
@@ -89,6 +95,7 @@ enum FinanceDocumentKind: string
             AttachmentKind::Art => self::Art,
             AttachmentKind::Boleto => self::Boleto,
             AttachmentKind::Recibo => self::Recibo,
+            AttachmentKind::Fatura => self::Fatura,
             AttachmentKind::Geral => self::Geral,
             AttachmentKind::Minuta => self::Minuta,
         };

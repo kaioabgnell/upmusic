@@ -208,6 +208,62 @@ class CardInvoiceRequestTest extends TestCase
         );
     }
 
+    /**
+     * O pedido desta melhoria: além do que já era feito (anexo + histórico), o envio avança o card
+     * para a próxima coluna do quadro sozinho — mesmo efeito automático já usado na minuta do
+     * fornecedor (specs/19).
+     */
+    public function test_envio_avanca_o_card_para_a_proxima_coluna(): void
+    {
+        Storage::fake('local');
+        $board = Board::create(['name' => 'Produção']);
+        $aguardando = BoardColumn::create(['board_id' => $board->id, 'name' => 'Aguardando NF', 'position' => 1]);
+        $conferencia = BoardColumn::create(['board_id' => $board->id, 'name' => 'Em conferência', 'position' => 2]);
+        $card = Card::create(['board_id' => $board->id, 'board_column_id' => $aguardando->id, 'title' => 'Locação de PA']);
+        $token = $this->link($card);
+
+        $this->post(route('invoice-request.submit', $token), $this->payload());
+
+        $card->refresh();
+        $this->assertSame($conferencia->id, $card->board_column_id);
+
+        $movimento = $card->movements()->sole();
+        $this->assertSame(\App\Domain\Enums\MovementType::NotaRecebida, $movimento->type);
+        $this->assertNull($movimento->user_id);
+        $this->assertSame($aguardando->id, $movimento->from_column_id);
+        $this->assertSame($conferencia->id, $movimento->to_column_id);
+    }
+
+    /** Envio sem nota fiscal (ela é opcional) avança o card do mesmo jeito: a resposta ao pedido já conta. */
+    public function test_envio_sem_nota_fiscal_tambem_avanca_o_card(): void
+    {
+        Storage::fake('local');
+        $board = Board::create(['name' => 'Produção']);
+        $aguardando = BoardColumn::create(['board_id' => $board->id, 'name' => 'Aguardando NF', 'position' => 1]);
+        $conferencia = BoardColumn::create(['board_id' => $board->id, 'name' => 'Em conferência', 'position' => 2]);
+        $card = Card::create(['board_id' => $board->id, 'board_column_id' => $aguardando->id, 'title' => 'Locação de PA']);
+        $token = $this->link($card);
+
+        $this->post(route('invoice-request.submit', $token), $this->payload(['invoice' => null]));
+
+        $this->assertSame($conferencia->id, $card->refresh()->board_column_id);
+    }
+
+    /** Card já na última coluna: não há para onde avançar — fica como está, sem erro. */
+    public function test_envio_na_ultima_coluna_nao_quebra_e_card_fica_no_lugar(): void
+    {
+        Storage::fake('local');
+        $card = $this->card(); // helper só com 1 coluna — não há próxima.
+        $token = $this->link($card);
+        $colunaOriginal = $card->board_column_id;
+
+        $this->post(route('invoice-request.submit', $token), $this->payload())
+            ->assertRedirect(route('invoice-request.success', $token));
+
+        $this->assertSame($colunaOriginal, $card->refresh()->board_column_id);
+        $this->assertSame(0, $card->movements()->count());
+    }
+
     public function test_menu_do_card_tem_o_item_de_solicitacao_de_nota(): void
     {
         $blade = file_get_contents(resource_path('views/boards/partials/card-panel.blade.php'));

@@ -2,7 +2,9 @@
 
 namespace App\Actions\External;
 
+use App\Actions\Cards\AdvanceCardToNextColumn;
 use App\Domain\Enums\AttachmentKind;
+use App\Domain\Enums\MovementType;
 use App\Models\CardInvoiceRequest;
 use App\Models\CardInvoiceSubmission;
 use App\Models\Empresa;
@@ -18,9 +20,15 @@ use Illuminate\Support\Facades\DB;
  * linha do Financeiro (CardObserver). Um terceiro de fora não pode reescrevê-los preenchendo um
  * formulário. O que entra de fato é a NF, como anexo do tipo "Nota fiscal" — e, se o card já está
  * no Financeiro, o CardAttachmentObserver a transforma em documento de controle sozinho.
+ *
+ * O envio também avança o card para a próxima coluna do quadro (mesmo efeito automático da minuta
+ * do fornecedor, specs/19) — com ou sem a NF anexada: a resposta ao que foi pedido no link já é o
+ * que tira o card da fila "aguardando nota", o PDF é só o que viaja junto dessa resposta.
  */
 class ProcessCardInvoiceSubmission
 {
+    public function __construct(private AdvanceCardToNextColumn $advance) {}
+
     public function execute(CardInvoiceRequest $request, array $data, ?UploadedFile $invoice = null, ?string $ip = null): CardInvoiceSubmission
     {
         return DB::transaction(function () use ($request, $data, $invoice, $ip) {
@@ -58,7 +66,7 @@ class ProcessCardInvoiceSubmission
                 ])),
             ]);
 
-            return $request->submissions()->create([
+            $submission = $request->submissions()->create([
                 'card_id' => $card->id,
                 'card_attachment_id' => $attachment?->id,
                 'cnpj' => $cnpj,
@@ -70,6 +78,10 @@ class ProcessCardInvoiceSubmission
                 'payment_data' => $data['payment_data'],
                 'ip' => $ip,
             ]);
+
+            $this->advance->execute($card, MovementType::NotaRecebida);
+
+            return $submission;
         });
     }
 }

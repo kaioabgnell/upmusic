@@ -67,6 +67,22 @@ class FinanceSheetTest extends FinanceTestCase
             ->assertOk();
     }
 
+    public function test_grade_de_custos_renderiza_com_documento_fatura_na_linha(): void
+    {
+        $event = $this->event();
+        $sheet = $this->sheet($event);
+        $item = $sheet->costItems()->create(['description' => 'Locação de equipamento']);
+        $item->documents()->create([
+            'kind' => \App\Domain\Enums\FinanceDocumentKind::Fatura->value,
+            'path' => 'x', 'original_name' => 'fatura.pdf',
+        ]);
+
+        $this->actingAs($this->user())
+            ->get(route('finance.costs.index', $event))
+            ->assertOk()
+            ->assertSee('Fatura');
+    }
+
     public function test_linha_com_card_traz_o_board_para_montar_o_link_direto(): void
     {
         $event = $this->event();
@@ -175,6 +191,31 @@ class FinanceSheetTest extends FinanceTestCase
             ->assertOk();
 
         $this->assertSoftDeleted('finance_revenues', ['id' => $created['id']]);
+    }
+
+    /**
+     * Bug: a grade de Receitas salva "Obs" a cada tecla (autosave) e devolve o valor salvo pro
+     * campo que ainda está sendo digitado (`Object.assign(row, saved)` em finance.js). O
+     * `TrimStrings` global do Laravel tirava o espaço do fim ANTES de salvar — então, se a pessoa
+     * digitasse um espaço e continuasse digitando em menos de 1s (o debounce do autosave), via o
+     * próprio espaço que acabou de teclar desaparecer na volta do servidor.
+     */
+    public function test_obs_da_receita_preserva_espaco_no_final_apos_o_autosave(): void
+    {
+        $event = $this->event();
+        $sheet = $this->sheet($event);
+        $revenue = $sheet->revenues()->create(['category' => FinanceRevenueCategory::Patrocinio->value]);
+
+        $saved = $this->actingAs($this->user())
+            ->putJson(route('finance.revenues.update', $revenue), [
+                'category' => FinanceRevenueCategory::Patrocinio->value,
+                'notes' => 'esse é um teste ',
+            ])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('esse é um teste ', $saved['notes']);
+        $this->assertSame('esse é um teste ', $revenue->refresh()->notes);
     }
 
     public function test_fechar_prestacao_de_contas_torna_a_planilha_somente_leitura(): void

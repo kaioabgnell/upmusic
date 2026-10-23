@@ -48,14 +48,51 @@
                 @endforeach
             </x-form.select>
         </div>
-        <div class="w-40">
-            <label class="text-xs text-steel">ART</label>
-            <x-form.select name="art_status" class="mt-1">
-                <option value="">Todas</option>
-                @foreach ($artStatuses as $value => $label)
-                    <option value="{{ $value }}" @selected(request('art_status') === $value)>{{ $label }}</option>
-                @endforeach
-            </x-form.select>
+        {{-- Mesma lista do select "Empresa" de cada linha da grade (que, por histórico, é o
+             fornecedor vinculado — não há `empresa_id` em FinanceCostItem). Seleção múltipla por
+             checkbox: `fornecedor_id[]` chega como array, igual ao padrão já usado em
+             RentalOrderController para filtros de múltiplos valores num GET simples. O estado
+             marcado é 100% server-rendered (@checked) — o x-data local só abre/fecha o painel e
+             filtra a lista por texto; não depende do x-data maior da grade (financeCosts), que só
+             começa no <div> de baixo. --}}
+        <div class="w-48" x-data="{ open: false, search: '' }" @click.outside="open = false">
+            <label class="text-xs text-steel">Empresa</label>
+            <div class="relative mt-1">
+                <button type="button" @click="open = !open; search = ''"
+                        class="w-full h-9 flex items-center justify-between gap-2 rounded-md border border-gray-300 px-3 text-sm text-left hover:border-brand-orange transition-colors bg-white">
+                    @php($selecionados = (array) request('fornecedor_id', []))
+                    <span class="truncate {{ count($selecionados) > 0 ? 'text-brand-ink' : 'text-steel' }}">
+                        {{ count($selecionados) > 0 ? count($selecionados).' selecionada(s)' : 'Todas' }}
+                    </span>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-steel shrink-0"></i>
+                </button>
+                <div x-show="open" x-cloak
+                     x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                     class="absolute left-0 z-30 mt-2 w-64 bg-white border border-hairline rounded-xl shadow-lg origin-top-left p-2">
+                    <div class="relative mb-2">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-steel"></i>
+                        <input type="text" x-model="search" placeholder="Pesquisar empresa"
+                               class="w-full pl-7 h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
+                    </div>
+                    <div class="max-h-48 overflow-y-auto space-y-0.5">
+                        @foreach ($fornecedores as $fornecedor)
+                            <label x-show="search === '' || {{ Illuminate\Support\Js::from(mb_strtolower($fornecedor->name)) }}.includes(search.toLowerCase())"
+                                   class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm cursor-pointer">
+                                <input type="checkbox" name="fornecedor_id[]" value="{{ $fornecedor->id }}"
+                                       @checked(in_array($fornecedor->id, $selecionados))
+                                       class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+                                <span class="flex-1 truncate text-brand-ink">{{ $fornecedor->name }}</span>
+                            </label>
+                        @endforeach
+                        <p x-show="search !== '' && {{ Illuminate\Support\Js::from($fornecedores->pluck('name')->map(fn ($n) => mb_strtolower($n))) }}.every(n => !n.includes(search.toLowerCase()))"
+                           class="text-xs text-steel px-2 py-1.5">Nenhuma empresa encontrada.</p>
+                    </div>
+                    @if (count($selecionados) > 0)
+                        <button type="button" @click="$el.closest('form').querySelectorAll('input[name=\'fornecedor_id[]\']').forEach(el => el.checked = false)"
+                                class="w-full text-left px-2 py-1.5 mt-1 text-xs text-red-600 hover:underline border-t border-hairline">Limpar seleção</button>
+                    @endif
+                </div>
+            </div>
         </div>
         <div class="w-44">
             <label class="text-xs text-steel">Grupo de pagamento</label>
@@ -65,6 +102,18 @@
                     <option value="{{ $source->id }}" @selected(request('source_id') == $source->id)>{{ $source->name }}</option>
                 @endforeach
             </x-form.select>
+        </div>
+        {{-- Fora do x-data="financeCosts(...)" (esse div só abre mais abaixo) — a mesma máscara
+             usada nos valores do card/Financeiro, exposta em window.maskMoneyDigits (ver app.js)
+             para funcionar aqui também, sem depender do componente da grade. --}}
+        <div class="w-40" x-data="{ value: @js(request('total_actual', '')) }">
+            <label class="text-xs text-steel">Total real.</label>
+            <div class="relative mt-1">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
+                <input type="text" name="total_actual" inputmode="decimal" :value="value"
+                       @input="value = window.maskMoneyDigits($event.target.value)"
+                       placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+            </div>
         </div>
         <label class="inline-flex items-center gap-1.5 text-xs text-steel pb-2">
             <input type="checkbox" name="sem_comprovante" value="1" @checked(request('sem_comprovante'))
@@ -77,7 +126,7 @@
         <button type="submit" class="inline-flex items-center gap-2 rounded-md bg-brand-ink px-4 py-2 text-sm font-medium text-white hover:bg-black">
             <i class="fa-solid fa-filter"></i> Filtrar
         </button>
-        @if (request()->hasAny(['search', 'categoria_id', 'status', 'art_status', 'source_id', 'sem_comprovante', 'falta_pagar', 'pago_a_maior']))
+        @if (request()->hasAny(['search', 'categoria_id', 'status', 'fornecedor_id', 'total_actual', 'source_id', 'sem_comprovante', 'falta_pagar', 'pago_a_maior']))
             <a href="{{ route('finance.costs.index', $evento) }}" class="text-sm text-steel hover:text-brand-ink pb-2">Limpar</a>
         @endif
     </form>

@@ -16,6 +16,7 @@ use App\Models\FornecedorCategoria;
 use App\Models\User;
 use App\Services\Finance\FinanceSheetProvider;
 use App\Services\Finance\FinanceSummaryService;
+use App\Support\Br;
 use App\Support\FinancePresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -166,13 +167,21 @@ class FinanceCostItemController extends FinanceController
     /** Filtros server-side da grade (specs/23 §8.4). */
     private function filtered(Request $request, int $sheetId)
     {
+        // Calculado fora do when() porque o filtro compara IGUALDADE com uma coluna gerada
+        // (DECIMAL exato, sem risco do arredondamento de float binário) — Br::money() já devolve
+        // null para entrada inválida/vazia, então não dá pra decidir "aplicar o filtro" só olhando
+        // o valor bruto da request.
+        $totalReal = $request->filled('total_actual') ? Br::money($request->total_actual) : null;
+
         return FinanceCostItem::query()
             ->where('finance_sheet_id', $sheetId)
             ->when($request->categoria_id, fn ($q, $v) => $q->where('fornecedor_categoria_id', $v))
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
-            ->when($request->art_status, fn ($q, $v) => $q->where('art_status', $v))
-            ->when($request->fornecedor_id, fn ($q, $v) => $q->where('fornecedor_id', $v))
+            // Seleção múltipla por checkbox (`fornecedor_id[]`) — mesmo padrão de
+            // RentalOrderController para filtros de várias opções num GET simples.
+            ->when($request->fornecedor_id, fn ($q, $v) => $q->whereIn('fornecedor_id', (array) $v))
             ->when($request->search, fn ($q, $v) => $q->where('description', 'like', "%{$v}%"))
+            ->when($totalReal !== null, fn ($q) => $q->where('total_actual', $totalReal))
             ->when($request->boolean('sem_comprovante'), fn ($q) => $q
                 ->whereNotNull('unit_actual')
                 ->whereDoesntHave('documents', fn ($d) => $d->where('kind', 'comprovante')))

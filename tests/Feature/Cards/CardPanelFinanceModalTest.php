@@ -71,6 +71,29 @@ class CardPanelFinanceModalTest extends TestCase
         );
     }
 
+    /**
+     * Mesmo contrato do Recibo (teste acima): "Fatura" entra em `AttachmentKind::selectable()` e
+     * `FinanceDocumentKind::cases()` e já aparece nos dois selects, sem lista duplicada.
+     */
+    public function test_fatura_aparece_no_select_de_anexos_do_card_e_no_modal_do_financeiro(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true]);
+        $board = Board::create(['name' => 'Orçamentos']);
+        BoardColumn::create(['board_id' => $board->id, 'name' => 'Entrada', 'position' => 1, 'is_entry' => true]);
+
+        $html = $this->actingAs($admin->fresh())
+            ->get(route('boards.show', $board))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertContains(AttachmentKind::Fatura, AttachmentKind::selectable());
+
+        $this->assertSame(
+            2,
+            substr_count($html, '<option value="fatura">Fatura</option>'),
+        );
+    }
+
     public function test_modal_do_financeiro_nao_usa_x_if_no_corpo(): void
     {
         // Guarda de regressão da armadilha documentada no topo do card-panel: x-if recria o subtree
