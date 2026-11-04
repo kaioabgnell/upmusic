@@ -294,9 +294,16 @@
                                     x-text="row.unit_actual === '' ? '—' : brl(row.total_actual)"></td>
 
                                 <td class="px-2 py-1.5 text-right whitespace-nowrap" x-show="groups.payments">
-                                    <button type="button" @click="openPayments(row)"
-                                            class="text-xs text-brand-ink hover:text-brand-orange-deep hover:underline"
-                                            x-text="brl(row.paid)"></button>
+                                    {{-- Pílula com ícone deixa a afordância visível sempre, não só no hover —
+                                         sem isso ninguém descobre que o valor pago abre os pagamentos. --}}
+                                    <button type="button" @click="openPayments(row)" title="Ver pagamentos"
+                                            class="group relative inline-flex items-center gap-1 rounded-md border border-hairline bg-surface px-1.5 py-0.5 text-xs font-medium text-brand-ink transition-colors hover:border-brand-orange hover:bg-brand-orange/10 hover:text-brand-orange-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-1">
+                                        <i class="fa-solid fa-wallet text-[10px] text-steel group-hover:text-brand-orange-deep"></i>
+                                        <span x-text="brl(row.paid)"></span>
+                                        {{-- Balão com a quantidade de pagamentos já lançados — some quando não há nenhum. --}}
+                                        <span x-show="row.payments_count > 0" x-text="row.payments_count"
+                                              class="absolute -top-1.5 -right-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-brand-orange px-1 text-[10px] font-semibold leading-none text-white"></span>
+                                    </button>
                                 </td>
                                 {{-- "pago a mais" vira tooltip nativo (title), não mais texto ao lado do número —
                                      só aparece passando o mouse, sem disputar espaço com o valor. --}}

@@ -49,6 +49,7 @@ class FinancePresenter
             'total_actual' => $actual,
             'current_estimate' => $item->currentEstimate(),
             'paid' => $paid,
+            'payments_count' => $item->payments->count(),
             'pending' => $actual - $paid,
             'card_id' => $item->card_id,
             // Alimenta o link "abrir o card em nova aba" na grade — a rota de link direto

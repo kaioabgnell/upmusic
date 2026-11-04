@@ -85,6 +85,51 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $this->assertStringContainsString(":title=\"row.pending < 0 ? 'Pago a mais' : null\"", $html);
     }
 
+    /**
+     * O botão do "Pago" ganhou um balão no canto superior direito com a quantidade de pagamentos
+     * já lançados naquela linha — sem isso, a pílula só diz "tem dinheiro pago", não "quantos
+     * lançamentos tem aqui dentro" (o que importa pra decidir se vale abrir o histórico).
+     */
+    public function test_balao_do_pago_mostra_a_quantidade_de_pagamentos_lancados(): void
+    {
+        $blade = file_get_contents(resource_path('views/financeiro/eventos/custos.blade.php'));
+
+        $this->assertStringContainsString('x-show="row.payments_count > 0"', $blade);
+        $this->assertStringContainsString('x-text="row.payments_count"', $blade);
+        $this->assertStringContainsString('rounded-full bg-brand-orange', $blade);
+
+        $event = $this->event();
+        $sheet = $this->sheet($event);
+        $item = $sheet->costItems()->create(['description' => 'Palco', 'unit_actual' => 3000]);
+        $caixa = $this->source('Caixa do Evento');
+        $socio = $this->source('Sócio 1');
+        $item->payments()->createMany([
+            ['finance_payment_source_id' => $caixa->id, 'amount' => 1000, 'paid_at' => '2026-06-10'],
+            ['finance_payment_source_id' => $socio->id, 'amount' => 500, 'paid_at' => '2026-06-11'],
+        ]);
+
+        $rows = $this->actingAs($this->user())
+            ->get(route('finance.costs.index', $event))
+            ->assertOk()
+            ->viewData('rows');
+
+        $this->assertSame(2, $rows->firstWhere('id', $item->id)['payments_count']);
+    }
+
+    /** Linha sem nenhum pagamento não mostra o balão (count 0, sem lançamento nenhum). */
+    public function test_balao_do_pago_fica_zero_sem_nenhum_pagamento(): void
+    {
+        $event = $this->event();
+        $item = $this->sheet($event)->costItems()->create(['description' => 'Sem pagamento']);
+
+        $rows = $this->actingAs($this->user())
+            ->get(route('finance.costs.index', $event))
+            ->assertOk()
+            ->viewData('rows');
+
+        $this->assertSame(0, $rows->firstWhere('id', $item->id)['payments_count']);
+    }
+
     public function test_campos_de_valor_das_receitas_usam_a_mascara_de_centavos(): void
     {
         $blade = file_get_contents(resource_path('views/financeiro/eventos/receitas.blade.php'));
