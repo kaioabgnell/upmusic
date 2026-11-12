@@ -276,6 +276,16 @@ export default function kanban(config) {
             this.removeCardFromColumns(this.cardId);
         },
 
+        afterCardSentToFinance(cardId) {
+            for (const col of this.columns) {
+                const card = col.cards.find((c) => c.id === cardId);
+                if (card) {
+                    card.in_finance = true;
+                    return;
+                }
+            }
+        },
+
         // ---- Drag and drop ---------------------------------------------------
         initSortable() {
             this.destroySortable();

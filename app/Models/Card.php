@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Enums\CardColor;
 use App\Domain\Enums\CardNegociado;
 use App\Domain\Enums\CardOrigin;
 use App\Domain\Enums\CardPriority;
@@ -20,7 +21,7 @@ class Card extends Model
         'board_id', 'board_column_id', 'empresa_id', 'fornecedor_id', 'event_id', 'assignee_id', 'created_by',
         'title', 'description', 'estimated_value', 'actual_value', 'unit_value', 'quantity',
         'valor_sem_nota', 'valor_com_nota', 'negociado', 'due_date',
-        'priority', 'origin', 'position', 'concluded_at', 'concluded_by', 'archived_at', 'archived_by',
+        'priority', 'color', 'origin', 'position', 'concluded_at', 'concluded_by', 'archived_at', 'archived_by',
     ];
 
     protected $casts = [
@@ -33,6 +34,7 @@ class Card extends Model
         'negociado' => CardNegociado::class,
         'due_date' => 'date',
         'priority' => CardPriority::class,
+        'color' => CardColor::class,
         'origin' => CardOrigin::class,
         'position' => 'integer',
         'concluded_at' => 'datetime',

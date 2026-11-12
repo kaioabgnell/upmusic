@@ -157,12 +157,25 @@
                         <template x-for="card in column.cards" :key="card.id">
                             <div class="kanban-card bg-white rounded-lg p-3 cursor-pointer hover:border-brand-orange transition-colors"
                                  :class="dueBorderClass(card)"
+                                 {{-- Cor escolhida no modal do card (enum CardColor). Inline style vence o bg-white. --}}
+                                 :style="card.color_hex ? `background-color: ${card.color_hex}` : ''"
                                  :data-card-id="card.id" @click="openCard(card.id)"
                                  :data-tooltip="dueTooltipText(card)"
                                  @mouseenter="dueTooltipText(card) && showTooltip($event)" @mouseleave="hideTooltip()">
                                 <div class="flex items-start justify-between gap-2">
                                     <p class="text-sm font-medium text-brand-ink leading-snug" x-text="'#' + card.id + ' - ' + card.title"></p>
-                                    <span class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" :class="priorityMeta(card.priority).classes" x-text="priorityMeta(card.priority).label"></span>
+                                    <div class="shrink-0 flex items-center gap-1">
+                                        {{-- Já enviado ao Financeiro do Evento (specs/23). Ao sair do ícone, devolve o
+                                             tooltip de prazo do card (se houver) — o mouse ainda está sobre ele. --}}
+                                        <span x-show="card.in_finance" x-cloak
+                                              class="w-[18px] h-[18px] inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-[10px]"
+                                              data-tooltip="Este item foi enviado para o Financeiro"
+                                              @mouseenter="showTooltip($event)"
+                                              @mouseleave="dueTooltipText(card) ? showTooltip({ currentTarget: $el.closest('.kanban-card') }) : hideTooltip()">
+                                            <i class="fa-solid fa-dollar-sign"></i>
+                                        </span>
+                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" :class="priorityMeta(card.priority).classes" x-text="priorityMeta(card.priority).label"></span>
+                                    </div>
                                 </div>
                                 {{-- Evento, Fornecedor, Empresa (nesta ordem). O espaçamento fica no
                                      contêiner: qualquer uma das três linhas pode não existir no card, e

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\CardColor;
 use App\Domain\Enums\CardNegociado;
 use App\Models\Card;
 use App\Support\Br;
@@ -38,6 +39,7 @@ class StoreCardRequest extends FormRequest
             'negociado' => ['nullable', Rule::enum(CardNegociado::class)],
             'due_date' => ['nullable', 'date'],
             'priority' => ['nullable', Rule::in(['baixa', 'media', 'alta'])],
+            'color' => ['nullable', Rule::enum(CardColor::class)],
             'fields' => ['array'],
         ];
     }

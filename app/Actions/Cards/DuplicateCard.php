@@ -38,6 +38,7 @@ class DuplicateCard
                 'quantity' => $card->quantity,
                 'due_date' => $card->due_date?->format('Y-m-d'),
                 'priority' => $card->priority->value,
+                'color' => $card->color?->value,
                 'fields' => $fields,
             ], $actor, $card->origin);
         });

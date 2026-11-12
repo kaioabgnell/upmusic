@@ -22,6 +22,11 @@ class CardPresenter
             $card->loadCount(['attachments', 'comments']);
         }
 
+        // O quadro já traz o withExists no select; respostas de criar/editar/duplicar chegam sem ele.
+        $inFinance = array_key_exists('finance_cost_item_exists', $card->getAttributes())
+            ? (bool) $card->finance_cost_item_exists
+            : $card->financeCostItem()->exists();
+
         return [
             'id' => $card->id,
             'board_column_id' => $card->board_column_id,
@@ -40,6 +45,11 @@ class CardPresenter
                 default => null,
             },
             'priority' => $card->priority->value,
+            // Cor de fundo do card no Kanban — null (sem cor gravada) é branco.
+            'color' => $card->color?->value,
+            'color_hex' => $card->color?->hex(),
+            // Já virou linha de custo no Financeiro do Evento (specs/23) — ícone de $ no card.
+            'in_finance' => $inFinance,
             'estimated_value' => $card->estimated_value,
             // A face do card no Kanban mostra o realizado: é o que a pessoa quer ver de relance no
             // quadro ("quanto isso custou"), não o preço de referência do Banco de Preços.

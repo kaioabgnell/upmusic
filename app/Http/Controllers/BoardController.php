@@ -105,6 +105,7 @@ class BoardController extends Controller
                     'event:id,name', 'assignee:id,name,avatar_path',
                 ])
                     ->withCount(['attachments', 'comments'])
+                    ->withExists('financeCostItem')
                     ->whereNull('concluded_at')
                     ->whereNull('archived_at')
                     ->visibleTo($user)

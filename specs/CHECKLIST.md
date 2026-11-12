@@ -1272,6 +1272,14 @@ de implementação).
     item exigem admin/coordenador.
   - Menu "Locações" (Painel, Pedidos, Itens) na sidebar, visível via `@can('access-rentals')`.
   - Cobertura: `tests/Feature/Rentals` (34 testes verdes), `pint --dirty` e `npm run build` limpos.
+- [x] **Kanban — card enviado ao Financeiro + cor do card**:
+  - Ícone de `$` (`fa-dollar-sign`) à esquerda do badge de prioridade no card do Kanban e ao lado do título
+    no modal do card, com tooltip "Este item foi enviado para o Financeiro". Vem de `in_finance`
+    (existe `finance_cost_items.card_id`), via `withExists('financeCostItem')` no endpoint do quadro;
+    ao enviar pelo modal, o hook `afterCardSentToFinance` marca o card no Kanban sem recarregar.
+  - Seletor de cor ao lado da prioridade no modal (10 cores claras, enum `CardColor`, default Branco);
+    a cor vira o fundo do card no Kanban. Coluna nova `cards.color` (nullable = branco), validada nos
+    Form Requests e copiada na duplicação.
 
 ---
 

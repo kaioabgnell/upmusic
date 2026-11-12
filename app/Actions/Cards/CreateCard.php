@@ -53,6 +53,7 @@ class CreateCard
                 'negociado' => $data['negociado'] ?? null,
                 'due_date' => $data['due_date'] ?? null,
                 'priority' => $data['priority'] ?? 'media',
+                'color' => $data['color'] ?? null,
                 'origin' => $origin->value,
                 'position' => $position,
             ]);

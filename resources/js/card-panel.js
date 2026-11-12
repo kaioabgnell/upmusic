@@ -7,7 +7,7 @@
  * opcionais chamados nos pontos de mutação (`afterCardOpened`, `afterCardSaved`, `afterCardRemoved`,
  * `afterCardMoved`, `afterCardTransferred`, `afterCardConcluded`, `afterCardReopened`,
  * `afterCardDuplicated`, `afterCardArchived`, `afterCardUnarchived`, `afterCardApproved`,
- * `afterCardRejected`, `afterPanelReset`, `bumpCardCount`) — o Kanban usa esses hooks para atualizar
+ * `afterCardRejected`, `afterCardSentToFinance`, `afterPanelReset`, `bumpCardCount`) — o Kanban usa esses hooks para atualizar
  * seu array reativo de colunas/cards sem reload; a listagem global simplesmente recarrega a página.
  * `afterPanelReset` (specs/18) é chamado ao fechar o modal ou abrir "Novo card" — só o Kanban o define,
  * para reverter a URL do card para a URL do quadro (a listagem global não tem URL por quadro).
@@ -39,6 +39,8 @@ function cardPanelBase() {
         supplierForm: { allowed: false, active: false, url: null, submissions_count: 0 },
         // Solicitante informado no formulário externo (specs/11) — só existe em card de origem externa.
         requesterName: null,
+        // Card já virou linha de custo no Financeiro do Evento (specs/23) — ícone de $ no cabeçalho.
+        inFinance: false,
         tab: 'detalhes', // 'detalhes' | 'comentarios' | 'historico'
 
         actionsMenuOpen: false,
@@ -69,6 +71,7 @@ function cardPanelBase() {
         assigneeSearch: '',
         dueOpen: false,
         priorityOpen: false,
+        colorOpen: false,
         fornecedorOpen: false,
         fornecedorSearch: '',
 
@@ -114,7 +117,7 @@ function cardPanelBase() {
             this.cfg.fields.forEach((f) => (fields[f.id] = f.type === 'checkbox' ? false : ''));
             return {
                 title: '', description: '', empresa_id: '', fornecedor_id: '', event_id: '', assignee_id: '',
-                due_date: '', priority: 'media', estimated_value: '', actual_value: '',
+                due_date: '', priority: 'media', color: '', estimated_value: '', actual_value: '',
                 unit_value: '', quantity: '1',
                 valor_sem_nota: '', valor_com_nota: '', negociado: '',
                 board_column_id: columnId, fields,
@@ -134,11 +137,12 @@ function cardPanelBase() {
             this.canApprove = false;
             this.supplierForm = { allowed: false, active: false, url: null, submissions_count: 0 };
             this.requesterName = null;
+            this.inFinance = false;
             this.form = this.blankForm(columnId);
             this.errors = {};
             this.comments = []; this.attachments = []; this.movements = [];
             this.actionsMenuOpen = false;
-            this.assigneeOpen = false; this.assigneeSearch = ''; this.dueOpen = false; this.priorityOpen = false;
+            this.assigneeOpen = false; this.assigneeSearch = ''; this.dueOpen = false; this.priorityOpen = false; this.colorOpen = false;
             this.fornecedorOpen = false; this.fornecedorSearch = '';
             this.estimatedValueCheck = null;
             this.tab = 'detalhes';
@@ -154,7 +158,7 @@ function cardPanelBase() {
             this.loading = true;
             this.errors = {};
             this.actionsMenuOpen = false;
-            this.assigneeOpen = false; this.assigneeSearch = ''; this.dueOpen = false; this.priorityOpen = false;
+            this.assigneeOpen = false; this.assigneeSearch = ''; this.dueOpen = false; this.priorityOpen = false; this.colorOpen = false;
             this.fornecedorOpen = false; this.fornecedorSearch = '';
             this.estimatedValueCheck = null;
             this.tab = 'detalhes';
@@ -174,6 +178,7 @@ function cardPanelBase() {
                 this.canApprove = c.can_approve;
                 this.supplierForm = c.supplier_form;
                 this.requesterName = c.requester_name;
+                this.inFinance = !!c.in_finance;
                 this.cfg.fields = c.board_fields;
                 const fields = {};
                 this.cfg.fields.forEach((f) => {
@@ -183,7 +188,7 @@ function cardPanelBase() {
                 this.form = {
                     title: c.title, description: c.description ?? '',
                     empresa_id: c.empresa_id ?? '', fornecedor_id: c.fornecedor_id ?? '', event_id: c.event_id ?? '', assignee_id: c.assignee_id ?? '',
-                    due_date: c.due_date ?? '', priority: c.priority,
+                    due_date: c.due_date ?? '', priority: c.priority, color: c.color ?? '',
                     estimated_value: this.moneyFromDecimal(c.estimated_value),
                     actual_value: this.moneyFromDecimal(c.actual_value),
                     unit_value: this.moneyFromDecimal(c.unit_value),
@@ -722,6 +727,8 @@ function cardPanelBase() {
                     kinds,
                 });
                 this.finance.open = false;
+                this.inFinance = true;
+                this.afterCardSentToFinance?.(this.cardId);
                 window.upAlerts.notifySuccess(res.message);
                 // O evento pode ter sido vinculado no próprio modal — recarrega o card para o
                 // formulário refletir o vínculo novo.

@@ -38,6 +38,8 @@ class UpdateCard
                 'negociado' => $data['negociado'] ?? null,
                 'due_date' => $data['due_date'] ?? null,
                 'priority' => $data['priority'] ?? $card->priority->value,
+                // Sem a chave no payload (ex.: outro cliente da API), mantém a cor atual.
+                'color' => array_key_exists('color', $data) ? $data['color'] : $card->color?->value,
             ]);
 
             if (isset($data['fields']) && is_array($data['fields'])) {

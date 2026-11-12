@@ -13,6 +13,16 @@
             {{-- Cabeçalho --}}
             <div class="flex items-center justify-between px-5 h-16 border-b border-hairline shrink-0">
                 <div class="flex items-center gap-2 min-w-0">
+                    {{-- Card já enviado ao Financeiro do Evento (specs/23). Tooltip em CSS (group-hover):
+                         o modal também roda em "Todos os cards", que não tem o tooltip do Kanban. --}}
+                    <span x-show="mode === 'view' && inFinance" x-cloak class="relative group shrink-0">
+                        <span class="w-6 h-6 inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xs cursor-default">
+                            <i class="fa-solid fa-dollar-sign"></i>
+                        </span>
+                        <span class="pointer-events-none absolute left-0 top-full mt-2 z-20 hidden group-hover:block whitespace-nowrap px-2.5 py-1.5 rounded-md bg-brand-ink text-white text-xs font-medium shadow-lg">
+                            Este item foi enviado para o Financeiro
+                        </span>
+                    </span>
                     <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : ('#' + cardId + ' - ' + (form.title || 'Card'))"></h3>
                     <span x-show="concludedAt" class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-ink text-white"><i class="fa-solid fa-circle-check mr-1"></i>Concluído</span>
                     <span x-show="archivedAt" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-gray-200 text-gray-700"><i class="fa-solid fa-box-archive mr-1"></i>Arquivado</span>
@@ -152,6 +162,28 @@
                                         <span class="w-2 h-2 rounded-full shrink-0" :class="priorityMeta(p).dotClass"></span>
                                         <span class="flex-1 ml-2 text-brand-ink" x-text="priorityMeta(p).label"></span>
                                         <i x-show="form.priority === p" class="fa-solid fa-check text-brand-orange text-xs"></i>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Cor do card: fundo do card no Kanban. Paleta vem do enum CardColor (mesma fonte
+                             da validação); sem cor gravada = Branco. --}}
+                        <div class="relative" @click.outside="colorOpen = false"
+                             x-data="{ palette: @js(\App\Domain\Enums\CardColor::palette()), get currentColor() { return this.palette.find((c) => c.value === (form.color || 'branco')) || this.palette[0]; } }">
+                            <button type="button" @click="colorOpen = !colorOpen" class="inline-flex items-center gap-2 rounded-md border border-hairline px-3 py-1.5 text-sm hover:border-brand-orange transition-colors">
+                                <span class="w-4 h-4 rounded-full border border-gray-300 shrink-0" :style="`background: ${currentColor.hex}`"></span>
+                                <span class="text-brand-ink" x-text="currentColor.label"></span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-steel"></i>
+                            </button>
+                            <div x-show="colorOpen" x-cloak
+                                 x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                                 class="absolute left-0 z-30 mt-2 w-44 max-h-72 overflow-y-auto bg-white border border-hairline rounded-xl shadow-lg origin-top-left p-1">
+                                <template x-for="c in palette" :key="c.value">
+                                    <button type="button" @click="form.color = c.value; colorOpen = false" class="w-full flex items-center px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left">
+                                        <span class="w-4 h-4 rounded-full border border-gray-300 shrink-0" :style="`background: ${c.hex}`"></span>
+                                        <span class="flex-1 ml-2 text-brand-ink" x-text="c.label"></span>
+                                        <i x-show="currentColor.value === c.value" class="fa-solid fa-check text-brand-orange text-xs"></i>
                                     </button>
                                 </template>
                             </div>

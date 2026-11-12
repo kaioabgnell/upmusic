@@ -388,6 +388,9 @@ class CardController extends Controller
             'negociado' => $card->negociado?->value,
             'due_date' => $card->due_date?->format('Y-m-d'),
             'priority' => $card->priority->value,
+            'color' => $card->color?->value,
+            // Já virou linha de custo no Financeiro do Evento (specs/23) — ícone de $ no cabeçalho.
+            'in_finance' => $card->financeCostItem()->exists(),
             'origin' => $card->origin->value,
             'concluded_at' => $card->concluded_at?->format('d/m/Y H:i'),
             'concluded_by' => $card->concludedBy?->name,
