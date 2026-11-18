@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\Bid\BidCompanyController;
 use App\Http\Controllers\Bid\BidDashboardController;
 use App\Http\Controllers\Bid\BidDocumentController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\CardController;
 use App\Http\Controllers\CardInvoiceRequestController;
 use App\Http\Controllers\CardSupplierFormController;
 use App\Http\Controllers\CnpjLookupController;
+use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\EventController;
@@ -32,6 +34,7 @@ use App\Http\Controllers\Finance\FinanceRevenueController;
 use App\Http\Controllers\Finance\FinanceSettlementController;
 use App\Http\Controllers\Finance\FinanceSheetController;
 use App\Http\Controllers\FinancialEntryController;
+use App\Http\Controllers\FixedCostController;
 use App\Http\Controllers\FinancialPlanController;
 use App\Http\Controllers\FinancialReportController;
 use App\Http\Controllers\FornecedorCategoriaController;
@@ -144,6 +147,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('quadros/{board}/configurar', [BoardController::class, 'config'])->name('boards.config');
         Route::put('quadros/{board}/acesso', [BoardController::class, 'updateAccess'])->name('boards.access');
         Route::put('quadros/{board}/config-fornecedor', [BoardController::class, 'updateSupplierForm'])->name('boards.supplier-form.update');
+        Route::put('quadros/{board}/config-custos-fixos', [BoardController::class, 'updateFixedCosts'])->name('boards.fixed-costs.update');
 
         // Colunas (JSON)
         Route::post('quadros/{board}/colunas', [BoardColumnController::class, 'store'])->name('columns.store');
@@ -237,6 +241,22 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::resource('setores', SetorController::class)
             ->parameters(['setores' => 'setor'])->except('show');
         Route::resource('empresas', EmpresaController::class)->except('show');
+        // Centros de custo (specs/25) — classificam linhas de custos e receitas do financeiro.
+        Route::resource('centros-de-custo', CostCenterController::class)
+            ->parameters(['centros-de-custo' => 'costCenter'])->names('cost-centers')->except('show');
+        Route::resource('contas-bancarias', BankAccountController::class)
+            ->parameters(['contas-bancarias' => 'bankAccount'])->names('bank-accounts')->except('show');
+        // Custos fixos recorrentes (specs/27) — geram um card por parcela no quadro de custos fixos.
+        Route::resource('custos-fixos', FixedCostController::class)
+            ->parameters(['custos-fixos' => 'fixedCost'])->names('fixed-costs');
+        Route::post('custos-fixos/{fixedCost}/gerar-proxima', [FixedCostController::class, 'generateNext'])->name('fixed-costs.generate-next');
+        Route::post('custos-fixos/{fixedCost}/renovar', [FixedCostController::class, 'renew'])->name('fixed-costs.renew');
+        Route::patch('custos-fixos/{fixedCost}/ativo', [FixedCostController::class, 'toggleActive'])->name('fixed-costs.toggle-active');
+        // Parcela do cronograma (specs/27 §3.4 e §5.5) — scopeBindings: a parcela precisa ser deste custo.
+        Route::scopeBindings()->group(function () {
+            Route::delete('custos-fixos/{fixedCost}/parcelas/{installment}', [FixedCostController::class, 'destroyInstallment'])->name('fixed-costs.installments.destroy');
+            Route::post('custos-fixos/{fixedCost}/parcelas/{installment}/gerar-card', [FixedCostController::class, 'regenerateInstallment'])->name('fixed-costs.installments.regenerate');
+        });
         Route::resource('fornecedor-categorias', FornecedorCategoriaController::class)
             ->parameters(['fornecedor-categorias' => 'fornecedorCategoria'])->except('show');
         Route::post('fornecedor-categorias/quick', [FornecedorCategoriaController::class, 'quick'])->name('fornecedor-categorias.quick');
@@ -304,6 +324,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('relatorio', [FinanceReportController::class, 'show'])->name('finance.report');
 
             Route::get('custos', [FinanceCostItemController::class, 'index'])->name('finance.costs.index');
+            Route::get('custos/linhas', [FinanceCostItemController::class, 'rows'])->name('finance.costs.rows');
             Route::post('custos', [FinanceCostItemController::class, 'store'])->name('finance.costs.store');
             Route::post('custos/em-massa', [FinanceCostItemController::class, 'bulk'])->name('finance.costs.bulk');
 

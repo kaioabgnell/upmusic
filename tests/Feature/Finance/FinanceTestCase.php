@@ -67,6 +67,20 @@ abstract class FinanceTestCase extends TestCase
         return FornecedorCategoria::firstOrCreate(['nome' => $nome], ['active' => true]);
     }
 
+    /**
+     * Linhas da grade de Custos como o front as recebe: a tela carrega só a casca e busca as
+     * linhas de forma assíncrona em `finance.costs.rows` (com os mesmos filtros da query string).
+     */
+    protected function costRows(Event $event, array $query = [], ?User $as = null): \Illuminate\Support\Collection
+    {
+        return collect(
+            $this->actingAs($as ?? $this->user())
+                ->getJson(route('finance.costs.rows', ['evento' => $event] + $query))
+                ->assertOk()
+                ->json('rows')
+        );
+    }
+
     protected function source(string $name = 'Caixa do Evento'): FinancePaymentSource
     {
         return FinancePaymentSource::firstOrCreate(['name' => $name], ['kind' => 'caixa', 'active' => true]);

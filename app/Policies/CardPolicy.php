@@ -17,7 +17,9 @@ class CardPolicy
      */
     public function view(User $user, Card $card): bool
     {
-        $canRead = $user->canAccessBoard($card->board) || $card->assignee_id === $user->id;
+        // Card de quadro de custos fixos (specs/27 §1.2) não abre por responsabilidade.
+        $canRead = $user->canAccessBoard($card->board)
+            || (! $card->board->fixed_costs && $card->assignee_id === $user->id);
 
         return $canRead && $this->withinEventScope($user, $card);
     }

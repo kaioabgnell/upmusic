@@ -11,14 +11,14 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $isManager = $user->isAdmin() || $user->isCoordenador();
 
         $boards = Board::query()
             ->active()
             ->with('setor')
             // Contagem de cards por quadro respeita o escopo por evento do coordenador restrito (specs/20).
             ->withCount(['columns', 'cards' => fn ($q) => $q->whereNull('concluded_at')->visibleTo($user)])
-            ->when(! $isManager, fn ($q) => $q->whereHas('users', fn ($q) => $q->whereKey($user->id)))
+            // Mesma régua do menu, com a regra dos quadros de custos fixos (specs/27 §1.2).
+            ->visibleTo($user)
             ->orderBy('position')
             ->orderBy('name')
             ->get();

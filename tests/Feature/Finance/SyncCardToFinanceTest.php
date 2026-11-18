@@ -218,4 +218,32 @@ class SyncCardToFinanceTest extends FinanceTestCase
         $this->assertSame($financeiro->id, $card->refresh()->board_id);
         $this->assertSame(0, FinanceCostItem::count());
     }
+
+    public function test_vencimento_do_modal_vai_para_a_linha_e_volta_no_preview(): void
+    {
+        $card = $this->card($this->board(), $this->event());
+        $user = $this->user();
+
+        $this->actingAs($user)
+            ->postJson(route('cards.finance.sync', $card), ['due_date' => '2026-12-05'])
+            ->assertCreated();
+
+        $item = FinanceCostItem::where('card_id', $card->id)->first();
+        $this->assertSame('2026-12-05', $item->due_date->format('Y-m-d'));
+
+        $this->actingAs($user)
+            ->getJson(route('cards.finance.preview', $card))
+            ->assertOk()
+            ->assertJsonPath('existing_item.due_date', '2026-12-05');
+
+        // Sincronia automática (sem a chave) não apaga o vencimento...
+        app(SyncCardToFinance::class)->execute($card->fresh(), $user);
+        $this->assertSame('2026-12-05', $item->fresh()->due_date->format('Y-m-d'));
+
+        // ...mas apagar no modal apaga.
+        $this->actingAs($user)
+            ->postJson(route('cards.finance.sync', $card), ['due_date' => null])
+            ->assertCreated();
+        $this->assertNull($item->fresh()->due_date);
+    }
 }

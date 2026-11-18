@@ -135,7 +135,8 @@ class UserController extends Controller
         return [
             'roles' => UserRole::options(),
             'setores' => Setor::active()->orderBy('nome')->get(),
-            'boards' => Board::active()->orderBy('name')->get(),
+            // Quadros de custos fixos ignoram o vínculo do Usuário (specs/27 §1.2) — não entram na lista.
+            'boards' => Board::active()->eventBoards()->orderBy('name')->get(),
             'events' => Event::active()->orderByDesc('start_date')->get(['id', 'name']),
         ];
     }

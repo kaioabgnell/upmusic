@@ -23,11 +23,10 @@
         // Quadros no menu: mesma régua do BoardController::index — admin/coordenador veem todos,
         // usuário comum só os que tem vínculo em `user_board`. Ser responsável por um card não
         // coloca o quadro aqui (é leitura avulsa, ver BoardPolicy::view).
+        // Quadros de custos fixos (specs/27 §1.2) ficam junto com os demais, mas só para Admin e
+        // Coordenador sem eventos vinculados — `Board::visibleTo()` aplica as duas réguas.
         $menuBoards = \App\Models\Board::query()
-            ->when(
-                ! $isManager,
-                fn ($q) => $q->whereHas('users', fn ($u) => $u->whereKey(auth()->id()))
-            )
+            ->visibleTo(auth()->user())
             ->orderBy('position')->orderBy('name')
             ->get(['id', 'name', 'icon']);
 
@@ -67,6 +66,10 @@
             @if ($isManager && ! $isEventScoped)
                 <x-nav-item route="setores.index" pattern="setores.*" icon="fa-sitemap" label="Setores" />
                 <x-nav-item route="empresas.index" pattern="empresas.*" icon="fa-building" label="Empresas" />
+                <x-nav-item route="cost-centers.index" pattern="cost-centers.*" icon="fa-diagram-project" label="Centros de custo" />
+                <x-nav-item route="bank-accounts.index" pattern="bank-accounts.*" icon="fa-building-columns" label="Contas bancárias" />
+                {{-- Custos fixos recorrentes (specs/27): mesma régua — Admin e Coordenador sem eventos. --}}
+                <x-nav-item route="fixed-costs.index" pattern="fixed-costs.*" icon="fa-arrows-rotate" label="Custos fixos" />
             @endif
             <x-nav-item route="fornecedores.index" pattern="fornecedores.*" icon="fa-truck-field" label="Fornecedores" />
             @if ($isManager && ! $isEventScoped)

@@ -41,6 +41,11 @@ function cardPanelBase() {
         requesterName: null,
         // Card já virou linha de custo no Financeiro do Evento (specs/23) — ícone de $ no cabeçalho.
         inFinance: false,
+        // Custos fixos (specs/27): quadro do card é de custos fixos (sem Evento/Financeiro, Empresa
+        // obrigatória); `installment` = { number, total, fixed_cost_id } nos cards de parcela.
+        boardFixedCosts: false,
+        installment: null,
+        fixedCostUrl: null,
         tab: 'detalhes', // 'detalhes' | 'comentarios' | 'historico'
 
         actionsMenuOpen: false,
@@ -62,7 +67,7 @@ function cardPanelBase() {
             loading: false,
             saving: false,
             data: null,
-            form: { event_id: '', fornecedor_categoria_id: '', description: '', unit_estimated_1: '', unit_actual: '' },
+            form: { event_id: '', fornecedor_categoria_id: '', cost_center_id: '', description: '', unit_estimated_1: '', unit_actual: '', due_date: '' },
             selected: {},
             kinds: {},
         },
@@ -138,6 +143,9 @@ function cardPanelBase() {
             this.supplierForm = { allowed: false, active: false, url: null, submissions_count: 0 };
             this.requesterName = null;
             this.inFinance = false;
+            this.boardFixedCosts = !!this.cfg.boardFixedCosts;
+            this.installment = null;
+            this.fixedCostUrl = null;
             this.form = this.blankForm(columnId);
             this.errors = {};
             this.comments = []; this.attachments = []; this.movements = [];
@@ -179,6 +187,9 @@ function cardPanelBase() {
                 this.supplierForm = c.supplier_form;
                 this.requesterName = c.requester_name;
                 this.inFinance = !!c.in_finance;
+                this.boardFixedCosts = !!c.board_fixed_costs;
+                this.installment = c.installment || null;
+                this.fixedCostUrl = c.fixed_cost_url || null;
                 this.cfg.fields = c.board_fields;
                 const fields = {};
                 this.cfg.fields.forEach((f) => {
@@ -226,6 +237,11 @@ function cardPanelBase() {
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             return this.form.due_date < todayStr;
+        },
+
+        // Reabrir só em quadros do mesmo tipo do card — custos fixos x eventos (specs/27 §1.3).
+        get sameTypeBoards() {
+            return (this.cfg.boards || []).filter((b) => !!b.fixed_costs === this.boardFixedCosts);
         },
 
         get isFinalColumn() {
@@ -692,6 +708,10 @@ function cardPanelBase() {
                     // resolve a precedência — aqui é só formatar.
                     unit_estimated_1: data.card.unit_estimated === null ? '' : this.brNumber(data.card.unit_estimated),
                     unit_actual: data.card.unit_actual === null ? '' : this.brNumber(data.card.unit_actual),
+                    // Vencimento é campo do Financeiro: numa resincronia mostra o que a linha já tem.
+                    due_date: data.existing_item?.due_date ?? '',
+                    // Centro de custo também é só do Financeiro (specs/25): o card não o guarda.
+                    cost_center_id: data.existing_item?.cost_center_id ?? '',
                 };
                 // O tipo já foi escolhido ao anexar no card: todo anexo chega marcado e
                 // classificado. O select do modal serve só para corrigir antes de enviar.
@@ -738,6 +758,17 @@ function cardPanelBase() {
             } finally {
                 this.finance.saving = false;
             }
+        },
+
+        /**
+         * Vencimento em destaque (vermelho) quando a data já passou ou é hoje. Compara strings
+         * `YYYY-MM-DD` com a data LOCAL — `toISOString()` usaria UTC e viraria o dia às 21h.
+         */
+        isDueHighlighted(date) {
+            if (!date) return false;
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            return date <= today;
         },
 
         /** Formata número para o padrão BR usado nos inputs monetários do sistema. */

@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Domain\Enums\CardColor;
 use App\Domain\Enums\CardNegociado;
+use App\Models\Board;
+use App\Models\User;
 use App\Support\Br;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,7 +20,7 @@ class UpdateCardRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return $this->applyFixedCostsRules([
             'title' => ['required', 'string', 'max:180'],
             'description' => ['nullable', 'string'],
             'empresa_id' => ['nullable', 'exists:empresas,id'],
@@ -37,7 +39,7 @@ class UpdateCardRequest extends FormRequest
             'priority' => ['nullable', Rule::in(['baixa', 'media', 'alta'])],
             'color' => ['nullable', Rule::enum(CardColor::class)],
             'fields' => ['array'],
-        ];
+        ], $this->route('card')->board);
     }
 
     protected function prepareForValidation(): void
@@ -51,6 +53,28 @@ class UpdateCardRequest extends FormRequest
             'valor_com_nota' => Br::money($this->input('valor_com_nota')),
             'negociado' => $this->input('negociado') ?: null,
         ]);
+    }
+
+    /**
+     * Quadro de custos fixos (specs/27 §1.4): Empresa obrigatória, Evento proibido e responsável só
+     * entre quem enxerga o quadro (Admin e Coordenador sem eventos vinculados).
+     */
+    private function applyFixedCostsRules(array $rules, ?Board $board): array
+    {
+        if (! $board?->fixed_costs) {
+            return $rules;
+        }
+
+        $rules['empresa_id'] = ['required', 'exists:empresas,id'];
+        $rules['event_id'] = ['prohibited'];
+        $rules['assignee_id'] = ['nullable', 'exists:users,id', function ($attribute, $value, $fail) {
+            $user = User::find($value);
+            if ($user && ! $user->canManageFixedCosts()) {
+                $fail('Nos quadros de custos fixos, o responsável precisa ser Admin ou Coordenador sem eventos vinculados.');
+            }
+        }];
+
+        return $rules;
     }
 
     /**

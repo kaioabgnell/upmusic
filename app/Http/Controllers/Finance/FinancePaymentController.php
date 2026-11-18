@@ -16,7 +16,7 @@ class FinancePaymentController extends FinanceController
         $this->authorize('view', $item->loadMissing('sheet')->sheet);
 
         return response()->json([
-            'payments' => $item->payments()->with(['source:id,name', 'creator:id,name'])
+            'payments' => $item->payments()->with(['source:id,name', 'creator:id,name', 'bankAccount:id,name,agency,account_number'])
                 ->orderByDesc('paid_at')->orderByDesc('id')->get()
                 ->map(fn ($p) => FinancePresenter::payment($p))->values(),
             'item' => FinancePresenter::costItem($item),

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Finance;
 
 use App\Domain\Enums\FinanceArtStatus;
 use App\Domain\Enums\FinanceCostStatus;
+use App\Rules\SelectableCostCenter;
 use App\Support\Br;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -38,10 +39,17 @@ class StoreCostItemRequest extends FormRequest
         }
     }
 
+    /** Centro que a linha já tem — continua aceito mesmo se foi inativado depois (specs/25). */
+    protected function currentCostCenterId(): ?int
+    {
+        return null;
+    }
+
     public function rules(): array
     {
         return [
             'fornecedor_categoria_id' => ['nullable', 'exists:fornecedor_categorias,id'],
+            'cost_center_id' => ['nullable', 'integer', new SelectableCostCenter($this->currentCostCenterId())],
             'description' => ['required', 'string', 'max:180'],
             'status' => ['nullable', Rule::in(array_column(FinanceCostStatus::cases(), 'value'))],
             'art_status' => ['nullable', Rule::in(array_column(FinanceArtStatus::cases(), 'value'))],
@@ -54,6 +62,7 @@ class StoreCostItemRequest extends FormRequest
             'unit_estimated_1' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
             'unit_estimated_2' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
             'unit_actual' => ['nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -63,11 +72,13 @@ class StoreCostItemRequest extends FormRequest
         return [
             'description' => 'descrição',
             'fornecedor_categoria_id' => 'item',
+            'cost_center_id' => 'centro de custo',
             'daily_count' => 'diárias',
             'quantity' => 'quantidade',
             'unit_estimated_1' => 'valor unitário previsto',
             'unit_estimated_2' => 'valor unitário previsto 2',
             'unit_actual' => 'valor unitário realizado',
+            'due_date' => 'data de vencimento',
         ];
     }
 }

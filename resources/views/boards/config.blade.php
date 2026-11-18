@@ -56,6 +56,12 @@
         {{-- Acesso --}}
         <section class="bg-white border border-hairline rounded-xl p-6">
             <h3 class="font-semibold text-brand-ink mb-4"><i class="fa-solid fa-user-lock text-brand-orange mr-2"></i>Acesso ao quadro</h3>
+            @if ($board->fixed_costs)
+                {{-- Quadro de custos fixos ignora o vínculo do Usuário (specs/27 §1.2). --}}
+                <p class="text-xs text-steel mb-3 rounded-md bg-surface border border-hairline p-3">
+                    <i class="fa-solid fa-lock mr-1"></i>Quadros de custos fixos são visíveis só para Admin e Coordenador sem eventos vinculados.
+                </p>
+            @else
             <p class="text-xs text-steel mb-3">Usuários com perfil "Usuário" só veem os quadros marcados. Admin e Coordenador veem todos.</p>
             <form method="POST" action="{{ route('boards.access', $board) }}">
                 @csrf @method('PUT')
@@ -72,6 +78,7 @@
                     <i class="fa-solid fa-floppy-disk"></i> Salvar acesso
                 </button>
             </form>
+            @endif
 
             {{-- Formulário do fornecedor (minuta) — specs/19 --}}
             <div class="mt-6 pt-6 border-t border-hairline">
@@ -82,6 +89,18 @@
                            onchange="boardConfig.saveSupplierForm(this)"
                            class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
                     <span class="text-sm text-brand-ink">Permitir solicitar minuta ao fornecedor</span>
+                </label>
+            </div>
+
+            {{-- Quadro de custos fixos — specs/27 §1.1. Exclusivo com "Alimenta o Financeiro". --}}
+            <div class="mt-6 pt-6 border-t border-hairline">
+                <h3 class="font-semibold text-brand-ink mb-1"><i class="fa-solid fa-arrows-rotate text-brand-orange mr-2"></i>Quadro de custos fixos</h3>
+                <p class="text-xs text-steel mb-3">Quando ligado, o quadro passa a receber os cards das parcelas dos custos fixos. Os cards daqui não têm evento, não vão para o Financeiro e não trocam de quadro com os quadros dos eventos. Só Admin e Coordenador sem eventos vinculados veem o quadro.</p>
+                <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
+                    <input type="checkbox" @checked($board->fixed_costs)
+                           onchange="boardConfig.saveFixedCosts(this)"
+                           class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+                    <span class="text-sm text-brand-ink">Este quadro recebe custos fixos</span>
                 </label>
             </div>
         </section>
@@ -198,6 +217,14 @@
                 reorder(listEl, url) {
                     const order = [...listEl.children].map(el => el.dataset.id).filter(Boolean);
                     api(url, 'POST', { order }).catch(e => window.upAlerts.notifyError(e.message));
+                },
+                async saveFixedCosts(el) {
+                    try {
+                        await api(`{{ url('quadros') }}/${boardId}/config-custos-fixos`, 'PUT', { fixed_costs: el.checked });
+                        window.upAlerts.notifySuccess('Configuração salva.');
+                        // O bloco de acesso muda com o tipo do quadro.
+                        setTimeout(() => location.reload(), 800);
+                    } catch (e) { el.checked = !el.checked; window.upAlerts.notifyError(e.message); }
                 },
                 async saveSupplierForm(el) {
                     try { await api(`{{ url('quadros') }}/${boardId}/config-fornecedor`, 'PUT', { allows_supplier_form: el.checked }); window.upAlerts.notifySuccess('Configuração salva.'); }

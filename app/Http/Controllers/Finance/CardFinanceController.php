@@ -6,10 +6,12 @@ use App\Actions\Finance\SyncCardToFinance;
 use App\Domain\Enums\FinanceDocumentKind;
 use App\Http\Controllers\Controller;
 use App\Models\Card;
+use App\Models\CostCenter;
 use App\Models\Event;
 use App\Models\FinanceCostItem;
 use App\Models\FinanceItemPreset;
 use App\Models\FornecedorCategoria;
+use App\Rules\SelectableCostCenter;
 use App\Support\Br;
 use Illuminate\Http\Request;
 
@@ -48,6 +50,8 @@ class CardFinanceController extends Controller
             'existing_item' => $existing ? [
                 'id' => $existing->id,
                 'description' => $existing->description,
+                'due_date' => $existing->due_date?->format('Y-m-d'),
+                'cost_center_id' => $existing->cost_center_id,
                 'documents_count' => $existing->documents()->count(),
             ] : null,
             // O tipo escolhido ao anexar no card É o tipo no Financeiro: todo anexo já chega
@@ -63,6 +67,8 @@ class CardFinanceController extends Controller
                 ];
             })->values(),
             'categorias' => FornecedorCategoria::active()->orderBy('nome')->get(['id', 'nome']),
+            // Ativos + o que a linha já tem (mesmo inativo) — specs/25.
+            'cost_centers' => CostCenter::options([$existing?->cost_center_id]),
             'presets' => FinanceItemPreset::active()->orderBy('description')
                 ->get(['fornecedor_categoria_id', 'description'])
                 ->groupBy('fornecedor_categoria_id')
@@ -77,12 +83,16 @@ class CardFinanceController extends Controller
     {
         $this->authorize('update', $card);
 
+        $existingCostCenterId = FinanceCostItem::where('card_id', $card->id)->value('cost_center_id');
+
         $data = $request->validate([
             'event_id' => ['nullable', 'exists:events,id'],
             'fornecedor_categoria_id' => ['nullable', 'exists:fornecedor_categorias,id'],
+            'cost_center_id' => ['nullable', 'integer', new SelectableCostCenter($existingCostCenterId)],
             'description' => ['nullable', 'string', 'max:180'],
             'unit_estimated_1' => ['nullable'],
             'unit_actual' => ['nullable'],
+            'due_date' => ['nullable', 'date'],
             'attachment_ids' => ['nullable', 'array'],
             'attachment_ids.*' => ['integer'],
             'kinds' => ['nullable', 'array'],
@@ -102,7 +112,11 @@ class CardFinanceController extends Controller
                 'description' => $data['description'] ?? null,
                 'unit_estimated_1' => Br::money($data['unit_estimated_1'] ?? null),
                 'unit_actual' => Br::money($data['unit_actual'] ?? null),
-            ], fn ($v) => $v !== null),
+            ], fn ($v) => $v !== null)
+                // Vencimento vazio no modal = apagar o vencimento da linha (ver SyncCardToFinance::sanitize).
+                + ($request->exists('due_date') ? ['due_date' => $data['due_date'] ?? null] : [])
+                // Mesma semântica do vencimento: chave presente e vazia = tirar o centro da linha.
+                + ($request->exists('cost_center_id') ? ['cost_center_id' => $data['cost_center_id'] ?? null] : []),
             $data['attachment_ids'] ?? null,
             $data['kinds'] ?? [],
         );

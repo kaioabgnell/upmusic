@@ -29,11 +29,13 @@
                         <tr>
                             <th class="px-3 py-2.5 font-medium min-w-[12rem]">Receita</th>
                             <th class="px-3 py-2.5 font-medium min-w-[14rem]">Descrição</th>
+                            <th class="px-3 py-2.5 font-medium min-w-[11rem]">Centro de custo</th>
                             <th class="px-3 py-2.5 font-medium w-32 text-right">Valor previsto</th>
                             <th class="px-3 py-2.5 font-medium w-32 text-right">Valor realizado</th>
                             <th class="px-3 py-2.5 font-medium w-32 text-right">Recebido</th>
                             <th class="px-3 py-2.5 font-medium w-32 text-right">Falta receber</th>
                             <th class="px-3 py-2.5 font-medium min-w-[10rem]">Recebido por</th>
+                            <th class="px-3 py-2.5 font-medium min-w-[13rem]">Conta bancária</th>
                             <th class="px-3 py-2.5 font-medium min-w-[12rem]">Obs</th>
                             <th class="px-3 py-2.5 w-10"></th>
                         </tr>
@@ -55,6 +57,23 @@
                                     <input type="text" data-field="description" x-model="row.description" @input="touch(row)"
                                            :disabled="readonly" placeholder="Patrocinador, cota, lote…" maxlength="180"
                                            class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
+                                </td>
+                                {{-- Centro de custo (specs/25), na mesma posição de CUSTOS (após a descrição).
+                                     Inativo só aparece (e só é escolhível) na linha que já o usa. --}}
+                                <td class="px-3 py-1.5">
+                                    <select x-model="row.cost_center_id" @change="save(row)" :disabled="readonly"
+                                            class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
+                                        <option value="">—</option>
+                                        @foreach ($costCenters as $centro)
+                                            @if ($centro['active'])
+                                                <option value="{{ $centro['id'] }}">{{ $centro['label'] }}</option>
+                                            @else
+                                                <option value="{{ $centro['id'] }}"
+                                                        :hidden="row.cost_center_id != {{ $centro['id'] }}"
+                                                        :disabled="row.cost_center_id != {{ $centro['id'] }}">{{ $centro['label'] }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
                                 </td>
                                 {{-- Mesma máscara dos valores do card/Financeiro (dígito digitado = centavo):
                                      cada campo já nasce em string BR (ver normalizeRevenueRow em finance.js). --}}
@@ -86,6 +105,23 @@
                                         @endforeach
                                     </select>
                                 </td>
+                                {{-- Para onde entrou o dinheiro (specs/26), ao lado de "Recebido por": os dois
+                                     descrevem o recebimento. Inativa só aparece na linha que já a usa. --}}
+                                <td class="px-3 py-1.5">
+                                    <select x-model="row.bank_account_id" @change="save(row)" :disabled="readonly"
+                                            class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
+                                        <option value="">—</option>
+                                        @foreach ($bankAccounts as $account)
+                                            @if ($account['active'])
+                                                <option value="{{ $account['id'] }}">{{ $account['label'] }}</option>
+                                            @else
+                                                <option value="{{ $account['id'] }}"
+                                                        :hidden="row.bank_account_id != {{ $account['id'] }}"
+                                                        :disabled="row.bank_account_id != {{ $account['id'] }}">{{ $account['label'] }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                </td>
                                 <td class="px-3 py-1.5">
                                     <input type="text" x-model="row.notes" @input="touch(row)" :disabled="readonly" maxlength="255"
                                            class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-xs">
@@ -100,18 +136,18 @@
                         </template>
 
                         <tr x-show="rows.length === 0">
-                            <td colspan="9" class="px-4 py-10 text-center text-sm text-steel">Nenhuma linha de receita.</td>
+                            <td colspan="11" class="px-4 py-10 text-center text-sm text-steel">Nenhuma linha de receita.</td>
                         </tr>
                     </tbody>
 
                     <tfoot class="bg-surface text-xs font-semibold text-brand-ink">
                         <tr>
-                            <td class="px-3 py-2.5" colspan="2">TOTAL GERAL</td>
+                            <td class="px-3 py-2.5" colspan="3">TOTAL GERAL</td>
                             <td class="px-3 py-2.5 text-right whitespace-nowrap">{{ $money($totals['estimated']) }}</td>
                             <td class="px-3 py-2.5 text-right whitespace-nowrap">{{ $money($totals['actual']) }}</td>
                             <td class="px-3 py-2.5 text-right whitespace-nowrap">{{ $money($totals['received']) }}</td>
                             <td class="px-3 py-2.5 text-right whitespace-nowrap">{{ $money($totals['pending']) }}</td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tfoot>
                 </table>

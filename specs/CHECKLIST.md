@@ -1244,6 +1244,11 @@ de implementação).
     despesa por contratada cedo demais continua valendo. Os chips da grade mostram sempre os seis de
     prova (`proofKinds()`) e só exibem `geral`/`minuta` quando existem; o export XLSX segue com as
     seis colunas do arquivo modelo.
+  - **Data de vencimento** _(ajuste pós-entrega)_: `finance_cost_items.due_date` (nullable). Campo
+    "Data de vencimento" no modal "Enviar/Sincronizar com o Financeiro" do card e coluna
+    "Vencimento" editável na grade de CUSTOS. Vencimento igual ou anterior a hoje aparece em
+    vermelho (`isDueHighlighted`, data local). Só o modal manda a chave: as sincronias automáticas
+    (observer, quadro que alimenta o financeiro) não tocam no vencimento; apagar no modal apaga.
   - **Fechamento da prestação de contas** congela a planilha (422 em toda escrita, inclusive para
     Admin — a trava fica em `FinanceController::authorizeWrite()`, não na policy, porque
     `Gate::before` libera o Admin em qualquer policy) e bloqueia excluir no card um anexo que prova
@@ -1280,6 +1285,65 @@ de implementação).
   - Seletor de cor ao lado da prioridade no modal (10 cores claras, enum `CardColor`, default Branco);
     a cor vira o fundo do card no Kanban. Coluna nova `cards.color` (nullable = branco), validada nos
     Form Requests e copiada na duplicação.
+- [x] **Centro de custos (specs/25)**:
+  - Cadastro global em Cadastros → Centros de custo (Admin/Coordenador sem escopo de evento): código
+    opcional, nome, descrição e ativo. Código e nome são únicos entre os não excluídos. A exclusão é
+    bloqueada quando o centro está em uso; sem uso, vai para a lixeira (soft delete).
+  - Tabela `cost_centers` e coluna `cost_center_id` (opcional) em `finance_cost_items` e `finance_revenues`.
+  - Coluna editável após a Descrição nas grades de Custos e Receitas. Filtro de seleção múltipla em
+    Custos, com a opção "Sem centro de custo". Centro inativo só aparece nas linhas que já o usam.
+  - Modal "Enviar para o Financeiro": select ao lado do vencimento. O centro fica só na linha do
+    Financeiro e a resincronia automática do card nunca o altera.
+  - Exportação: coluna CENTRO DE CUSTO no fim das abas CUSTOS e RECEITAS, para preservar as posições
+    que o import lê.
+  - Cobertura: `tests/Feature/Finance/CostCenterTest.php` (11 testes). Suíte do Financeiro verde.
+- [x] **Contas bancárias (specs/26)**:
+  - Cadastro global em Cadastros → Contas bancárias (Admin/Coordenador sem escopo de evento): banco
+    (com sugestões), nome da conta, agência, conta, tipo (corrente, poupança, investimento) e situação.
+    Vinculada a uma ou mais empresas por checkbox (pelo menos uma). Banco + agência + conta são únicos
+    entre as não excluídas. Exclusão bloqueada quando em uso; sem uso, soft delete.
+  - Tabelas `bank_accounts` e `bank_account_empresa`; coluna `bank_account_id` (opcional) em
+    `finance_payments` (de onde sai) e `finance_revenues` (para onde entra).
+  - Custos: no formulário de pagamento (clique no valor Pago), select "Conta bancária" logo abaixo do
+    Grupo de pagamento. Na lista de pagamentos, a conta aparece e pode ser trocada ali mesmo.
+  - Receitas: coluna "Conta bancária" editável ao lado de "Recebido por". Exportação: coluna CONTA
+    BANCÁRIA no fim da aba RECEITAS. Conta inativa só aparece onde já é usada.
+  - Fora do escopo por decisão: Locações.
+  - Cobertura: `tests/Feature/Finance/BankAccountTest.php` (12 testes).
+- [x] **Grade de Custos: performance e ficha do registro (specs/23 §8.4)**:
+  - Carregamento assíncrono: a tela entrega só a casca (menu, filtros, cabeçalho) e a grade busca as
+    linhas em `GET financeiro/eventos/{evento}/custos/linhas` (`finance.costs.rows`, JSON com linhas,
+    rodapé e paginação, mesmos filtros da query string). Esqueleto de carregamento, erro com "Tentar
+    de novo", paginação no cliente sem recarregar e linhas entregues ao DOM em lotes de 25 por quadro.
+  - DOM mais leve: Item e Empresa usam um seletor compartilhado (um painel com busca e teclado para a
+    grade toda) em vez de um `<select>` com todas as opções em cada linha. HTML da tela caiu de ~504 KB
+    para ~217 KB no evento com 122 linhas.
+  - Saíram da grade: ART, Controle e Autorizado por. Novo ícone "ver" (ao lado de duplicar) abre a ficha
+    com todos os campos editáveis, o caminho do dinheiro (previsto, realizado, pago, falta pagar) e os
+    atalhos de documentos e pagamentos. A ficha edita o mesmo objeto da linha: a grade atualiza na hora.
+  - Rodapé acompanha as edições pela diferença de cada linha (`syncRow`); ações em massa recarregam só a grade.
+- [x] **Custos fixos (specs/27)**:
+  - [x] Chave "Quadro de custos fixos" (`boards.fixed_costs`) na configuração do quadro, exclusiva com
+    `feeds_finance` e travada enquanto houver custo fixo apontando para o quadro. A migration ligou a
+    chave no quadro "Custos Fixos" existente.
+  - [x] Quadro visível só para Admin e Coordenador sem eventos (`Board::visibleTo()`, `canAccessBoard()`,
+    menu, Todos os cards, painel). Transferência e reabertura só entre quadros do mesmo tipo. Painel sem
+    Evento e sem "Enviar para o Financeiro", Empresa obrigatória, responsável só entre quem vê o quadro.
+    Captura rápida, templates e formulário externo não usam quadro de custos fixos.
+  - [x] Cadastro em Cadastros → Custos fixos (`fixed_costs`, `fixed_cost_installments`,
+    `cards.fixed_cost_installment_id`, `CardOrigin::FixedCost`): listagem com progresso, detalhe com
+    parcelas, editar com propagação opcional e travas, inativar/reativar, excluir bloqueado com
+    parcelas, renovar.
+  - [x] Geração: modo "todas agora" e modo "X dias antes"; comando `custos-fixos:gerar` agendado
+    diário às 06:00; botão "Gerar próxima parcela agora"; idempotente por parcela (índice único).
+  - [x] Selo "Parcela X de Y" no Kanban, na Lista e no painel (com "Ver custo fixo"); filtro "Tipo"
+    (parcelas e avulsos).
+  - [x] Cronograma completo em `fixed_cost_installments` (uma linha por parcela, `generated_at` nulo =
+    sem card). Excluir parcela no detalhe, com confirmação: renumera as seguintes, mantém os
+    vencimentos e manda o card para a lixeira; parcela paga (concluída ou na etapa final) e única
+    parcela não saem. "Gerar card novamente" para parcela com card excluído.
+  - [x] Cobertura: `tests/Feature/FixedCosts/` (32 testes).
+  - [ ] Cron `schedule:run` configurado no servidor de produção (linha em specs/27 §3.2).
 
 ---
 

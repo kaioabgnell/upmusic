@@ -139,21 +139,47 @@
 
                 <div class="space-y-2">
                     <template x-for="p in drawer.payments" :key="p.id">
-                        <div class="flex items-center gap-2 rounded-md border border-hairline p-2.5">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm text-brand-ink"><span x-text="p.source"></span></p>
-                                <p class="text-[11px] text-steel">
-                                    <span x-text="p.paid_at_label ?? 'sem data'"></span>
-                                    <span x-show="p.creator"> · <span x-text="p.creator"></span></span>
-                                    <span x-show="p.notes"> · <span x-text="p.notes"></span></span>
-                                </p>
+                        <div class="rounded-md border border-hairline p-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm text-brand-ink"><span x-text="p.source"></span></p>
+                                    <p class="text-[11px] text-steel">
+                                        <span x-text="p.paid_at_label ?? 'sem data'"></span>
+                                        <span x-show="p.creator"> · <span x-text="p.creator"></span></span>
+                                        <span x-show="p.notes"> · <span x-text="p.notes"></span></span>
+                                    </p>
+                                </div>
+                                <span class="text-sm font-medium text-brand-ink shrink-0" x-text="brl(p.amount)"></span>
+                                @unless ($sheet->isClosed())
+                                    <button type="button" @click="deletePayment(p)" class="text-steel hover:text-red-600 shrink-0">
+                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    </button>
+                                @endunless
                             </div>
-                            <span class="text-sm font-medium text-brand-ink shrink-0" x-text="brl(p.amount)"></span>
-                            @unless ($sheet->isClosed())
-                                <button type="button" @click="deletePayment(p)" class="text-steel hover:text-red-600 shrink-0">
-                                    <i class="fa-solid fa-trash text-xs"></i>
-                                </button>
-                            @endunless
+                            {{-- De onde saiu o dinheiro (specs/26). Trocável aqui mesmo, para classificar
+                                 os pagamentos antigos e os que vieram da importação sem conta. --}}
+                            <div class="mt-2 flex items-center gap-2 border-t border-hairline pt-2">
+                                <i class="fa-solid fa-building-columns text-[11px] text-steel shrink-0" title="Conta bancária de saída"></i>
+                                @if ($sheet->isClosed())
+                                    <span class="text-xs" :class="p.bank_account ? 'text-brand-ink' : 'text-steel'"
+                                          x-text="p.bank_account ?? 'Sem conta bancária'"></span>
+                                @else
+                                    <select x-model="p.bank_account_id" @change="updatePaymentAccount(p)"
+                                            class="flex-1 min-w-0 py-1 text-xs border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md"
+                                            :class="p.bank_account_id ? 'text-brand-ink' : 'text-steel'">
+                                        <option value="">Sem conta bancária</option>
+                                        @foreach ($bankAccounts as $account)
+                                            @if ($account['active'])
+                                                <option value="{{ $account['id'] }}">{{ $account['label'] }}</option>
+                                            @else
+                                                <option value="{{ $account['id'] }}"
+                                                        :hidden="p.bank_account_id != {{ $account['id'] }}"
+                                                        :disabled="p.bank_account_id != {{ $account['id'] }}">{{ $account['label'] }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                @endif
+                            </div>
                         </div>
                     </template>
                     <p x-show="drawer.payments.length === 0" class="text-xs text-steel">Nenhum pagamento lançado.</p>
@@ -169,6 +195,25 @@
                                 <option value="{{ $source->id }}">{{ $source->name }}</option>
                             @endforeach
                         </select>
+                        {{-- Conta bancária de saída (specs/26), logo abaixo do grupo: os dois respondem
+                             juntos "por onde o dinheiro saiu". Opcional — só contas ativas. --}}
+                        @php($activeAccounts = $bankAccounts->where('active', true))
+                        <select x-model="newPayment.bank_account_id"
+                                class="w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm"
+                                :class="newPayment.bank_account_id ? 'text-brand-ink' : 'text-steel'">
+                            <option value="">Conta bancária (opcional)</option>
+                            @foreach ($activeAccounts as $account)
+                                <option value="{{ $account['id'] }}">{{ $account['label'] }}</option>
+                            @endforeach
+                        </select>
+                        @if ($activeAccounts->isEmpty())
+                            <p class="-mt-1 text-[11px] text-steel">
+                                Nenhuma conta bancária ativa.
+                                @can('create', App\Models\BankAccount::class)
+                                    <a href="{{ route('bank-accounts.create') }}" target="_blank" rel="noopener" class="text-brand-orange-deep hover:underline">Cadastrar conta</a>
+                                @endcan
+                            </p>
+                        @endif
                         <div class="grid grid-cols-2 gap-2">
                             <input type="text" inputmode="decimal" :value="newPayment.amount"
                                    @input="newPayment.amount = maskMoneyDigits($event.target.value)"

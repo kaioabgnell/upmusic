@@ -37,7 +37,7 @@ class SyncCardToFinance
     ) {}
 
     /**
-     * @param  array<string,mixed>  $overrides  campos confirmados no modal (categoria, descrição, valores)
+     * @param  array<string,mixed>  $overrides  campos confirmados no modal (categoria, descrição, valores, vencimento)
      * @param  array<int>|null  $attachmentIds  anexos escolhidos; null = todos os mapeáveis
      * @param  array<int,string>  $kindOverrides  attachment_id => FinanceDocumentKind::value (classificação manual)
      */
@@ -48,7 +48,14 @@ class SyncCardToFinance
         ?array $attachmentIds = null,
         array $kindOverrides = [],
     ): FinanceCostItem {
-        $card->loadMissing(['event', 'fornecedor', 'attachments']);
+        $card->loadMissing(['event', 'fornecedor', 'attachments', 'board']);
+
+        // Custos fixos (specs/27): nesta etapa, nada dos quadros de custos fixos vai para o Financeiro.
+        if ($card->board?->fixed_costs) {
+            throw ValidationException::withMessages([
+                'finance' => 'Cards de custos fixos não são enviados ao Financeiro.',
+            ]);
+        }
 
         if (! $card->event) {
             throw ValidationException::withMessages([
@@ -195,10 +202,18 @@ class SyncCardToFinance
         return $multiplier === 1.0 ? (float) $total : null;
     }
 
-    /** Só os campos que o modal pode confirmar; nada de mass assignment cego do request. */
+    /**
+     * Só os campos que o modal pode confirmar; nada de mass assignment cego do request.
+     *
+     * `due_date` é a exceção ao "null = não mexe": quando a chave vem (só o modal a manda), null
+     * significa que a pessoa apagou o vencimento, e isso precisa chegar na linha. Os gatilhos
+     * automáticos (observer, quadro que alimenta o financeiro) não mandam a chave e não tocam nele.
+     * `cost_center_id` segue a mesma regra (specs/25): o centro mora só na linha do Financeiro, o
+     * card nunca o espelha, e só o modal pode trocá-lo ou limpá-lo.
+     */
     private function sanitize(array $overrides): array
     {
-        return array_filter(
+        $clean = array_filter(
             array_intersect_key($overrides, array_flip([
                 'fornecedor_categoria_id', 'description', 'fornecedor_id', 'supplier_name',
                 'authorized_by', 'authorized_by_name', 'daily_count', 'quantity',
@@ -206,6 +221,16 @@ class SyncCardToFinance
             ])),
             fn ($v) => $v !== null,
         );
+
+        if (array_key_exists('cost_center_id', $overrides)) {
+            $clean['cost_center_id'] = $overrides['cost_center_id'] ?: null;
+        }
+
+        if (array_key_exists('due_date', $overrides)) {
+            $clean['due_date'] = $overrides['due_date'] ?: null;
+        }
+
+        return $clean;
     }
 
     /**

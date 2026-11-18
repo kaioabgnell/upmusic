@@ -24,6 +24,15 @@
                         </span>
                     </span>
                     <h3 class="font-semibold text-brand-ink truncate" x-text="mode === 'create' ? 'Novo card' : ('#' + cardId + ' - ' + (form.title || 'Card'))"></h3>
+                    {{-- Selo "Parcela X de Y" (specs/27 §4) com atalho para o cadastro do custo fixo. --}}
+                    <span x-show="mode === 'view' && installment" x-cloak class="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full bg-black text-white">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span x-text="installment ? `Parcela ${installment.number} de ${installment.total}` : ''"></span>
+                    </span>
+                    <a x-show="mode === 'view' && installment && fixedCostUrl" x-cloak :href="fixedCostUrl" target="_blank" rel="noopener"
+                       class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-steel hover:text-brand-ink hover:underline">
+                        Ver custo fixo <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
                     <span x-show="concludedAt" class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-ink text-white"><i class="fa-solid fa-circle-check mr-1"></i>Concluído</span>
                     <span x-show="archivedAt" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-gray-200 text-gray-700"><i class="fa-solid fa-box-archive mr-1"></i>Arquivado</span>
                     <span x-show="isOverdue" x-cloak class="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Vencido</span>
@@ -224,7 +233,8 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="text-sm font-medium text-brand-ink flex items-center justify-between">
-                                        Empresa
+                                        {{-- Obrigatória nos quadros de custos fixos (specs/27 §1.4). --}}
+                                        <span>Empresa<span x-show="boardFixedCosts" x-cloak class="text-red-600"> *</span></span>
                                         {{-- <button type="button" @click="quickEmpresa()" class="text-xs text-brand-orange-deep hover:underline"><i class="fa-solid fa-plus"></i> nova</button> --}}
                                     </label>
                                     <select x-model="form.empresa_id" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
@@ -233,6 +243,7 @@
                                             <option :value="e.id" x-text="e.corporate_name"></option>
                                         </template>
                                     </select>
+                                    <p class="text-xs text-red-600 mt-1" x-show="errors.empresa_id" x-text="errors.empresa_id?.[0]"></p>
                                 </div>
                                 <div>
                                     <label class="text-sm font-medium text-brand-ink">Fornecedor</label>
@@ -270,7 +281,8 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div>
+                                {{-- Quadro de custos fixos não tem evento (specs/27 §1.4). --}}
+                                <div x-show="!boardFixedCosts">
                                     <label class="text-sm font-medium text-brand-ink">Evento</label>
                                     <select x-model="form.event_id" class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                         <option value="">— Nenhum —</option>
@@ -461,7 +473,7 @@
                                         <div class="flex gap-2">
                                             <select x-model="transferBoardId" class="flex-1 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
                                                 <option value="">— Selecione o quadro —</option>
-                                                <template x-for="b in cfg.boards" :key="b.id">
+                                                <template x-for="b in sameTypeBoards" :key="b.id">
                                                     <option :value="b.id" x-text="b.name"></option>
                                                 </template>
                                             </select>
@@ -531,7 +543,8 @@
                                     {{-- Financeiro do Evento (specs/23 §6.3): leva a despesa e os anexos deste card para a
                                          linha de custo da planilha do evento. Os arquivos NÃO são copiados — o financeiro passa
                                          a enxergar os mesmos anexos, e é isso que acaba com o upload em dois lugares. --}}
-                                    <div class="border-t border-hairline pt-4" x-show="mode === 'view'" x-cloak>
+                                    {{-- Cards de custos fixos não vão para o Financeiro nesta etapa (specs/27). --}}
+                                    <div class="border-t border-hairline pt-4" x-show="mode === 'view' && !boardFixedCosts" x-cloak>
                                         <p class="text-sm font-semibold text-brand-ink mb-2">
                                             <i class="fa-solid fa-file-invoice-dollar text-steel mr-1"></i> Financeiro do evento
                                         </p>
@@ -801,7 +814,33 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        {{-- Vencimento do pagamento: vai para a coluna "Vencimento" da grade de CUSTOS do
+                             evento. Em vermelho quando a data já passou ou é hoje (isDueHighlighted). --}}
+                        <div>
+                            <label class="text-xs text-steel">Data de vencimento</label>
+                            <input type="date" x-model="finance.form.due_date"
+                                   class="mt-1 w-full rounded-md text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                   :class="isDueHighlighted(finance.form.due_date) ? 'border-red-400 text-red-600 font-medium' : 'border-gray-300'">
+                        </div>
+
+                        {{-- Centro de custo (specs/25): fica só na linha do Financeiro — o card não guarda,
+                             e a resincronia automática nunca o altera. Opções = ativos + o que a linha já
+                             tem; as <option> vêm de x-for, e o valor é aplicado depois do $nextTick em
+                             openFinanceModal (mesma razão de Evento e Item). --}}
+                        <div>
+                            <label class="text-xs text-steel">Centro de custo</label>
+                            <select x-model="finance.form.cost_center_id"
+                                    class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
+                                <option value="">Sem centro de custo</option>
+                                <template x-for="c in (finance.data?.cost_centers ?? [])" :key="c.id">
+                                    <option :value="c.id" x-text="c.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-hairline">
                         <div class="flex items-baseline justify-between gap-2 mb-2">
                             <p class="text-xs font-semibold text-brand-ink">Anexos a vincular</p>
                             <p class="text-[11px] text-steel">Tipo definido no card</p>

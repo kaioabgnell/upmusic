@@ -15,6 +15,11 @@ class ExternalFormController extends Controller
     {
         $this->authorize('configure', $board);
 
+        // Quadro de custos fixos não tem formulário externo (specs/27 §1.3).
+        if ($board->fixed_costs) {
+            return redirect()->route('boards.show', $board)->with('error', 'Quadros de custos fixos não têm formulário externo.');
+        }
+
         $form = $this->resolveForm($board);
         $form->load(['submissions' => fn ($q) => $q->latest()->limit(20), 'targetColumn', 'event']);
 

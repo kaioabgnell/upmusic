@@ -23,6 +23,7 @@ class RegisterPayment
 
         return $item->payments()->create([
             'finance_payment_source_id' => $data['finance_payment_source_id'],
+            'bank_account_id' => $data['bank_account_id'] ?? null,
             'amount' => $data['amount'],
             'paid_at' => $data['paid_at'] ?? null,
             'notes' => $data['notes'] ?? null,

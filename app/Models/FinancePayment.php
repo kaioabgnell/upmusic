@@ -12,7 +12,7 @@ class FinancePayment extends Model
     use HasFactory;
 
     protected $fillable = [
-        'finance_cost_item_id', 'finance_payment_source_id', 'amount', 'paid_at', 'notes', 'created_by',
+        'finance_cost_item_id', 'finance_payment_source_id', 'bank_account_id', 'amount', 'paid_at', 'notes', 'created_by',
     ];
 
     protected $casts = [
@@ -28,6 +28,12 @@ class FinancePayment extends Model
     public function source(): BelongsTo
     {
         return $this->belongsTo(FinancePaymentSource::class, 'finance_payment_source_id');
+    }
+
+    /** De onde saiu o dinheiro (specs/26). withTrashed: a conta excluída continua identificando o pagamento. */
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class)->withTrashed();
     }
 
     public function creator(): BelongsTo

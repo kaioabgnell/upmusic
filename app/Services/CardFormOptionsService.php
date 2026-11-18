@@ -53,4 +53,18 @@ class CardFormOptionsService
                 ->values(),
         ];
     }
+
+    /**
+     * Responsáveis possíveis num quadro de custos fixos (specs/27 §1.2): só quem enxerga o quadro —
+     * Admin e Coordenador sem eventos vinculados.
+     */
+    public function fixedCostAssignees(): \Illuminate\Support\Collection
+    {
+        return User::where('active', true)
+            ->where(fn ($q) => $q->where('role', 'admin')
+                ->orWhere(fn ($c) => $c->where('role', 'coordenador')->whereDoesntHave('events')))
+            ->orderBy('name')->get(['id', 'name', 'avatar_path'])
+            ->map(fn ($u) => (object) ['id' => $u->id, 'name' => $u->name, 'avatar_url' => $u->avatar_url])
+            ->values();
+    }
 }

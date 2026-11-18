@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Enums\CardPriority;
 use App\Http\Requests\StoreBoardRequest;
+use App\Http\Requests\UpdateBoardFixedCostsRequest;
 use App\Http\Requests\UpdateBoardRequest;
 use App\Models\Board;
 use App\Models\Card;
@@ -27,10 +28,8 @@ class BoardController extends Controller
             ->with('setor')
             // Contagem por quadro respeita o escopo por evento do coordenador restrito (specs/20).
             ->withCount(['columns', 'cards' => fn ($q) => $q->whereNull('concluded_at')->visibleTo($user)])
-            ->when(
-                ! $user->isAdmin() && ! $user->isCoordenador(),
-                fn ($q) => $q->whereHas('users', fn ($q) => $q->whereKey($user->id))
-            )
+            // Usuário só vê os vinculados; quadros de custos fixos só para quem gerencia (specs/27 §1.2).
+            ->visibleTo($user)
             ->orderBy('position')
             ->orderBy('name')
             ->get();
@@ -71,16 +70,28 @@ class BoardController extends Controller
             'options' => $f->options ?? [],
         ])->values();
 
+        $globalOptions = $options->globalOptions();
+
+        // Quadro de custos fixos (specs/27 §1.2): responsável só entre quem enxerga o quadro.
+        if ($board->fixed_costs) {
+            $globalOptions['assignees'] = $options->fixedCostAssignees();
+        }
+
+        // Reabrir e enviar para outro departamento só entre quadros do mesmo tipo (specs/27 §1.3).
+        $sameType = Board::active()->visibleTo($request->user())->where('fixed_costs', $board->fixed_costs)
+            ->orderBy('name')->get(['id', 'name', 'fixed_costs']);
+
         return view('boards.show', [
             'board' => $board,
             'columns' => $columns,
             'fields' => $fields,
             'filters' => $filters,
-            ...$options->globalOptions(),
-            'boards' => Board::active()->orderBy('name')->get(['id', 'name']),
-            'transferBoards' => Board::active()->where('id', '!=', $board->id)->orderBy('name')->get(['id', 'name']),
+            ...$globalOptions,
+            'boards' => $sameType->values(),
+            'transferBoards' => $sameType->where('id', '!=', $board->id)->values(),
             'priorities' => CardPriority::options(),
-            'boardTemplates' => CardTemplate::query()->where('active', true)->where('board_id', $board->id)
+            // Templates não se aplicam aos quadros de custos fixos (specs/27 §1.3).
+            'boardTemplates' => $board->fixed_costs ? collect() : CardTemplate::query()->where('active', true)->where('board_id', $board->id)
                 ->withCount('items')->orderBy('name')->get(['id', 'name']),
             'openCardId' => $card?->id,
         ]);
@@ -103,6 +114,8 @@ class BoardController extends Controller
                 $q->with([
                     'empresa:id,corporate_name,trade_name', 'fornecedor:id,name',
                     'event:id,name', 'assignee:id,name,avatar_path',
+                    // Selo "Parcela X de Y" (specs/27 §4) sem N+1.
+                    'fixedCostInstallment:id,fixed_cost_id,number', 'fixedCostInstallment.fixedCost:id,installments_total',
                 ])
                     ->withCount(['attachments', 'comments'])
                     ->withExists('financeCostItem')
@@ -114,6 +127,9 @@ class BoardController extends Controller
                     ->when($filters['assignee_id'], fn ($q, $v) => $q->where('assignee_id', $v))
                     ->when($filters['priority'], fn ($q, $v) => $q->where('priority', $v))
                     ->when($filters['search'], fn ($q, $v) => $q->where('title', 'like', "%{$v}%"))
+                    // Filtro "Tipo" dos quadros de custos fixos (specs/27 §4.1).
+                    ->when($filters['kind'] === 'installments', fn ($q) => $q->whereNotNull('fixed_cost_installment_id'))
+                    ->when($filters['kind'] === 'manual', fn ($q) => $q->whereNull('fixed_cost_installment_id'))
                     ->orderBy('position');
             },
         ]);
@@ -138,6 +154,7 @@ class BoardController extends Controller
             'assignee_id' => $request->integer('assignee_id') ?: null,
             'priority' => $request->input('priority') ?: null,
             'search' => $request->input('search') ?: null,
+            'kind' => in_array($request->input('kind'), ['installments', 'manual'], true) ? $request->input('kind') : null,
         ];
     }
 
@@ -197,6 +214,11 @@ class BoardController extends Controller
     {
         $this->authorize('delete', $board);
 
+        $fixedCosts = $board->fixedCostItems()->count();
+        if ($fixedCosts > 0) {
+            return back()->with('error', "{$fixedCosts} custo(s) fixo(s) geram cards neste quadro. Troque o quadro de destino deles antes de excluir.");
+        }
+
         $board->delete();
 
         return redirect()->route('boards.index')->with('success', 'Quadro excluído com sucesso.');
@@ -241,5 +263,16 @@ class BoardController extends Controller
         $board->update(['allows_supplier_form' => $request->boolean('allows_supplier_form')]);
 
         return response()->json(['ok' => true, 'allows_supplier_form' => $board->allows_supplier_form]);
+    }
+
+    /**
+     * Chave "Quadro de custos fixos" (specs/27 §1.1). Exclusiva com `feeds_finance` e travada enquanto
+     * algum custo fixo gera cards aqui — as duas regras moram no Form Request.
+     */
+    public function updateFixedCosts(UpdateBoardFixedCostsRequest $request, Board $board)
+    {
+        $board->update(['fixed_costs' => $request->boolean('fixed_costs')]);
+
+        return response()->json(['ok' => true, 'fixed_costs' => $board->fixed_costs]);
     }
 }

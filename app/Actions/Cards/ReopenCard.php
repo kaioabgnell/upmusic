@@ -17,6 +17,8 @@ class ReopenCard
      */
     public function execute(Card $card, Board $toBoard, ?BoardColumn $toColumn, User $actor): Card
     {
+        TransferCard::ensureSameBoardType($card, $toBoard);
+
         return DB::transaction(function () use ($card, $toBoard, $toColumn, $actor) {
             $targetColumn = $toColumn
                 ?? $toBoard->columns()->where('is_entry', true)->orderBy('position')->first()

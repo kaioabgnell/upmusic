@@ -7,9 +7,12 @@ use App\Domain\Enums\FinanceArtStatus;
 use App\Domain\Enums\FinanceCostStatus;
 use App\Http\Requests\Finance\StoreCostItemRequest;
 use App\Http\Requests\Finance\UpdateCostItemRequest;
+use App\Models\BankAccount;
+use App\Models\CostCenter;
 use App\Models\Event;
 use App\Models\FinanceCostItem;
 use App\Models\FinanceItemPreset;
+use App\Models\FinancePayment;
 use App\Models\FinancePaymentSource;
 use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
@@ -31,13 +34,66 @@ class FinanceCostItemController extends FinanceController
         private FinanceSummaryService $summary,
     ) {}
 
+    /**
+     * A "casca" da tela: filtros, cabeçalho e as listas de apoio. As linhas NÃO vêm aqui — a grade
+     * as busca em `rows()` depois que a página (menu incluso) já está na tela. Com 100+ linhas, cada
+     * uma com selects e bindings do Alpine, montar tudo junto do HTML travava o carregamento inteiro.
+     */
     public function index(Request $request, Event $evento)
     {
         $sheet = $this->sheets->forEvent($evento);
         $this->authorize('view', $sheet);
 
+        $fornecedores = Fornecedor::active()->orderBy('name')->get(['id', 'name']);
+        $categorias = FornecedorCategoria::active()->orderBy('nome')->get(['id', 'nome']);
+
+        return view('financeiro.eventos.custos', [
+            'evento' => $evento,
+            'sheet' => $sheet,
+            'categorias' => $categorias,
+            // Ativos + os já usados em alguma linha desta planilha (mesmo inativos), para o
+            // filtro e a grade nunca esconderem o centro que uma linha já tem (specs/25).
+            'costCenters' => CostCenter::options(
+                FinanceCostItem::where('finance_sheet_id', $sheet->id)->whereNotNull('cost_center_id')
+                    ->distinct()->pluck('cost_center_id')
+            ),
+            // Contas para o formulário de pagamento (specs/26): ativas + as já usadas em algum
+            // pagamento desta planilha, para a lista de pagamentos nunca esconder a conta que tem.
+            'bankAccounts' => BankAccount::options(
+                FinancePayment::whereNotNull('bank_account_id')
+                    ->whereHas('costItem', fn ($q) => $q->where('finance_sheet_id', $sheet->id))
+                    ->distinct()->pluck('bank_account_id')
+            ),
+            'fornecedores' => $fornecedores,
+            'usuarios' => User::where('active', true)->orderBy('name')->get(['id', 'name']),
+            'sources' => FinancePaymentSource::active()->ordered()->get(['id', 'name', 'kind']),
+            'statuses' => FinanceCostStatus::options(),
+            'artStatuses' => FinanceArtStatus::options(),
+            // Item e Empresa da grade usam UM seletor compartilhado (não um <select> por linha):
+            // a grade recebe as listas uma vez só, como dados.
+            'lookups' => [
+                'categorias' => $categorias->map(fn ($c) => ['id' => $c->id, 'label' => $c->nome])->values(),
+                'fornecedores' => $fornecedores->map(fn ($f) => ['id' => $f->id, 'label' => $f->name])->values(),
+            ],
+            'presets' => FinanceItemPreset::active()
+                ->orderBy('description')
+                ->get(['fornecedor_categoria_id', 'description'])
+                ->groupBy('fornecedor_categoria_id')
+                ->map(fn ($g) => $g->pluck('description')->values()),
+        ]);
+    }
+
+    /**
+     * Linhas da grade em JSON (carregadas de forma assíncrona pela tela). Mesmos filtros da query
+     * string da página; rodapé e paginação vêm juntos, todos respeitando o filtro.
+     */
+    public function rows(Request $request, Event $evento)
+    {
+        $sheet = $this->sheets->forEvent($evento);
+        $this->authorize('view', $sheet);
+
         $items = $this->filtered($request, $sheet->id)
-            ->with(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'card:id,board_id', 'documents', 'payments'])
+            ->with(['categoria:id,nome', 'costCenter:id,code,name', 'fornecedor:id,name', 'authorizer:id,name', 'card:id,board_id', 'documents:id,finance_cost_item_id,kind', 'payments:id,finance_cost_item_id,amount'])
             ->orderBy('position')->orderBy('id')
             ->paginate(100)
             ->withQueryString();
@@ -51,24 +107,26 @@ class FinanceCostItemController extends FinanceController
                 FinanceCostItem::currentEstimateSql(),
             ))->first();
 
-        return view('financeiro.eventos.custos', [
-            'evento' => $evento,
-            'sheet' => $sheet,
-            'items' => $items,
+        $paid = $this->paidTotalFor($request, $sheet->id);
+
+        return response()->json([
             'rows' => $items->getCollection()->map(fn ($i) => FinancePresenter::costItem($i))->values(),
-            'footer' => $footer,
-            'paidTotal' => $this->paidTotalFor($request, $sheet->id),
-            'categorias' => FornecedorCategoria::active()->orderBy('nome')->get(['id', 'nome']),
-            'fornecedores' => Fornecedor::active()->orderBy('name')->get(['id', 'name']),
-            'usuarios' => User::where('active', true)->orderBy('name')->get(['id', 'name']),
-            'sources' => FinancePaymentSource::active()->ordered()->get(['id', 'name', 'kind']),
-            'statuses' => FinanceCostStatus::options(),
-            'artStatuses' => FinanceArtStatus::options(),
-            'presets' => FinanceItemPreset::active()
-                ->orderBy('description')
-                ->get(['fornecedor_categoria_id', 'description'])
-                ->groupBy('fornecedor_categoria_id')
-                ->map(fn ($g) => $g->pluck('description')->values()),
+            'footer' => [
+                'total' => (int) $footer->total,
+                'estimated1' => (float) $footer->e1,
+                'estimated2' => (float) $footer->e2,
+                'actual' => (float) $footer->act,
+                'paid' => $paid,
+                'pending' => (float) $footer->act - $paid,
+            ],
+            'pagination' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+                'from' => $items->firstItem(),
+                'to' => $items->lastItem(),
+            ],
         ]);
     }
 
@@ -180,6 +238,16 @@ class FinanceCostItemController extends FinanceController
             // Seleção múltipla por checkbox (`fornecedor_id[]`) — mesmo padrão de
             // RentalOrderController para filtros de várias opções num GET simples.
             ->when($request->fornecedor_id, fn ($q, $v) => $q->whereIn('fornecedor_id', (array) $v))
+            // Centro de custo (specs/25): seleção múltipla; "none" = linhas ainda sem centro.
+            ->when($request->cost_center_id, function ($q, $v) {
+                $values = collect((array) $v);
+                $ids = $values->reject(fn ($id) => $id === 'none')->map(fn ($id) => (int) $id)->all();
+                $withoutCenter = $values->contains('none');
+
+                $q->where(fn ($w) => $w
+                    ->when($ids, fn ($i) => $i->whereIn('cost_center_id', $ids))
+                    ->when($withoutCenter, fn ($n) => $n->orWhereNull('cost_center_id')));
+            })
             ->when($request->search, fn ($q, $v) => $q->where('description', 'like', "%{$v}%"))
             ->when($totalReal !== null, fn ($q) => $q->where('total_actual', $totalReal))
             ->when($request->boolean('sem_comprovante'), fn ($q) => $q

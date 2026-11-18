@@ -18,7 +18,7 @@ class Card extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'board_id', 'board_column_id', 'empresa_id', 'fornecedor_id', 'event_id', 'assignee_id', 'created_by',
+        'board_id', 'board_column_id', 'empresa_id', 'fornecedor_id', 'event_id', 'fixed_cost_installment_id', 'assignee_id', 'created_by',
         'title', 'description', 'estimated_value', 'actual_value', 'unit_value', 'quantity',
         'valor_sem_nota', 'valor_com_nota', 'negociado', 'due_date',
         'priority', 'color', 'origin', 'position', 'concluded_at', 'concluded_by', 'archived_at', 'archived_by',
@@ -64,6 +64,12 @@ class Card extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /** Parcela de custo fixo que gerou este card (specs/27) — alimenta o selo "Parcela X de Y". */
+    public function fixedCostInstallment(): BelongsTo
+    {
+        return $this->belongsTo(FixedCostInstallment::class);
     }
 
     public function assignee(): BelongsTo

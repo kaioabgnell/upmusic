@@ -40,11 +40,12 @@ class FinanceSheetTest extends FinanceTestCase
         ]);
         $this->source();
 
+        // A casca renderiza; as linhas chegam pelo endpoint assíncrono.
         $this->actingAs($this->user())
             ->get(route('finance.costs.index', $event))
             ->assertOk()
-            ->assertSee('Tenda 10x10')
-            ->assertSee('Controle');
+            ->assertSee(route('finance.costs.rows', $event));
+        $this->assertContains('Tenda 10x10', $this->costRows($event)->pluck('description'));
 
         $this->actingAs($this->user())
             ->get(route('finance.revenues.index', $event))
@@ -77,10 +78,8 @@ class FinanceSheetTest extends FinanceTestCase
             'path' => 'x', 'original_name' => 'fatura.pdf',
         ]);
 
-        $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->assertSee('Fatura');
+        $chips = collect($this->costRows($event)->firstWhere('id', $item->id)['documents']);
+        $this->assertSame(1, $chips->firstWhere('kind', 'fatura')['count']);
     }
 
     public function test_linha_com_card_traz_o_board_para_montar_o_link_direto(): void
@@ -89,10 +88,7 @@ class FinanceSheetTest extends FinanceTestCase
         $card = $this->card($this->board(), $event);
         $item = $this->sheet($event)->costItems()->create(['description' => 'Diária de som', 'card_id' => $card->id]);
 
-        $data = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->viewData('rows');
+        $data = $this->costRows($event);
 
         $row = collect($data)->firstWhere('id', $item->refresh()->id);
 
@@ -105,10 +101,7 @@ class FinanceSheetTest extends FinanceTestCase
         $event = $this->event();
         $item = $this->sheet($event)->costItems()->create(['description' => 'Taxa avulsa']);
 
-        $data = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->viewData('rows');
+        $data = $this->costRows($event);
 
         $row = collect($data)->firstWhere('id', $item->refresh()->id);
 

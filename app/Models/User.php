@@ -99,6 +99,12 @@ class User extends Authenticatable
 
     public function canAccessBoard(Board $board): bool
     {
+        // Quadro de custos fixos (specs/27 §1.2): só Admin e Coordenador sem eventos vinculados —
+        // nem o vínculo em `user_board` abre para o Usuário comum.
+        if ($board->fixed_costs) {
+            return $this->canManageFixedCosts();
+        }
+
         if ($this->isAdmin() || $this->isCoordenador()) {
             return true;
         }
@@ -114,6 +120,12 @@ class User extends Authenticatable
      * Deliberadamente separado de `canAccessBoard()`, que continua sendo a régua de escrita
      * (mover, transferir, editar, excluir) e do menu de quadros.
      */
+    /** Custos fixos (specs/27): cadastro e quadros só para Admin e Coordenador sem eventos vinculados. */
+    public function canManageFixedCosts(): bool
+    {
+        return $this->isAdmin() || ($this->isCoordenador() && ! $this->isEventScoped());
+    }
+
     public function isAssignedOnBoard(Board $board): bool
     {
         return $this->assignedCards()->where('board_id', $board->getKey())->exists();

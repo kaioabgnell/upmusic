@@ -17,8 +17,8 @@ class FinanceRevenue extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'finance_sheet_id', 'category', 'description', 'empresa_id', 'estimated_value',
-        'actual_value', 'received_value', 'finance_payment_source_id', 'received_at', 'notes', 'position',
+        'finance_sheet_id', 'category', 'description', 'cost_center_id', 'empresa_id', 'estimated_value',
+        'actual_value', 'received_value', 'finance_payment_source_id', 'bank_account_id', 'received_at', 'notes', 'position',
     ];
 
     protected $casts = [
@@ -38,6 +38,18 @@ class FinanceRevenue extends Model
     public function empresa(): BelongsTo
     {
         return $this->belongsTo(Empresa::class);
+    }
+
+    /** withTrashed: o centro excluído continua identificando a linha antiga (specs/25). */
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class)->withTrashed();
+    }
+
+    /** Para onde entrou o dinheiro (specs/26). withTrashed: a conta excluída continua identificando a receita. */
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class)->withTrashed();
     }
 
     public function source(): BelongsTo

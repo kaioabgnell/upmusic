@@ -38,12 +38,12 @@ class CardController extends Controller
     public function index(Request $request, CardFormOptionsService $options)
     {
         $user = $request->user();
-        $isManager = $user->isAdmin() || $user->isCoordenador();
 
+        // Mesma régua do menu de quadros — inclui a regra dos quadros de custos fixos (specs/27 §1.2).
         $boards = Board::query()
-            ->when(! $isManager, fn ($q) => $q->whereHas('users', fn ($q) => $q->whereKey($user->id)))
+            ->visibleTo($user)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'fixed_costs']);
         $boardIds = $boards->pluck('id');
 
         $columns = BoardColumn::whereIn('board_id', $boardIds)
@@ -151,6 +151,7 @@ class CardController extends Controller
             $toColumn = null;
         }
 
+        // Quadros de custos fixos e de eventos não trocam cards (specs/27 §1.3) — a Action valida.
         $action->execute($card, $toBoard, $toColumn, $request->user());
 
         return response()->json(['ok' => true, 'message' => "Card enviado para {$toBoard->name}."]);
@@ -361,6 +362,8 @@ class CardController extends Controller
             'movements' => fn ($q) => $q->with(['user:id,name', 'fromColumn:id,name', 'toColumn:id,name', 'fromBoard:id,name', 'toBoard:id,name']),
             'supplierForm' => fn ($q) => $q->withCount('submissions'),
             'externalSubmission:id,card_id,requester_name',
+            'fixedCostInstallment:id,fixed_cost_id,number',
+            'fixedCostInstallment.fixedCost:id,installments_total',
         ]);
 
         return [
@@ -392,6 +395,13 @@ class CardController extends Controller
             // Já virou linha de custo no Financeiro do Evento (specs/23) — ícone de $ no cabeçalho.
             'in_finance' => $card->financeCostItem()->exists(),
             'origin' => $card->origin->value,
+            // Quadro de custos fixos (specs/27 §1.4): o painel esconde Evento e "Enviar para o
+            // Financeiro" e exige Empresa. `installment` alimenta o selo "Parcela X de Y".
+            'board_fixed_costs' => (bool) $card->board?->fixed_costs,
+            'installment' => CardPresenter::installment($card),
+            'fixed_cost_url' => ($i = CardPresenter::installment($card)) && auth()->user()->canManageFixedCosts()
+                ? route('fixed-costs.show', $i['fixed_cost_id'])
+                : null,
             'concluded_at' => $card->concluded_at?->format('d/m/Y H:i'),
             'concluded_by' => $card->concludedBy?->name,
             'archived_at' => $card->archived_at?->format('d/m/Y H:i'),

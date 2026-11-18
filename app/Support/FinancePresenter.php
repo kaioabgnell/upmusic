@@ -17,7 +17,7 @@ class FinancePresenter
 {
     public static function costItem(FinanceCostItem $item): array
     {
-        $item->loadMissing(['categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name', 'card:id,board_id', 'documents', 'payments']);
+        $item->loadMissing(['categoria:id,nome', 'costCenter:id,code,name', 'fornecedor:id,name', 'authorizer:id,name', 'card:id,board_id', 'documents', 'payments']);
 
         $paid = (float) $item->payments->sum('amount');
         $actual = (float) $item->total_actual;
@@ -26,6 +26,8 @@ class FinancePresenter
             'id' => $item->id,
             'fornecedor_categoria_id' => $item->fornecedor_categoria_id,
             'categoria' => $item->categoria?->nome,
+            'cost_center_id' => $item->cost_center_id,
+            'cost_center' => $item->costCenter?->label,
             'description' => $item->description,
             'status' => $item->status->value,
             'status_label' => $item->status->label(),
@@ -44,6 +46,7 @@ class FinancePresenter
             'unit_estimated_1' => (float) $item->unit_estimated_1,
             'unit_estimated_2' => $item->unit_estimated_2 === null ? null : (float) $item->unit_estimated_2,
             'unit_actual' => $item->unit_actual === null ? null : (float) $item->unit_actual,
+            'due_date' => $item->due_date?->format('Y-m-d'),
             'total_estimated_1' => (float) $item->total_estimated_1,
             'total_estimated_2' => (float) $item->total_estimated_2,
             'total_actual' => $actual,
@@ -106,12 +109,14 @@ class FinancePresenter
 
     public static function payment(FinancePayment $payment): array
     {
-        $payment->loadMissing(['source:id,name', 'creator:id,name']);
+        $payment->loadMissing(['source:id,name', 'creator:id,name', 'bankAccount:id,name,agency,account_number']);
 
         return [
             'id' => $payment->id,
             'finance_payment_source_id' => $payment->finance_payment_source_id,
             'source' => $payment->source?->name,
+            'bank_account_id' => $payment->bank_account_id,
+            'bank_account' => $payment->bankAccount?->label,
             'amount' => (float) $payment->amount,
             'paid_at' => $payment->paid_at?->format('Y-m-d'),
             'paid_at_label' => $payment->paid_at?->format('d/m/Y'),
@@ -127,6 +132,8 @@ class FinancePresenter
             'category' => $revenue->category->value,
             'category_label' => $revenue->category->label(),
             'description' => $revenue->description,
+            'cost_center_id' => $revenue->cost_center_id,
+            'bank_account_id' => $revenue->bank_account_id,
             'empresa_id' => $revenue->empresa_id,
             'estimated_value' => (float) $revenue->estimated_value,
             'actual_value' => (float) $revenue->actual_value,

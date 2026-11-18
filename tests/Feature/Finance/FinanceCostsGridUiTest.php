@@ -9,21 +9,61 @@ namespace Tests\Feature\Finance;
  */
 class FinanceCostsGridUiTest extends FinanceTestCase
 {
-    public function test_coluna_controle_vira_botao_resumo_com_menu(): void
+    /**
+     * A grade ficou enxuta: ART, Controle e Autorizado por saíram das colunas e moram na ficha do
+     * registro (ícone "ver"), que edita o mesmo objeto da linha.
+     */
+    public function test_grade_sem_art_controle_e_autorizado_e_ficha_com_tudo(): void
     {
-        $blade = file_get_contents(resource_path('views/financeiro/eventos/custos.blade.php'));
+        $grid = file_get_contents(resource_path('views/financeiro/eventos/custos.blade.php'));
 
-        // Um botão só por linha (com o total de documentos) abrindo um menu com a lista completa —
-        // não mais até 9 ícones soltos ocupando a largura da coluna.
-        $this->assertStringContainsString('controlOpen', $blade);
-        $this->assertStringContainsString('fa-folder-open', $blade);
-        $this->assertMatchesRegularExpression(
-            '/<template x-for="chip in row\.documents\.filter\(c => c\.proof \|\| c\.count > 0\)" :key="chip\.kind">\s*<button type="button" @click="openDocuments\(row, chip\.kind\); controlOpen = false"/',
-            $blade,
-        );
+        $this->assertStringNotContainsString('>ART</th>', $grid);
+        $this->assertStringNotContainsString('>Controle</th>', $grid);
+        $this->assertStringNotContainsString('>Autorizado por</th>', $grid);
+        $this->assertStringContainsString('@click="openDetail(row)"', $grid);
+        $this->assertStringContainsString('fa-eye', $grid);
 
-        // Cada item do menu mostra "Nome (N)" — a quantidade junto do nome, não um número solto.
-        $this->assertStringContainsString('x-text="`${chip.label} (${chip.count})`"', $blade);
+        $detail = file_get_contents(resource_path('views/financeiro/eventos/_cost_detail.blade.php'));
+        foreach (['detail.row.art_status', 'detail.row.authorized_by', 'detail.row.notes', 'detail.row.fornecedor_id', 'detail.row.cost_center_id'] as $binding) {
+            $this->assertStringContainsString("x-model=\"{$binding}\"", $detail);
+        }
+        // Os documentos (antigo "Controle") abrem o drawer a partir da ficha, com a contagem.
+        $this->assertStringContainsString('detailToDocuments(chip.kind)', $detail);
+        $this->assertStringContainsString('`${chip.label} (${chip.count})`', $detail);
+    }
+
+    /** A casca não traz as linhas: elas vêm do endpoint JSON, com rodapé e paginação. */
+    public function test_tela_carrega_linhas_de_forma_assincrona(): void
+    {
+        $event = $this->event();
+        $sheet = $this->sheet($event);
+        $item = $sheet->costItems()->create(['description' => 'Linha que só vem no JSON', 'unit_actual' => 200]);
+        $item->payments()->create(['finance_payment_source_id' => $this->source()->id, 'amount' => 50]);
+
+        $this->actingAs($this->user())->get(route('finance.costs.index', $event))
+            ->assertOk()
+            ->assertDontSee('Linha que só vem no JSON')
+            ->assertSee(route('finance.costs.rows', $event));
+
+        $this->actingAs($this->user())->getJson(route('finance.costs.rows', $event))
+            ->assertOk()
+            ->assertJsonPath('rows.0.description', 'Linha que só vem no JSON')
+            ->assertJsonPath('footer.total', 1)
+            ->assertJsonPath('footer.paid', 50)
+            ->assertJsonPath('footer.pending', 150)
+            ->assertJsonPath('pagination.current_page', 1)
+            ->assertJsonPath('pagination.total', 1);
+    }
+
+    public function test_endpoint_de_linhas_exige_acesso_ao_evento(): void
+    {
+        $event = $this->event();
+        $this->sheet($event);
+
+        $scoped = $this->user(\App\Domain\Enums\UserRole::Coordenador);
+        $scoped->events()->attach($this->event('Outro evento'));
+
+        $this->actingAs($scoped)->getJson(route('finance.costs.rows', $event))->assertForbidden();
     }
 
     /** Render real: dois tipos de documento na mesma linha, cada um com a própria contagem. */
@@ -37,10 +77,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
             ['kind' => \App\Domain\Enums\FinanceDocumentKind::Comprovante->value, 'path' => 'c', 'original_name' => 'comp.pdf'],
         ]);
 
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event);
 
         $chips = collect($rows)->firstWhere('id', $item->id)['documents'];
         $this->assertSame(2, collect($chips)->firstWhere('kind', 'nota_fiscal')['count']);
@@ -56,7 +93,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
             $blade,
         );
         $this->assertStringNotContainsString('x-model="row.unit_actual"', $blade);
-        $this->assertStringContainsString('w-36 text-right" x-show="groups.actual">Vlr. unit. real.', $blade);
+        $this->assertStringContainsString('w-36 text-right whitespace-nowrap" x-show="groups.actual">Vlr. unit. real.', $blade);
 
         // Os quatro pontos em que uma linha chega (ou volta) do servidor precisam normalizar —
         // senão o campo mostra "1234.5" (ponto, sem milhar) assim que o servidor responde.
@@ -64,9 +101,37 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $this->assertStringContainsString('function normalizeCostRow(row)', $js);
         $this->assertStringContainsString('unit_actual: moneyFromDecimal(row.unit_actual)', $js);
         $this->assertStringContainsString('rows: (cfg.rows ?? []).map(normalizeCostRow)', $js);
-        $this->assertStringContainsString('Object.assign(row, normalizeCostRow(saved))', $js);
+        $this->assertStringContainsString('Object.assign(row, normalizeCostRow(data))', $js);
+        $this->assertStringContainsString('this.syncRow(row, saved)', $js);
+        $this->assertStringContainsString('renderInBatches(data.rows.map(normalizeCostRow)', $js);
         $this->assertStringContainsString('this.rows.push(normalizeCostRow(created))', $js);
         $this->assertStringContainsString('normalizeCostRow(copy)', $js);
+    }
+
+    /** "Vlr. unit." (previsto 1 e 2) usa a mesma máscara de centavos do "Vlr. unit. real.". */
+    public function test_vlr_unit_previsto_usa_a_mesma_mascara_do_realizado(): void
+    {
+        $blade = file_get_contents(resource_path('views/financeiro/eventos/custos.blade.php'));
+
+        foreach (['unit_estimated_1', 'unit_estimated_2'] as $campo) {
+            $this->assertMatchesRegularExpression(
+                '/:value="row\.'.$campo.'"\s+@input="row\.'.$campo.' = maskMoneyDigits\(\$event\.target\.value\); touch\(row\)"/',
+                $blade,
+            );
+            $this->assertStringNotContainsString("x-model=\"row.{$campo}\"", $blade);
+        }
+
+        $js = file_get_contents(resource_path('js/finance.js'));
+        $this->assertStringContainsString('unit_estimated_1: moneyFromDecimal(row.unit_estimated_1)', $js);
+        $this->assertStringContainsString('unit_estimated_2: moneyFromDecimal(row.unit_estimated_2)', $js);
+
+        // O valor mascarado ("1.234,56") chega e é gravado corretamente.
+        $item = $this->sheet()->costItems()->create(['description' => 'Gerador', 'daily_count' => 1, 'quantity' => 1]);
+        $this->actingAs($this->user())
+            ->putJson(route('finance.costs.update', $item), ['description' => 'Gerador', 'unit_estimated_1' => '1.234,56'])
+            ->assertOk()
+            ->assertJsonPath('unit_estimated_1', 1234.56)
+            ->assertJsonPath('total_estimated_1', 1234.56);
     }
 
     public function test_falta_pagar_mostra_pago_a_mais_so_no_tooltip(): void
@@ -108,10 +173,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
             ['finance_payment_source_id' => $socio->id, 'amount' => 500, 'paid_at' => '2026-06-11'],
         ]);
 
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event);
 
         $this->assertSame(2, $rows->firstWhere('id', $item->id)['payments_count']);
     }
@@ -122,10 +184,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $event = $this->event();
         $item = $this->sheet($event)->costItems()->create(['description' => 'Sem pagamento']);
 
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event);
 
         $this->assertSame(0, $rows->firstWhere('id', $item->id)['payments_count']);
     }
@@ -160,7 +219,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $this->assertStringContainsString('this.rows.push(normalizeRevenueRow(created))', $js);
     }
 
-    /** O filtro de ART saiu da barra de filtros — a coluna por linha e o "Alterar ART…" em massa ficam. */
+    /** O filtro de ART saiu da barra de filtros — o campo na ficha e o "Alterar ART…" em massa ficam. */
     public function test_filtro_de_art_foi_removido_mas_coluna_e_bulk_continuam(): void
     {
         $event = $this->event();
@@ -208,22 +267,13 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $this->assertStringContainsString('>Empresa<', $html);
 
         // Marca A e B ao mesmo tempo — precisa trazer os dois, excluir C.
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', [
-                'evento' => $event,
-                'fornecedor_id' => [$fornecedorA->id, $fornecedorB->id],
-            ]))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event, ['fornecedor_id' => [$fornecedorA->id, $fornecedorB->id]]);
 
         $this->assertCount(2, $rows);
         $this->assertSame(['Item A', 'Item B'], $rows->pluck('description')->sort()->values()->all());
 
         // Nenhum marcado: volta todo mundo (sem filtro), não "filtra por nada".
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', $event))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event);
 
         $this->assertCount(3, $rows);
     }
@@ -244,10 +294,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $this->assertStringContainsString('window.maskMoneyDigits($event.target.value)', $html);
         $this->assertStringContainsString('>Total real.<', $html);
 
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', ['evento' => $event, 'total_actual' => '1.500,00']))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event, ['total_actual' => '1.500,00']);
 
         $this->assertCount(1, $rows);
         $this->assertSame('Bate', $rows->first()['description']);
@@ -260,10 +307,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $sheet = $this->sheet($event);
         $sheet->costItems()->create(['description' => 'Item único', 'unit_actual' => 1500]);
 
-        $rows = $this->actingAs($this->user())
-            ->get(route('finance.costs.index', ['evento' => $event, 'total_actual' => '']))
-            ->assertOk()
-            ->viewData('rows');
+        $rows = $this->costRows($event, ['total_actual' => '']);
 
         $this->assertCount(1, $rows);
     }

@@ -18,6 +18,10 @@ class CardPresenter
             'empresa:id,corporate_name', 'fornecedor:id,name', 'event:id,name', 'assignee:id,name,avatar_path',
         ]);
 
+        if ($card->fixed_cost_installment_id) {
+            $card->loadMissing(['fixedCostInstallment:id,fixed_cost_id,number', 'fixedCostInstallment.fixedCost:id,installments_total']);
+        }
+
         if (! array_key_exists('attachments_count', $card->getAttributes())) {
             $card->loadCount(['attachments', 'comments']);
         }
@@ -57,8 +61,27 @@ class CardPresenter
             'valor_sem_nota' => $card->valor_sem_nota,
             'valor_com_nota' => $card->valor_com_nota,
             'negociado' => $card->negociado?->value,
+            // Selo "Parcela X de Y" dos cards gerados por custo fixo (specs/27 §4). O total vem do
+            // cadastro na hora de exibir: renovar 12 → 24 atualiza todos os selos.
+            'installment' => self::installment($card),
             'attachments_count' => $card->attachments_count,
             'comments_count' => $card->comments_count,
+        ];
+    }
+
+    /** @return array{number:int, total:int, fixed_cost_id:int}|null */
+    public static function installment(Card $card): ?array
+    {
+        $installment = $card->fixed_cost_installment_id ? $card->fixedCostInstallment : null;
+
+        if (! $installment || ! $installment->fixedCost) {
+            return null;
+        }
+
+        return [
+            'number' => $installment->number,
+            'total' => $installment->fixedCost->installments_total,
+            'fixed_cost_id' => $installment->fixed_cost_id,
         ];
     }
 }

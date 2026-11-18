@@ -11,7 +11,9 @@ class PublicFormController extends Controller
 {
     public function show(string $token)
     {
-        $form = ExternalForm::with('event')->where('token', $token)->where('active', true)->first();
+        $form = ExternalForm::with('event')->where('token', $token)->where('active', true)
+            // Quadro de custos fixos não recebe formulário externo (specs/27 §1.3).
+            ->whereHas('board', fn ($q) => $q->eventBoards())->first();
 
         if (! $form) {
             return response()->view('external.unavailable', [], 404);
@@ -22,7 +24,8 @@ class PublicFormController extends Controller
 
     public function submit(Request $request, string $token, ProcessExternalSubmission $action)
     {
-        $form = ExternalForm::where('token', $token)->where('active', true)->first();
+        $form = ExternalForm::where('token', $token)->where('active', true)
+            ->whereHas('board', fn ($q) => $q->eventBoards())->first();
 
         if (! $form) {
             return response()->view('external.unavailable', [], 404);

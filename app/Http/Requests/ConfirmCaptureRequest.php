@@ -22,6 +22,8 @@ class ConfirmCaptureRequest extends FormRequest
                 $board = Board::find($value);
                 if (! $board || ! $this->user()->canAccessBoard($board)) {
                     $fail('Você não tem acesso a este quadro.');
+                } elseif ($board->fixed_costs) {
+                    $fail('Captura rápida não pode ir para um quadro de custos fixos.');
                 }
             }],
             'title' => ['nullable', 'string', 'max:180'],

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Finance;
 
 use App\Domain\Enums\FinanceRevenueCategory;
 use App\Http\Requests\Finance\StoreRevenueRequest;
+use App\Models\BankAccount;
+use App\Models\CostCenter;
 use App\Models\Empresa;
 use App\Models\Event;
 use App\Models\FinancePaymentSource;
@@ -36,6 +38,10 @@ class FinanceRevenueController extends FinanceController
             'categories' => FinanceRevenueCategory::options(),
             'empresas' => Empresa::orderBy('corporate_name')->get(['id', 'corporate_name', 'trade_name']),
             'sources' => FinancePaymentSource::active()->ordered()->get(['id', 'name']),
+            // Ativos + os já usados nas linhas (mesmo inativos) — specs/25.
+            'costCenters' => CostCenter::options($revenues->pluck('cost_center_id')),
+            // Para onde entrou o dinheiro (specs/26): ativas + as já usadas nas linhas.
+            'bankAccounts' => BankAccount::options($revenues->pluck('bank_account_id')),
         ]);
     }
 

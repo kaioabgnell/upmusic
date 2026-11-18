@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\CardTemplate;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTemplateRequest extends FormRequest
 {
@@ -17,7 +18,8 @@ class StoreTemplateRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string'],
-            'board_id' => ['required', 'exists:boards,id'],
+            // Quadro de custos fixos não recebe template (specs/27 §1.3).
+            'board_id' => ['required', Rule::exists('boards', 'id')->where('fixed_costs', false)],
             'active' => ['boolean'],
         ];
     }

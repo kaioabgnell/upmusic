@@ -22,7 +22,8 @@ class BoardPolicy
      */
     public function view(User $user, Board $board): bool
     {
-        return $user->canAccessBoard($board) || $user->isAssignedOnBoard($board);
+        // Quadro de custos fixos (specs/27 §1.2) não abre por responsabilidade de card.
+        return $user->canAccessBoard($board) || (! $board->fixed_costs && $user->isAssignedOnBoard($board));
     }
 
     public function create(User $user): bool

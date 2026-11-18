@@ -30,7 +30,9 @@ export default function cardsHub(config) {
 
         // ---- Hooks do card-panel.js compartilhado -----------------------------
         async afterCardOpened(c) {
-            this.cfg.transferBoards = (this.cfg.boards || []).filter((b) => b.id !== c.board_id);
+            // Enviar para outro departamento só entre quadros do mesmo tipo (specs/27 §1.3).
+            this.cfg.transferBoards = (this.cfg.boards || [])
+                .filter((b) => b.id !== c.board_id && !!b.fixed_costs === !!c.board_fixed_costs);
             if (!this.boardColumnsCache[c.board_id]) {
                 const data = await this.api(`${this.cfg.urls.boardKanbanData}/${c.board_id}/kanban`);
                 this.boardColumnsCache[c.board_id] = data.columns;

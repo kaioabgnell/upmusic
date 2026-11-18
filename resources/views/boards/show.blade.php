@@ -29,6 +29,9 @@
             events: {{ Illuminate\Support\Js::from($events) }},
             assignees: {{ Illuminate\Support\Js::from($assignees) }},
             transferBoards: {{ Illuminate\Support\Js::from($transferBoards) }},
+            boards: {{ Illuminate\Support\Js::from($boards) }},
+            // Quadro de custos fixos (specs/27): painel sem Evento/Financeiro e Empresa obrigatória.
+            boardFixedCosts: {{ Illuminate\Support\Js::from((bool) $board->fixed_costs) }},
          })">
 
         {{-- Barra de filtros --}}
@@ -78,15 +81,27 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="text-xs font-medium text-steel">Evento</label>
-                                    <select x-model="filters.event_id" @change="reloadCards()" class="mt-1 w-full h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
-                                        <option value="">Todos</option>
-                                        @foreach ($events as $ev)
-                                            <option value="{{ $ev->id }}">{{ $ev->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                                @if ($board->fixed_costs)
+                                    {{-- Quadro de custos fixos (specs/27 §4.1): não tem evento; separa parcelas de avulsos. --}}
+                                    <div>
+                                        <label class="text-xs font-medium text-steel">Tipo</label>
+                                        <select x-model="filters.kind" @change="reloadCards()" class="mt-1 w-full h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
+                                            <option value="">Todos</option>
+                                            <option value="installments">Parcelas de custo fixo</option>
+                                            <option value="manual">Avulsos</option>
+                                        </select>
+                                    </div>
+                                @else
+                                    <div>
+                                        <label class="text-xs font-medium text-steel">Evento</label>
+                                        <select x-model="filters.event_id" @change="reloadCards()" class="mt-1 w-full h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
+                                            <option value="">Todos</option>
+                                            @foreach ($events as $ev)
+                                                <option value="{{ $ev->id }}">{{ $ev->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
                                 <div>
                                     <label class="text-xs font-medium text-steel">Responsável</label>
                                     <select x-model="filters.assignee_id" @change="reloadCards()" class="mt-1 w-full h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
@@ -121,7 +136,10 @@
                         <button type="button" onclick="importBoardTemplate()" title="Importar template" class="h-9 inline-flex items-center gap-1 rounded-md border border-hairline px-3 text-sm font-medium text-brand-ink hover:bg-surface"><i class="fa-solid fa-file-import"></i> <span class="hidden xl:inline">Importar template</span></button>
                     @endif
                     @can('configure', $board)
-                        <a href="{{ route('external.forms.manage', $board) }}" title="Compartilhar formulário" class="h-9 inline-flex items-center gap-1 rounded-md border border-hairline px-3 text-sm font-medium text-brand-ink hover:bg-surface"><i class="fa-solid fa-share-nodes"></i> <span class="hidden xl:inline">Compartilhar formulário</span></a>
+                        {{-- Quadro de custos fixos não tem formulário externo (specs/27 §1.3). --}}
+                        @unless ($board->fixed_costs)
+                            <a href="{{ route('external.forms.manage', $board) }}" title="Compartilhar formulário" class="h-9 inline-flex items-center gap-1 rounded-md border border-hairline px-3 text-sm font-medium text-brand-ink hover:bg-surface"><i class="fa-solid fa-share-nodes"></i> <span class="hidden xl:inline">Compartilhar formulário</span></a>
+                        @endunless
                         <a href="{{ route('boards.config', $board) }}" title="Configurar" class="h-9 inline-flex items-center gap-1 rounded-md border border-hairline px-3 text-sm font-medium text-brand-ink hover:bg-surface"><i class="fa-solid fa-gear"></i> <span class="hidden xl:inline">Configurar</span></a>
                     @endcan
                 </div>
@@ -162,6 +180,13 @@
                                  :data-card-id="card.id" @click="openCard(card.id)"
                                  :data-tooltip="dueTooltipText(card)"
                                  @mouseenter="dueTooltipText(card) && showTooltip($event)" @mouseleave="hideTooltip()">
+                                {{-- Selo "Parcela X de Y" dos cards gerados por custo fixo (specs/27 §4). Preto, sem
+                                     laranja: o accent fica reservado a CTAs e estados ativos. --}}
+                                <span x-show="card.installment" x-cloak
+                                      class="mb-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-black text-white">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                    <span x-text="card.installment ? `Parcela ${card.installment.number} de ${card.installment.total}` : ''"></span>
+                                </span>
                                 <div class="flex items-start justify-between gap-2">
                                     <p class="text-sm font-medium text-brand-ink leading-snug" x-text="'#' + card.id + ' - ' + card.title"></p>
                                     <div class="shrink-0 flex items-center gap-1">
@@ -203,6 +228,8 @@
                                     </template>
                                 </div>
                                 <p x-show="card.actual_value !== null" class="text-xs font-medium text-brand-ink mt-2">R$ <span x-text="formatMoneyBR(card.actual_value)"></span></p>
+                                {{-- Parcela ainda sem valor real: mostra o previsto do cadastro do custo fixo. --}}
+                                <p x-show="card.installment && card.actual_value === null && card.estimated_value !== null" x-cloak class="text-xs text-steel mt-2">Previsto: R$ <span x-text="formatMoneyBR(card.estimated_value)"></span></p>
                             </div>
                         </template>
                     </div>
@@ -253,7 +280,13 @@
                     </template>
                     <template x-for="card in flatCards" :key="card.id">
                         <tr class="hover:bg-surface/60 cursor-pointer" @click="openCard(card.id)">
-                            <td class="px-4 py-3 font-medium text-brand-ink" x-text="'#' + card.id + ' - ' + card.title"></td>
+                            <td class="px-4 py-3 font-medium text-brand-ink">
+                                <span x-text="'#' + card.id + ' - ' + card.title"></span>
+                                <span x-show="card.installment" x-cloak class="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-black text-white whitespace-nowrap">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                    <span x-text="card.installment ? `${card.installment.number} de ${card.installment.total}` : ''"></span>
+                                </span>
+                            </td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center gap-1.5 text-steel">
                                     <span class="w-2 h-2 rounded-full shrink-0" :style="`background: ${card.column_color || '#c7c7c7'}`"></span>

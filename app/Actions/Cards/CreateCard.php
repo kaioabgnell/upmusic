@@ -37,6 +37,9 @@ class CreateCard
                 'empresa_id' => $data['empresa_id'] ?? null,
                 'fornecedor_id' => $data['fornecedor_id'] ?? null,
                 'event_id' => $data['event_id'] ?? null,
+                // Só a geração de parcelas de custo fixo (specs/27) envia esta chave — os Form
+                // Requests de card não a validam, então ela nunca chega por requisição.
+                'fixed_cost_installment_id' => $data['fixed_cost_installment_id'] ?? null,
                 'assignee_id' => $data['assignee_id'] ?? null,
                 'created_by' => $actor?->id,
                 'title' => $data['title'],

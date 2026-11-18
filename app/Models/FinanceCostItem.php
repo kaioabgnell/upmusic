@@ -22,10 +22,10 @@ class FinanceCostItem extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'finance_sheet_id', 'fornecedor_categoria_id', 'description', 'status', 'status_auto',
+        'finance_sheet_id', 'fornecedor_categoria_id', 'cost_center_id', 'description', 'status', 'status_auto',
         'art_status', 'fornecedor_id', 'supplier_name', 'authorized_by', 'authorized_by_name',
         'daily_count', 'quantity', 'unit_estimated_1', 'unit_estimated_2', 'unit_actual',
-        'card_id', 'notes', 'position',
+        'due_date', 'card_id', 'notes', 'position',
     ];
 
     protected $casts = [
@@ -37,6 +37,7 @@ class FinanceCostItem extends Model
         'unit_estimated_1' => 'decimal:2',
         'unit_estimated_2' => 'decimal:2',
         'unit_actual' => 'decimal:2',
+        'due_date' => 'date',
         'total_estimated_1' => 'decimal:2',
         'total_estimated_2' => 'decimal:2',
         'total_actual' => 'decimal:2',
@@ -50,6 +51,12 @@ class FinanceCostItem extends Model
     public function categoria(): BelongsTo
     {
         return $this->belongsTo(FornecedorCategoria::class, 'fornecedor_categoria_id');
+    }
+
+    /** withTrashed: o centro excluído continua identificando a linha antiga (specs/25). */
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class)->withTrashed();
     }
 
     public function fornecedor(): BelongsTo

@@ -25,7 +25,7 @@ export default function kanban(config) {
         sortables: [],
 
         search: '',
-        filters: { empresa_id: '', event_id: '', assignee_id: '', priority: '' },
+        filters: { empresa_id: '', event_id: '', assignee_id: '', priority: '', kind: '' },
 
         tooltip: { show: false, text: '', x: 0, y: 0 },
 
@@ -36,6 +36,8 @@ export default function kanban(config) {
                 event_id: this.cfg.initialFilters.event_id || '',
                 assignee_id: this.cfg.initialFilters.assignee_id || '',
                 priority: this.cfg.initialFilters.priority || '',
+                // Tipo (parcelas x avulsos) — só nos quadros de custos fixos (specs/27 §4.1).
+                kind: this.cfg.initialFilters.kind || '',
             };
             // Shell inicial: colunas já vêm do servidor (sem cards); os cards chegam no fetchCards().
             this.columns = this.cfg.columns.map((c) => ({ ...c, cards: [] }));
@@ -85,6 +87,7 @@ export default function kanban(config) {
             if (this.filters.event_id) params.set('event_id', this.filters.event_id);
             if (this.filters.assignee_id) params.set('assignee_id', this.filters.assignee_id);
             if (this.filters.priority) params.set('priority', this.filters.priority);
+            if (this.filters.kind) params.set('kind', this.filters.kind);
             return params.toString();
         },
 
@@ -104,7 +107,7 @@ export default function kanban(config) {
         },
 
         get activeFilterCount() {
-            return ['empresa_id', 'event_id', 'assignee_id', 'priority'].filter((k) => this.filters[k]).length;
+            return ['empresa_id', 'event_id', 'assignee_id', 'priority', 'kind'].filter((k) => this.filters[k]).length;
         },
 
         reloadCards() {
@@ -120,7 +123,7 @@ export default function kanban(config) {
 
         clearFilters() {
             this.search = '';
-            this.filters = { empresa_id: '', event_id: '', assignee_id: '', priority: '' };
+            this.filters = { empresa_id: '', event_id: '', assignee_id: '', priority: '', kind: '' };
             this.reloadCards();
         },
 

@@ -8,6 +8,7 @@ use App\Models\BoardColumn;
 use App\Models\Card;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TransferCard
 {
@@ -17,6 +18,8 @@ class TransferCard
      */
     public function execute(Card $card, Board $toBoard, ?BoardColumn $toColumn = null, ?User $actor = null): Card
     {
+        self::ensureSameBoardType($card, $toBoard);
+
         return DB::transaction(function () use ($card, $toBoard, $toColumn, $actor) {
             $fromBoardId = $card->board_id;
             $fromColumnId = $card->board_column_id;
@@ -46,5 +49,21 @@ class TransferCard
 
             return $card->fresh();
         });
+    }
+
+    /**
+     * Quadros de custos fixos e quadros de eventos não trocam cards, em nenhum sentido (specs/27 §1.3).
+     */
+    public static function ensureSameBoardType(Card $card, Board $toBoard): void
+    {
+        $from = (bool) Board::whereKey($card->board_id)->withTrashed()->value('fixed_costs');
+
+        if ($from !== (bool) $toBoard->fixed_costs) {
+            throw ValidationException::withMessages([
+                'board_id' => $from
+                    ? 'Cards de custos fixos não podem ir para quadros de eventos.'
+                    : 'Cards de eventos não podem ir para quadros de custos fixos.',
+            ]);
+        }
     }
 }

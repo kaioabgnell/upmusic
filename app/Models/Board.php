@@ -14,7 +14,7 @@ class Board extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'setor_id', 'name', 'description', 'color', 'icon', 'position', 'active', 'allows_supplier_form', 'feeds_finance',
+        'setor_id', 'name', 'description', 'color', 'icon', 'position', 'active', 'allows_supplier_form', 'feeds_finance', 'fixed_costs',
     ];
 
     protected $casts = [
@@ -22,6 +22,7 @@ class Board extends Model
         'position' => 'integer',
         'allows_supplier_form' => 'boolean',
         'feeds_finance' => 'boolean',
+        'fixed_costs' => 'boolean',
     ];
 
     public function setor(): BelongsTo
@@ -57,5 +58,42 @@ class Board extends Model
     public function scopeActive($query)
     {
         return $query->where('active', true);
+    }
+
+    /** Custos fixos que geram cards neste quadro (specs/27). */
+    public function fixedCostItems(): HasMany
+    {
+        return $this->hasMany(FixedCost::class);
+    }
+
+    /** Quadros de custos fixos (specs/27 §1.1). */
+    public function scopeFixedCosts($query)
+    {
+        return $query->where('fixed_costs', true);
+    }
+
+    /** Quadros dos eventos/processos — tudo o que não é quadro de custos fixos. */
+    public function scopeEventBoards($query)
+    {
+        return $query->where('fixed_costs', false);
+    }
+
+    /**
+     * Quadros que o usuário enxerga no menu e nas listas — a mesma régua de `User::canAccessBoard()`:
+     * Admin e Coordenador veem todos, Usuário só os vinculados em `user_board`, e quadros de custos
+     * fixos só aparecem para Admin e Coordenador sem eventos vinculados (specs/27 §1.2).
+     */
+    public function scopeVisibleTo($query, User $user)
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->isCoordenador()) {
+            return $user->isEventScoped() ? $query->where('fixed_costs', false) : $query;
+        }
+
+        return $query->where('fixed_costs', false)
+            ->whereHas('users', fn ($q) => $q->whereKey($user->id));
     }
 }

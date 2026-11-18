@@ -113,14 +113,15 @@ class FinanceExportService
         $ws->setTitle('RECEITAS');
 
         $ws->setCellValue('A1', 'RECEITAS');
-        $headers = ['RECEITA', 'VALOR PREVISTO', 'VALOR REALIZADO', 'RECEBIDO', 'FALTA RECEBER', 'RECEBIDO POR', 'OBS'];
+        // CENTRO DE CUSTO (specs/25) e CONTA BANCÁRIA (specs/26) vão no FIM: o import lê as colunas por posição.
+        $headers = ['RECEITA', 'VALOR PREVISTO', 'VALOR REALIZADO', 'RECEBIDO', 'FALTA RECEBER', 'RECEBIDO POR', 'OBS', 'CENTRO DE CUSTO', 'CONTA BANCÁRIA'];
         foreach ($headers as $i => $header) {
             $ws->setCellValue([$i + 1, 3], $header);
             $this->headerStyle($ws, [$i + 1, 3]);
         }
 
         $row = 4;
-        foreach ($sheet->revenues()->with('source:id,name')->orderBy('position')->orderBy('id')->get() as $revenue) {
+        foreach ($sheet->revenues()->with(['source:id,name', 'costCenter:id,code,name', 'bankAccount:id,name,agency,account_number'])->orderBy('position')->orderBy('id')->get() as $revenue) {
             // A descrição do patrocínio entra junto do rótulo — é o "de quem veio" que o cliente pediu.
             $label = $revenue->category->spreadsheetLabel();
             if ($revenue->description) {
@@ -134,6 +135,8 @@ class FinanceExportService
             $ws->setCellValue("E{$row}", (float) $revenue->pending_value);
             $ws->setCellValue("F{$row}", $revenue->source?->name);
             $ws->setCellValue("G{$row}", $revenue->notes);
+            $ws->setCellValue("H{$row}", $revenue->costCenter?->label);
+            $ws->setCellValue("I{$row}", $revenue->bankAccount?->label);
             $row++;
         }
 
@@ -147,6 +150,8 @@ class FinanceExportService
         foreach (['B', 'C', 'D', 'E', 'F', 'G'] as $col) {
             $ws->getColumnDimension($col)->setWidth(18);
         }
+        $ws->getColumnDimension('H')->setWidth(28);
+        $ws->getColumnDimension('I')->setWidth(34);
     }
 
     private function buildCosts(Spreadsheet $book, FinanceSheet $sheet): void
@@ -170,6 +175,9 @@ class FinanceExportService
             $sources->pluck('name')->map(fn ($n) => mb_strtoupper($n))->all(),
             ['PAGO', 'FALTA PAGAR'],
             array_map(fn (FinanceDocumentKind $k) => mb_strtoupper($k->label()), $kinds),
+            // CENTRO DE CUSTO (specs/25) vai depois do CONTROLE, como última coluna: o import lê as
+            // colunas fixas e os blocos de pagamento/controle por POSIÇÃO.
+            ['CENTRO DE CUSTO'],
         );
 
         foreach ($headers as $i => $header) {
@@ -186,7 +194,7 @@ class FinanceExportService
             // `documents.attachment`: o nome exibido do documento que veio do card mora no anexo —
             // sem isso é um lazy load por linha (e o guard de N+1 derruba a exportação fora de produção).
             ->with([
-                'categoria:id,nome', 'fornecedor:id,name', 'authorizer:id,name',
+                'categoria:id,nome', 'costCenter:id,code,name', 'fornecedor:id,name', 'authorizer:id,name',
                 'documents.attachment:id,original_name', 'payments',
             ])
             ->orderBy('position')->orderBy('id')->get();
@@ -212,6 +220,7 @@ class FinanceExportService
                 $sources->map(fn ($s) => (float) $item->payments->where('finance_payment_source_id', $s->id)->sum('amount'))->all(),
                 [$paid, (float) $item->total_actual - $paid],
                 array_column($documentCells = $this->documentCells($item, $kinds), 'text'),
+                [$item->costCenter?->label],
             );
 
             foreach ($values as $i => $value) {
@@ -254,6 +263,9 @@ class FinanceExportService
             $column = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($controlFirstColumn + $offset);
             $ws->getColumnDimension($column)->setWidth(30);
         }
+
+        $costCenterColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($controlFirstColumn + count($kinds));
+        $ws->getColumnDimension($costCenterColumn)->setWidth(28);
 
         $ws->freezePane('C8');
     }

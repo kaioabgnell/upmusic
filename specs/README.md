@@ -30,6 +30,9 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 22 | [Notificações](22-notificacoes.md) | Melhoria pós-entrega: sino na topbar com contador de não lidas, painel com scroll infinito (10 em 10), filtro "não lidas" e link direto para o card | `opus` |
 | 23 | [Financeiro do Evento](23-financeiro-do-evento.md) | Novo módulo: substitui a planilha `FINANCEIRO - MODELO.xlsx` — planilha financeira por evento (resumo/receitas/custos), previsto x realizado, pagamentos, controle documental e ponte que leva os anexos do card para a linha de custo | `opus` |
 | 24 | [Gestão de Locações](24-gestao-de-locacoes.md) | Novo módulo: inventário de itens próprios (LED, mesas, telões, som), Kanban de pedidos de locação com etapas fixas, disponibilidade por período (informativa) e financeiro próprio (receita prevista/realizada/recebida e custos com pagamentos), isolado dos eventos | `opus` |
+| 25 | [Centro de custos](25-centro-de-custos.md) | Cadastro global de centros de custo (código, nome, descrição, ativo) e classificação opcional das linhas de custos e receitas do Financeiro do Evento, inclusive no modal "Enviar para o Financeiro" do card | `opus` |
+| 26 | [Contas bancárias](26-contas-bancarias.md) | Cadastro global de contas bancárias (banco, nome, agência, conta, tipo, situação) vinculadas a uma ou mais empresas, e o vínculo opcional em cada pagamento de custo (de onde sai) e em cada receita (para onde entra) do Financeiro do Evento | `opus` |
+| 27 | [Custos fixos](27-custos-fixos.md) | Cadastro de custos recorrentes por empresa (aluguel, água, parcelamentos) que gera um card por parcela num quadro de custos fixos, todas de uma vez ou X dias antes do vencimento, com selo "Parcela X de Y". Nesta etapa, nada vai para o Financeiro | `opus` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

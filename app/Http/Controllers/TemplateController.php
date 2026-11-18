@@ -28,7 +28,7 @@ class TemplateController extends Controller
 
         return view('templates.index', [
             'templates' => $templates,
-            'boards' => Board::active()->orderBy('name')->get(['id', 'name']),
+            'boards' => Board::active()->eventBoards()->orderBy('name')->get(['id', 'name']),
             'empresas' => Empresa::active()->orderBy('corporate_name')->get(['id', 'corporate_name']),
         ]);
     }
@@ -37,7 +37,7 @@ class TemplateController extends Controller
     {
         $this->authorize('create', CardTemplate::class);
 
-        return view('templates.create', ['boards' => Board::active()->orderBy('name')->get(['id', 'name'])]);
+        return view('templates.create', ['boards' => Board::active()->eventBoards()->orderBy('name')->get(['id', 'name'])]);
     }
 
     public function store(StoreTemplateRequest $request)
@@ -56,7 +56,7 @@ class TemplateController extends Controller
 
         return view('templates.edit', [
             'template' => $template,
-            'boards' => Board::active()->orderBy('name')->get(['id', 'name']),
+            'boards' => Board::active()->eventBoards()->orderBy('name')->get(['id', 'name']),
             'assignees' => User::where('active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -86,6 +86,11 @@ class TemplateController extends Controller
 
         $board = Board::findOrFail($data['board_id']);
         $this->authorize('create', [Card::class, $board]);
+
+        // Templates não se aplicam aos quadros de custos fixos (specs/27 §1.3).
+        if ($board->fixed_costs) {
+            return back()->with('error', 'Templates não podem ser importados em quadros de custos fixos.');
+        }
 
         $empresa = ! empty($data['empresa_id']) ? Empresa::find($data['empresa_id']) : null;
 

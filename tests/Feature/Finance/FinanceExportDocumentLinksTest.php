@@ -155,7 +155,10 @@ class FinanceExportDocumentLinksTest extends FinanceTestCase
         $sheet = $this->costsSheet();
         $column = 14 + \App\Models\FinancePaymentSource::ordered()->count() + 2 + 1 + 6;
 
-        $this->assertNull($sheet->getCell([$column, 7])->getValue());
+        // Logo após os seis do modelo vem a última coluna, CENTRO DE CUSTO (specs/25) — e não um
+        // tipo de documento extra.
+        $this->assertSame('CENTRO DE CUSTO', $sheet->getCell([$column, 7])->getValue());
+        $this->assertNull($sheet->getCell([$column + 1, 7])->getValue());
     }
 
     public function test_tipo_sem_arquivo_continua_vazio_e_sem_link(): void

@@ -120,11 +120,10 @@ class CaptureController extends Controller
         $this->authorize('view', $capture);
 
         $user = auth()->user();
+        // Captura rápida não cai em quadro de custos fixos (specs/27 §1.3).
         $boards = Board::active()
-            ->when(
-                ! $user->isAdmin() && ! $user->isCoordenador(),
-                fn ($q) => $q->whereHas('users', fn ($q) => $q->whereKey($user->id))
-            )
+            ->eventBoards()
+            ->visibleTo($user)
             ->orderBy('name')
             ->get(['id', 'name']);
 

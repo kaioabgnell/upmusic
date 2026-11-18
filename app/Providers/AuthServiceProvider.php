@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\BankAccount;
 use App\Models\BidBusinessLine;
 use App\Models\BidCompany;
 use App\Models\BidDocument;
@@ -14,6 +15,8 @@ use App\Models\Board;
 use App\Models\Card;
 use App\Models\CardCapture;
 use App\Models\CardTemplate;
+use App\Models\CostCenter;
+use App\Models\FixedCost;
 use App\Models\Empresa;
 use App\Models\Event;
 use App\Models\FinanceSheet;
@@ -23,11 +26,14 @@ use App\Models\RentalItem;
 use App\Models\RentalOrder;
 use App\Models\Setor;
 use App\Models\User;
+use App\Policies\BankAccountPolicy;
 use App\Policies\BidModulePolicy;
 use App\Policies\BoardPolicy;
 use App\Policies\CardCapturePolicy;
 use App\Policies\CardPolicy;
 use App\Policies\CardTemplatePolicy;
+use App\Policies\CostCenterPolicy;
+use App\Policies\FixedCostPolicy;
 use App\Policies\EmpresaPolicy;
 use App\Policies\EventPolicy;
 use App\Policies\FinanceSheetPolicy;
@@ -51,6 +57,9 @@ class AuthServiceProvider extends ServiceProvider
         User::class => UserPolicy::class,
         Setor::class => SetorPolicy::class,
         Empresa::class => EmpresaPolicy::class,
+        CostCenter::class => CostCenterPolicy::class,
+        BankAccount::class => BankAccountPolicy::class,
+        FixedCost::class => FixedCostPolicy::class,
         Fornecedor::class => FornecedorPolicy::class,
         FornecedorCategoria::class => FornecedorCategoriaPolicy::class,
         Board::class => BoardPolicy::class,
