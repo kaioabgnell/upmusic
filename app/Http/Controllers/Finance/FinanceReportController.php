@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Models\Event;
+use App\Services\Finance\CostFilterOptions;
+use App\Services\Finance\CostItemFilter;
 use App\Services\Finance\FinanceSheetProvider;
 use App\Services\Finance\FinanceSummaryService;
+use Illuminate\Http\Request;
 
 /**
  * Aba RELATÓRIO do evento: os mesmos números do Resumo, só que em gráficos (specs/23 §8.2 —
@@ -19,19 +22,28 @@ class FinanceReportController extends FinanceController
     public function __construct(
         private FinanceSheetProvider $sheets,
         private FinanceSummaryService $summary,
+        private CostFilterOptions $filterOptions,
     ) {}
 
-    public function show(Event $evento)
+    /**
+     * Os mesmos filtros da aba CUSTOS (CostItemFilter): os gráficos passam a mostrar só as linhas
+     * filtradas, e o "Exportar" daqui leva o mesmo recorte para o arquivo.
+     */
+    public function show(Request $request, Event $evento)
     {
         $sheet = $this->sheets->forEvent($evento);
         $this->authorize('view', $sheet);
 
-        return view('financeiro.eventos.relatorio', [
+        $filter = CostItemFilter::fromRequest($request);
+        $active = $filter->isEmpty() ? null : $filter;
+
+        return view('financeiro.eventos.relatorio', $this->filterOptions->for($sheet) + [
             'evento' => $evento,
             'sheet' => $sheet,
-            'summary' => $this->summary->summary($sheet),
-            'byCategory' => $this->summary->byCategory($sheet),
-            'cashFlow' => $this->summary->cashFlow($sheet),
+            'filter' => $active,
+            'summary' => $this->summary->summary($sheet, $active),
+            'byCategory' => $this->summary->byCategory($sheet, $active),
+            'cashFlow' => $this->summary->cashFlow($sheet, $active),
         ]);
     }
 }

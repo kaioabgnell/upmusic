@@ -7,19 +7,14 @@ use App\Domain\Enums\FinanceArtStatus;
 use App\Domain\Enums\FinanceCostStatus;
 use App\Http\Requests\Finance\StoreCostItemRequest;
 use App\Http\Requests\Finance\UpdateCostItemRequest;
-use App\Models\BankAccount;
-use App\Models\CostCenter;
 use App\Models\Event;
 use App\Models\FinanceCostItem;
 use App\Models\FinanceItemPreset;
-use App\Models\FinancePayment;
-use App\Models\FinancePaymentSource;
-use App\Models\Fornecedor;
-use App\Models\FornecedorCategoria;
 use App\Models\User;
+use App\Services\Finance\CostFilterOptions;
+use App\Services\Finance\CostItemFilter;
 use App\Services\Finance\FinanceSheetProvider;
 use App\Services\Finance\FinanceSummaryService;
-use App\Support\Br;
 use App\Support\FinancePresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +27,7 @@ class FinanceCostItemController extends FinanceController
     public function __construct(
         private FinanceSheetProvider $sheets,
         private FinanceSummaryService $summary,
+        private CostFilterOptions $filterOptions,
     ) {}
 
     /**
@@ -44,30 +40,16 @@ class FinanceCostItemController extends FinanceController
         $sheet = $this->sheets->forEvent($evento);
         $this->authorize('view', $sheet);
 
-        $fornecedores = Fornecedor::active()->orderBy('name')->get(['id', 'name']);
-        $categorias = FornecedorCategoria::active()->orderBy('nome')->get(['id', 'nome']);
+        // Listas dos filtros (as mesmas do RELATÓRIO). Centros e contas também alimentam a grade e o
+        // formulário de pagamento: ativos + os já usados nesta planilha (specs/25 e 26).
+        $options = $this->filterOptions->for($sheet);
+        $fornecedores = $options['fornecedores'];
+        $categorias = $options['categorias'];
 
-        return view('financeiro.eventos.custos', [
+        return view('financeiro.eventos.custos', $options + [
             'evento' => $evento,
             'sheet' => $sheet,
-            'categorias' => $categorias,
-            // Ativos + os já usados em alguma linha desta planilha (mesmo inativos), para o
-            // filtro e a grade nunca esconderem o centro que uma linha já tem (specs/25).
-            'costCenters' => CostCenter::options(
-                FinanceCostItem::where('finance_sheet_id', $sheet->id)->whereNotNull('cost_center_id')
-                    ->distinct()->pluck('cost_center_id')
-            ),
-            // Contas para o formulário de pagamento (specs/26): ativas + as já usadas em algum
-            // pagamento desta planilha, para a lista de pagamentos nunca esconder a conta que tem.
-            'bankAccounts' => BankAccount::options(
-                FinancePayment::whereNotNull('bank_account_id')
-                    ->whereHas('costItem', fn ($q) => $q->where('finance_sheet_id', $sheet->id))
-                    ->distinct()->pluck('bank_account_id')
-            ),
-            'fornecedores' => $fornecedores,
             'usuarios' => User::where('active', true)->orderBy('name')->get(['id', 'name']),
-            'sources' => FinancePaymentSource::active()->ordered()->get(['id', 'name', 'kind']),
-            'statuses' => FinanceCostStatus::options(),
             'artStatuses' => FinanceArtStatus::options(),
             // Item e Empresa da grade usam UM seletor compartilhado (não um <select> por linha):
             // a grade recebe as listas uma vez só, como dados.
@@ -222,45 +204,11 @@ class FinanceCostItemController extends FinanceController
 
     // ------------------------------------------------------------------
 
-    /** Filtros server-side da grade (specs/23 §8.4). */
+    /** Filtros server-side da grade (specs/23 §8.4) — a mesma regra da exportação e do relatório. */
     private function filtered(Request $request, int $sheetId)
     {
-        // Calculado fora do when() porque o filtro compara IGUALDADE com uma coluna gerada
-        // (DECIMAL exato, sem risco do arredondamento de float binário) — Br::money() já devolve
-        // null para entrada inválida/vazia, então não dá pra decidir "aplicar o filtro" só olhando
-        // o valor bruto da request.
-        $totalReal = $request->filled('total_actual') ? Br::money($request->total_actual) : null;
-
-        return FinanceCostItem::query()
-            ->where('finance_sheet_id', $sheetId)
-            ->when($request->categoria_id, fn ($q, $v) => $q->where('fornecedor_categoria_id', $v))
-            ->when($request->status, fn ($q, $v) => $q->where('status', $v))
-            // Seleção múltipla por checkbox (`fornecedor_id[]`) — mesmo padrão de
-            // RentalOrderController para filtros de várias opções num GET simples.
-            ->when($request->fornecedor_id, fn ($q, $v) => $q->whereIn('fornecedor_id', (array) $v))
-            // Centro de custo (specs/25): seleção múltipla; "none" = linhas ainda sem centro.
-            ->when($request->cost_center_id, function ($q, $v) {
-                $values = collect((array) $v);
-                $ids = $values->reject(fn ($id) => $id === 'none')->map(fn ($id) => (int) $id)->all();
-                $withoutCenter = $values->contains('none');
-
-                $q->where(fn ($w) => $w
-                    ->when($ids, fn ($i) => $i->whereIn('cost_center_id', $ids))
-                    ->when($withoutCenter, fn ($n) => $n->orWhereNull('cost_center_id')));
-            })
-            ->when($request->search, fn ($q, $v) => $q->where('description', 'like', "%{$v}%"))
-            ->when($totalReal !== null, fn ($q) => $q->where('total_actual', $totalReal))
-            ->when($request->boolean('sem_comprovante'), fn ($q) => $q
-                ->whereNotNull('unit_actual')
-                ->whereDoesntHave('documents', fn ($d) => $d->where('kind', 'comprovante')))
-            ->when($request->boolean('falta_pagar'), fn ($q) => $q
-                ->whereRaw('total_actual > (select COALESCE(SUM(amount),0) from finance_payments
-                            where finance_payments.finance_cost_item_id = finance_cost_items.id)'))
-            ->when($request->boolean('pago_a_maior'), fn ($q) => $q
-                ->whereRaw('total_actual < (select COALESCE(SUM(amount),0) from finance_payments
-                            where finance_payments.finance_cost_item_id = finance_cost_items.id)'))
-            ->when($request->source_id, fn ($q, $v) => $q
-                ->whereHas('payments', fn ($p) => $p->where('finance_payment_source_id', $v)));
+        return CostItemFilter::fromRequest($request)
+            ->apply(FinanceCostItem::query()->where('finance_sheet_id', $sheetId));
     }
 
     /** "PAGO" do rodapé, também respeitando o filtro. */

@@ -1,12 +1,17 @@
-@php $money = fn ($v) => 'R$ '.number_format((float) $v, 2, ',', '.'); @endphp
+@php
+    $money = fn ($v) => 'R$ '.number_format((float) $v, 2, ',', '.');
+    $filtroAtivo = ! \App\Services\Finance\CostItemFilter::fromRequest(request())->isEmpty();
+@endphp
 <x-app-layout>
     <x-slot name="header"><h2 class="text-lg font-semibold text-brand-ink">Custos — {{ $evento->name }}</h2></x-slot>
 
     <x-page-header title="Custos" :subtitle="$evento->name" icon="fa-arrow-trend-down">
         <x-slot name="actions">
-            <a href="{{ route('finance.export', $evento) }}"
+            {{-- Leva os filtros aplicados: o arquivo sai com o mesmo recorte da tela. --}}
+            <a href="{{ route('finance.export', ['evento' => $evento] + request()->only(\App\Services\Finance\CostItemFilter::KEYS)) }}"
+               title="{{ $filtroAtivo ? 'Exporta só as linhas filtradas' : 'Exporta a planilha completa' }}"
                class="inline-flex items-center gap-2 rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">
-                <i class="fa-solid fa-file-excel"></i> Exportar
+                <i class="fa-solid fa-file-excel"></i> {{ $filtroAtivo ? 'Exportar filtrado' : 'Exportar' }}
             </a>
             <a href="{{ route('finance.show', $evento) }}"
                class="inline-flex items-center gap-2 rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">
@@ -23,161 +28,7 @@
         </div>
     @endif
 
-    {{-- Filtros server-side --}}
-    <form method="GET" class="mb-4 flex flex-wrap items-end gap-2">
-        <div class="flex-1 min-w-[180px]">
-            <label class="text-xs text-steel">Buscar descrição</label>
-            <input type="text" name="search" value="{{ request('search') }}"
-                   class="mt-1 w-full border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
-        </div>
-        <div class="w-44">
-            <label class="text-xs text-steel">Item</label>
-            <x-form.select name="categoria_id" class="mt-1">
-                <option value="">Todos</option>
-                @foreach ($categorias as $categoria)
-                    <option value="{{ $categoria->id }}" @selected(request('categoria_id') == $categoria->id)>{{ $categoria->nome }}</option>
-                @endforeach
-            </x-form.select>
-        </div>
-        <div class="w-48">
-            <label class="text-xs text-steel">Status</label>
-            <x-form.select name="status" class="mt-1">
-                <option value="">Todos</option>
-                @foreach ($statuses as $value => $label)
-                    <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
-                @endforeach
-            </x-form.select>
-        </div>
-        {{-- Mesma lista do select "Empresa" de cada linha da grade (que, por histórico, é o
-             fornecedor vinculado — não há `empresa_id` em FinanceCostItem). Seleção múltipla por
-             checkbox: `fornecedor_id[]` chega como array, igual ao padrão já usado em
-             RentalOrderController para filtros de múltiplos valores num GET simples. O estado
-             marcado é 100% server-rendered (@checked) — o x-data local só abre/fecha o painel e
-             filtra a lista por texto; não depende do x-data maior da grade (financeCosts), que só
-             começa no <div> de baixo. --}}
-        <div class="w-48" x-data="{ open: false, search: '' }" @click.outside="open = false">
-            <label class="text-xs text-steel">Empresa</label>
-            <div class="relative mt-1">
-                <button type="button" @click="open = !open; search = ''"
-                        class="w-full h-9 flex items-center justify-between gap-2 rounded-md border border-gray-300 px-3 text-sm text-left hover:border-brand-orange transition-colors bg-white">
-                    @php($selecionados = (array) request('fornecedor_id', []))
-                    <span class="truncate {{ count($selecionados) > 0 ? 'text-brand-ink' : 'text-steel' }}">
-                        {{ count($selecionados) > 0 ? count($selecionados).' selecionada(s)' : 'Todas' }}
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-steel shrink-0"></i>
-                </button>
-                <div x-show="open" x-cloak
-                     x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                     class="absolute left-0 z-30 mt-2 w-64 bg-white border border-hairline rounded-xl shadow-lg origin-top-left p-2">
-                    <div class="relative mb-2">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-steel"></i>
-                        <input type="text" x-model="search" placeholder="Pesquisar empresa"
-                               class="w-full pl-7 h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
-                    </div>
-                    <div class="max-h-48 overflow-y-auto space-y-0.5">
-                        @foreach ($fornecedores as $fornecedor)
-                            <label x-show="search === '' || {{ Illuminate\Support\Js::from(mb_strtolower($fornecedor->name)) }}.includes(search.toLowerCase())"
-                                   class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm cursor-pointer">
-                                <input type="checkbox" name="fornecedor_id[]" value="{{ $fornecedor->id }}"
-                                       @checked(in_array($fornecedor->id, $selecionados))
-                                       class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-                                <span class="flex-1 truncate text-brand-ink">{{ $fornecedor->name }}</span>
-                            </label>
-                        @endforeach
-                        <p x-show="search !== '' && {{ Illuminate\Support\Js::from($fornecedores->pluck('name')->map(fn ($n) => mb_strtolower($n))) }}.every(n => !n.includes(search.toLowerCase()))"
-                           class="text-xs text-steel px-2 py-1.5">Nenhuma empresa encontrada.</p>
-                    </div>
-                    @if (count($selecionados) > 0)
-                        <button type="button" @click="$el.closest('form').querySelectorAll('input[name=\'fornecedor_id[]\']').forEach(el => el.checked = false)"
-                                class="w-full text-left px-2 py-1.5 mt-1 text-xs text-red-600 hover:underline border-t border-hairline">Limpar seleção</button>
-                    @endif
-                </div>
-            </div>
-        </div>
-        {{-- Centro de custo (specs/25): mesmo padrão do filtro Empresa, com "Sem centro de custo"
-             no topo (value "none") para achar as linhas ainda não classificadas. --}}
-        <div class="w-48" x-data="{ open: false, search: '' }" @click.outside="open = false">
-            <label class="text-xs text-steel">Centro de custo</label>
-            <div class="relative mt-1">
-                @php($centrosSelecionados = array_map('strval', (array) request('cost_center_id', [])))
-                <button type="button" @click="open = !open; search = ''"
-                        class="w-full h-9 flex items-center justify-between gap-2 rounded-md border border-gray-300 px-3 text-sm text-left hover:border-brand-orange transition-colors bg-white">
-                    <span class="truncate {{ count($centrosSelecionados) > 0 ? 'text-brand-ink' : 'text-steel' }}">
-                        {{ count($centrosSelecionados) > 0 ? count($centrosSelecionados).' selecionado(s)' : 'Todos' }}
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-[10px] text-steel shrink-0"></i>
-                </button>
-                <div x-show="open" x-cloak
-                     x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                     class="absolute left-0 z-30 mt-2 w-64 bg-white border border-hairline rounded-xl shadow-lg origin-top-left p-2">
-                    <div class="relative mb-2">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-steel"></i>
-                        <input type="text" x-model="search" placeholder="Pesquisar centro de custo"
-                               class="w-full pl-7 h-9 text-sm border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md">
-                    </div>
-                    <div class="max-h-48 overflow-y-auto space-y-0.5">
-                        <label x-show="search === ''"
-                               class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm cursor-pointer border-b border-hairline mb-1">
-                            <input type="checkbox" name="cost_center_id[]" value="none"
-                                   @checked(in_array('none', $centrosSelecionados, true))
-                                   class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-                            <span class="flex-1 truncate text-steel">Sem centro de custo</span>
-                        </label>
-                        @foreach ($costCenters as $centro)
-                            <label x-show="search === '' || {{ Illuminate\Support\Js::from(mb_strtolower($centro['label'])) }}.includes(search.toLowerCase())"
-                                   class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm cursor-pointer">
-                                <input type="checkbox" name="cost_center_id[]" value="{{ $centro['id'] }}"
-                                       @checked(in_array((string) $centro['id'], $centrosSelecionados, true))
-                                       class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-                                <span class="flex-1 truncate {{ $centro['active'] ? 'text-brand-ink' : 'text-steel' }}">{{ $centro['label'] }}</span>
-                            </label>
-                        @endforeach
-                        <p x-show="search !== '' && {{ Illuminate\Support\Js::from($costCenters->pluck('label')->map(fn ($n) => mb_strtolower($n))) }}.every(n => !n.includes(search.toLowerCase()))"
-                           class="text-xs text-steel px-2 py-1.5">Nenhum centro de custo encontrado.</p>
-                    </div>
-                    @if (count($centrosSelecionados) > 0)
-                        <button type="button" @click="$el.closest('form').querySelectorAll('input[name=\'cost_center_id[]\']').forEach(el => el.checked = false)"
-                                class="w-full text-left px-2 py-1.5 mt-1 text-xs text-red-600 hover:underline border-t border-hairline">Limpar seleção</button>
-                    @endif
-                </div>
-            </div>
-        </div>
-        <div class="w-44">
-            <label class="text-xs text-steel">Grupo de pagamento</label>
-            <x-form.select name="source_id" class="mt-1">
-                <option value="">Todos</option>
-                @foreach ($sources as $source)
-                    <option value="{{ $source->id }}" @selected(request('source_id') == $source->id)>{{ $source->name }}</option>
-                @endforeach
-            </x-form.select>
-        </div>
-        {{-- Fora do x-data="financeCosts(...)" (esse div só abre mais abaixo) — a mesma máscara
-             usada nos valores do card/Financeiro, exposta em window.maskMoneyDigits (ver app.js)
-             para funcionar aqui também, sem depender do componente da grade. --}}
-        <div class="w-40" x-data="{ value: @js(request('total_actual', '')) }">
-            <label class="text-xs text-steel">Total real.</label>
-            <div class="relative mt-1">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-steel pointer-events-none">R$</span>
-                <input type="text" name="total_actual" inputmode="decimal" :value="value"
-                       @input="value = window.maskMoneyDigits($event.target.value)"
-                       placeholder="0,00" class="w-full pl-9 border-gray-300 focus:border-brand-orange focus:ring-brand-orange rounded-md text-sm">
-            </div>
-        </div>
-        <label class="inline-flex items-center gap-1.5 text-xs text-steel pb-2">
-            <input type="checkbox" name="sem_comprovante" value="1" @checked(request('sem_comprovante'))
-                   class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"> Sem comprovante
-        </label>
-        <label class="inline-flex items-center gap-1.5 text-xs text-steel pb-2">
-            <input type="checkbox" name="falta_pagar" value="1" @checked(request('falta_pagar'))
-                   class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"> Falta pagar
-        </label>
-        <button type="submit" class="inline-flex items-center gap-2 rounded-md bg-brand-ink px-4 py-2 text-sm font-medium text-white hover:bg-black">
-            <i class="fa-solid fa-filter"></i> Filtrar
-        </button>
-        @if (request()->hasAny(['search', 'categoria_id', 'status', 'fornecedor_id', 'cost_center_id', 'total_actual', 'source_id', 'sem_comprovante', 'falta_pagar', 'pago_a_maior']))
-            <a href="{{ route('finance.costs.index', $evento) }}" class="text-sm text-steel hover:text-brand-ink pb-2">Limpar</a>
-        @endif
-    </form>
+    @include('financeiro.eventos._cost_filters', ['clearUrl' => route('finance.costs.index', $evento)])
 
     <div x-data="financeCosts({
             urls: {
@@ -466,7 +317,7 @@
 
                         <tr x-show="!loading && !loadError && rows.length === 0" x-cloak>
                             <td colspan="18" class="px-4 py-10 text-center text-sm text-steel">
-                                @if (request()->hasAny(['search', 'categoria_id', 'status', 'fornecedor_id', 'cost_center_id', 'total_actual', 'source_id', 'sem_comprovante', 'falta_pagar', 'pago_a_maior']))
+                                @if ($filtroAtivo)
                                     Nenhuma linha com esses filtros. <a href="{{ route('finance.costs.index', $evento) }}" class="text-brand-orange-deep hover:underline">Limpar filtros</a>
                                 @else
                                     Nenhuma linha de custo. Envie um card do Kanban para o Financeiro ou adicione uma linha abaixo.

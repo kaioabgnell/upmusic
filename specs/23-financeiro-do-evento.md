@@ -653,7 +653,22 @@ O centro do módulo. Grade tipo planilha, Alpine.js, com:
 - **Badge de origem** na linha: `#123` clicável quando `card_id` está preenchido, levando ao card
   (rota de link direto da specs/18).
 - **Filtros server-side**: categoria, status, ART, fornecedor, grupo de pagamento, "só com pendência
-  documental", "só com falta pagar", busca por descrição.
+  documental", "só com falta pagar", busca por descrição. Depois vieram centro de custo (specs/25) e
+  conta bancária (specs/26). A regra mora em `App\Services\Finance\CostItemFilter` e é a mesma na
+  grade, na **exportação** e no **Relatório**: o bloco de filtros é um partial compartilhado
+  (`financeiro/eventos/_cost_filters.blade.php`), e o "Exportar" das duas telas leva a query string.
+- **Layout dos filtros** (ajuste de 23/11/2026, Custos e Relatório): na barra ficam só **Buscar
+  descrição**, **Empresa**, **Centro de custo** e **Conta bancária** (seleções múltiplas no componente
+  `x-filter-multiselect`, que mostra o nome quando há uma seleção só), mais **Busca avançada** e
+  **Filtrar**. A **Busca avançada** abre um painel lateral (mesmo padrão do painel de documentos e
+  pagamentos) com Item, Status, Grupo de pagamento, Total realizado e "Situação da linha" (Sem
+  comprovante, Falta pagar, Pago a maior); o botão mostra quantos estão ativos. Filtro avançado ativo
+  vira etiqueta removível abaixo da barra, junto de "Limpar filtros" — a barra nunca muda de formato.
+  Esc fecha o painel e devolve o foco ao botão; no celular cada campo ocupa a largura toda.
+- **Relatório filtrado** (ajuste de 23/11/2026): os quatro gráficos calculam sobre as linhas filtradas
+  (as agregações do `FinanceSummaryService` aceitam o filtro). As receitas — entradas da evolução de
+  caixa — só seguem centro de custo e conta bancária, os dois filtros que existem nelas; um aviso acima
+  dos gráficos diz o recorte e isso. Filtro sem resultado mostra "Nenhum dado com esses filtros".
 - **Rodapé sticky** com os totais das colunas visíveis, sempre refletindo o filtro aplicado.
 - **Adicionar linha** ao final da grade (padrão Pipefy do projeto) e **duplicar linha** (itens como
   `INFLUENCER` repetem N vezes no modelo).
@@ -760,6 +775,16 @@ Dependência nova: **`phpoffice/phpspreadsheet`** (export §12 e import do model
 `RECEITAS`, `CUSTOS`, mesmas colunas e ordem), com valores já calculados. Serve para mandar à
 contabilidade e para os sócios sem obrigar ninguém a entrar no sistema. É via de mão única: o arquivo
 exportado **não** volta a ser fonte da verdade.
+
+**Exportação filtrada** (ajuste de 23/11/2026): com filtros na query string (vindos da aba Custos ou do
+Relatório), o arquivo sai com o mesmo recorte — nome `FINANCEIRO - EVENTO (FILTRADO).xlsx`:
+- `CUSTOS`: só as linhas filtradas; os filtros usados vão em `A5:B5` (linhas 4–6 são livres no modelo).
+- `RESUMO GERAL`: receita, custo, resultado, custo por item e andamento calculados sobre o recorte;
+  filtros em `B8`. O **acerto de sócios não sai** (divide o resultado do evento inteiro, e calcular
+  sobre um recorte ainda regravaria os valores) — no lugar, um aviso.
+- `RECEITAS`: filtradas só por centro de custo e conta bancária; `A2` diz o filtro usado ou que os
+  filtros aplicados são só de custos.
+- Sem filtro (ou com o formulário vazio), o arquivo é exatamente o de antes.
 
 **Importação (`finance.import`)** — sobe um `FINANCEIRO - MODELO.xlsx` já preenchido de um evento em
 andamento e converte em linhas do sistema. É a ferramenta de migração, essencial para a adoção (há

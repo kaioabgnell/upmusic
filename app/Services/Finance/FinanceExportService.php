@@ -6,6 +6,7 @@ use App\Domain\Enums\FinanceDocumentKind;
 use App\Models\FinanceCostItem;
 use App\Models\FinanceDocument;
 use App\Models\FinancePaymentSource;
+use App\Models\FinanceRevenue;
 use App\Models\FinanceSheet;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -24,17 +25,24 @@ class FinanceExportService
 
     public function __construct(private FinanceSummaryService $summary) {}
 
-    /** @return string caminho do arquivo temporário gerado */
-    public function toXlsx(FinanceSheet $sheet): string
+    /**
+     * Com `$filter` (filtros da aba CUSTOS ou do RELATÓRIO), o arquivo sai com o mesmo recorte da
+     * tela: CUSTOS só com as linhas filtradas, RESUMO calculado sobre elas e RECEITAS filtradas
+     * pelo que existe nelas (centro de custo e conta bancária). Cada aba registra o filtro usado.
+     *
+     * @return string caminho do arquivo temporário gerado
+     */
+    public function toXlsx(FinanceSheet $sheet, ?CostItemFilter $filter = null): string
     {
         $sheet->loadMissing('event');
+        $filter = $filter?->isEmpty() ? null : $filter;
 
         $book = new Spreadsheet;
         $book->removeSheetByIndex(0);
 
-        $this->buildSummary($book, $sheet);
-        $this->buildRevenues($book, $sheet);
-        $this->buildCosts($book, $sheet);
+        $this->buildSummary($book, $sheet, $filter);
+        $this->buildRevenues($book, $sheet, $filter);
+        $this->buildCosts($book, $sheet, $filter);
 
         $book->setActiveSheetIndex(0);
 
@@ -44,22 +52,29 @@ class FinanceExportService
         return $path;
     }
 
-    public function filename(FinanceSheet $sheet): string
+    public function filename(FinanceSheet $sheet, ?CostItemFilter $filter = null): string
     {
         $name = preg_replace('/[^A-Za-z0-9 _-]/', '', $sheet->event?->name ?? 'evento');
+        $suffix = $filter && ! $filter->isEmpty() ? ' (FILTRADO)' : '';
 
-        return 'FINANCEIRO - '.mb_strtoupper(trim($name)).'.xlsx';
+        return 'FINANCEIRO - '.mb_strtoupper(trim($name)).$suffix.'.xlsx';
     }
 
-    private function buildSummary(Spreadsheet $book, FinanceSheet $sheet): void
+    private function buildSummary(Spreadsheet $book, FinanceSheet $sheet, ?CostItemFilter $filter): void
     {
         $ws = $book->createSheet();
         $ws->setTitle('RESUMO GERAL');
 
-        $data = $this->summary->summary($sheet);
-        $settlements = $this->summary->settlements($sheet, $data['result']['actual']);
+        $data = $this->summary->summary($sheet, $filter);
+        // O acerto de sócios divide o resultado do evento INTEIRO — e settlements() ainda regrava
+        // os valores calculados. Num recorte filtrado ele não faz sentido, então não sai.
+        $settlements = $filter ? [] : $this->summary->settlements($sheet, $data['result']['actual']);
 
         $ws->setCellValue('B2', 'EVENTO:')->setCellValue('C2', $sheet->event?->name);
+        if ($filter) {
+            $ws->setCellValue('B8', 'FILTROS:')->setCellValue('C8', implode(' · ', $filter->describe()));
+            $this->headerStyle($ws, 'B8');
+        }
         $ws->setCellValue('B3', 'RESUMO GERAL PREVISTO');
         $ws->setCellValue('E3', 'RESUMO GERAL REALIZADO');
 
@@ -75,7 +90,7 @@ class FinanceExportService
         $ws->setCellValue('C10', 'PREVISTO');
         $ws->setCellValue('D10', 'REALIZADO');
         $row = 11;
-        foreach ($this->summary->byCategory($sheet) as $line) {
+        foreach ($this->summary->byCategory($sheet, $filter) as $line) {
             $ws->setCellValue("B{$row}", $line['label']);
             $ws->setCellValue("C{$row}", $line['estimated']);
             $ws->setCellValue("D{$row}", $line['actual']);
@@ -87,7 +102,11 @@ class FinanceExportService
         $ws->setCellValue('F12', 'FALTA PAGAR:')->setCellValue('G12', $data['progress']['pending']);
 
         $ws->setCellValue('F15', 'ACERTO SÓCIOS');
-        $ws->setCellValue('F16', 'REPASSE SÓCIOS')->setCellValue('G16', 'PORCENTAGEM')->setCellValue('H16', 'TOTAL');
+        if ($filter) {
+            $ws->setCellValue('F16', 'Só na exportação sem filtros (divide o resultado do evento inteiro).');
+        } else {
+            $ws->setCellValue('F16', 'REPASSE SÓCIOS')->setCellValue('G16', 'PORCENTAGEM')->setCellValue('H16', 'TOTAL');
+        }
         $row = 17;
         foreach ($settlements as $s) {
             $ws->setCellValue("F{$row}", $s['partner_name']);
@@ -107,12 +126,19 @@ class FinanceExportService
         }
     }
 
-    private function buildRevenues(Spreadsheet $book, FinanceSheet $sheet): void
+    private function buildRevenues(Spreadsheet $book, FinanceSheet $sheet, ?CostItemFilter $filter): void
     {
         $ws = $book->createSheet();
         $ws->setTitle('RECEITAS');
 
         $ws->setCellValue('A1', 'RECEITAS');
+        // Linha 2 fica livre no modelo (o import lê a partir da 4).
+        if ($filter) {
+            $applied = $filter->describe(revenuesOnly: true);
+            $ws->setCellValue('A2', $applied
+                ? 'FILTROS: '.implode(' · ', $applied)
+                : 'SEM FILTRO: os filtros aplicados são só de custos.');
+        }
         // CENTRO DE CUSTO (specs/25) e CONTA BANCÁRIA (specs/26) vão no FIM: o import lê as colunas por posição.
         $headers = ['RECEITA', 'VALOR PREVISTO', 'VALOR REALIZADO', 'RECEBIDO', 'FALTA RECEBER', 'RECEBIDO POR', 'OBS', 'CENTRO DE CUSTO', 'CONTA BANCÁRIA'];
         foreach ($headers as $i => $header) {
@@ -121,7 +147,12 @@ class FinanceExportService
         }
 
         $row = 4;
-        foreach ($sheet->revenues()->with(['source:id,name', 'costCenter:id,code,name', 'bankAccount:id,name,agency,account_number'])->orderBy('position')->orderBy('id')->get() as $revenue) {
+        $revenues = FinanceRevenue::where('finance_sheet_id', $sheet->id)
+            ->when($filter, fn ($q) => $filter->applyToRevenues($q))
+            ->with(['source:id,name', 'costCenter:id,code,name', 'bankAccount:id,name,agency,account_number'])
+            ->orderBy('position')->orderBy('id')->get();
+
+        foreach ($revenues as $revenue) {
             // A descrição do patrocínio entra junto do rótulo — é o "de quem veio" que o cliente pediu.
             $label = $revenue->category->spreadsheetLabel();
             if ($revenue->description) {
@@ -154,7 +185,7 @@ class FinanceExportService
         $ws->getColumnDimension('I')->setWidth(34);
     }
 
-    private function buildCosts(Spreadsheet $book, FinanceSheet $sheet): void
+    private function buildCosts(Spreadsheet $book, FinanceSheet $sheet, ?CostItemFilter $filter): void
     {
         $ws = $book->createSheet();
         $ws->setTitle('CUSTOS');
@@ -165,6 +196,10 @@ class FinanceExportService
         $ws->setCellValue('A1', 'EVENTO:')->setCellValue('B1', $sheet->event?->name);
         $ws->setCellValue('A2', 'DATA:')->setCellValue('B2', $sheet->event?->start_date?->format('d/m/Y'));
         $ws->setCellValue('A3', 'LOCAL:')->setCellValue('B3', $sheet->event?->location);
+        // Linhas 4 a 6 ficam livres no modelo (o import lê o cabeçalho na 7 e os dados a partir da 8).
+        if ($filter) {
+            $ws->setCellValue('A5', 'FILTROS:')->setCellValue('B5', implode(' · ', $filter->describe()));
+        }
 
         // Cabeçalho na mesma ordem do modelo; os grupos de pagamento entram como colunas dinâmicas
         // (na planilha eram fixos: CAIXA EVENTO, SÓCIO 1, SÓCIO 2, TICKETEIRA, BAR).
@@ -190,7 +225,8 @@ class FinanceExportService
         $controlFirstColumn = 14 + $sources->count() + 2 + 1;
 
         $row = 8;
-        $items = $sheet->costItems()
+        $items = FinanceCostItem::where('finance_sheet_id', $sheet->id)
+            ->when($filter, fn ($q) => $filter->apply($q))
             // `documents.attachment`: o nome exibido do documento que veio do card mora no anexo —
             // sem isso é um lazy load por linha (e o guard de N+1 derruba a exportação fora de produção).
             ->with([

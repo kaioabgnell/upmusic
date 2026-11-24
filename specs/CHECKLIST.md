@@ -1322,6 +1322,19 @@ de implementação).
     com todos os campos editáveis, o caminho do dinheiro (previsto, realizado, pago, falta pagar) e os
     atalhos de documentos e pagamentos. A ficha edita o mesmo objeto da linha: a grade atualiza na hora.
   - Rodapé acompanha as edições pela diferença de cada linha (`syncRow`); ações em massa recarregam só a grade.
+- [x] **Filtros de Custos na exportação e no Relatório + filtro por conta bancária (specs/23 e 26)**:
+  - Filtro "Conta bancária" (seleção múltipla, com "Pagamento sem conta") nas abas Custos e Relatório:
+    a linha entra se tiver pagamento da(s) conta(s).
+  - Regra única em `App\Services\Finance\CostItemFilter` (grade, exportação e relatório) e bloco de
+    filtros compartilhado (`_cost_filters.blade.php`).
+  - "Exportar" leva os filtros: CUSTOS só com as linhas filtradas, RESUMO sobre o recorte (sem acerto de
+    sócios), RECEITAS por centro de custo e conta bancária; filtros registrados em cada aba e arquivo
+    "(FILTRADO)".
+  - Relatório com os mesmos filtros: gráficos sobre o recorte, aviso do filtro e estado vazio próprio.
+  - Layout: barra só com Buscar descrição, Empresa, Centro de custo e Conta bancária; "Busca avançada"
+    abre painel lateral com os demais filtros; avançados ativos viram etiquetas removíveis; componente
+    `x-filter-multiselect` para as seleções múltiplas. Vale para Custos e Relatório.
+  - Cobertura: `tests/Feature/Finance/FinanceCostFiltersTest.php` (9 testes).
 - [x] **Custos fixos (specs/27)**:
   - [x] Chave "Quadro de custos fixos" (`boards.fixed_costs`) na configuração do quadro, exclusiva com
     `feeds_finance` e travada enquanto houver custo fixo apontando para o quadro. A migration ligou a

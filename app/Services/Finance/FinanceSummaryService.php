@@ -8,6 +8,7 @@ use App\Models\FinanceDocument;
 use App\Models\FinancePayment;
 use App\Models\FinanceRevenue;
 use App\Models\FinanceSheet;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,14 +19,33 @@ use Illuminate\Support\Facades\DB;
  */
 class FinanceSummaryService
 {
-    /** @return array<string,mixed> */
-    public function summary(FinanceSheet $sheet): array
+    /**
+     * Linhas de custo da planilha, já recortadas pelo filtro da aba CUSTOS quando houver (o
+     * RELATÓRIO e a exportação filtrada usam as mesmas agregações do Resumo, só que sobre o recorte).
+     */
+    private function costItems(FinanceSheet $sheet, ?CostItemFilter $filter = null): Builder
     {
-        $revenue = $this->revenueTotals($sheet);
-        $cost = $this->costTotals($sheet);
+        $query = FinanceCostItem::where('finance_cost_items.finance_sheet_id', $sheet->id);
+
+        return $filter ? $filter->apply($query) : $query;
+    }
+
+    /** Receitas da planilha; do filtro, só valem centro de custo e conta bancária (CostItemFilter). */
+    private function revenues(FinanceSheet $sheet, ?CostItemFilter $filter = null): Builder
+    {
+        $query = FinanceRevenue::where('finance_sheet_id', $sheet->id);
+
+        return $filter ? $filter->applyToRevenues($query) : $query;
+    }
+
+    /** @return array<string,mixed> */
+    public function summary(FinanceSheet $sheet, ?CostItemFilter $filter = null): array
+    {
+        $revenue = $this->revenueTotals($sheet, $filter);
+        $cost = $this->costTotals($sheet, $filter);
         $paid = (float) FinancePayment::whereIn(
             'finance_cost_item_id',
-            FinanceCostItem::where('finance_sheet_id', $sheet->id)->select('id')
+            $this->costItems($sheet, $filter)->select('finance_cost_items.id')
         )->sum('amount');
 
         $currentEstimate = $sheet->uses_second_estimate ? $cost['current'] : $cost['estimated_1'];
@@ -47,9 +67,9 @@ class FinanceSummaryService
     }
 
     /** @return array{estimated:float,actual:float,received:float,pending:float} */
-    public function revenueTotals(FinanceSheet $sheet): array
+    public function revenueTotals(FinanceSheet $sheet, ?CostItemFilter $filter = null): array
     {
-        $row = FinanceRevenue::where('finance_sheet_id', $sheet->id)
+        $row = $this->revenues($sheet, $filter)
             ->selectRaw('COALESCE(SUM(estimated_value),0) est, COALESCE(SUM(actual_value),0) act,
                          COALESCE(SUM(received_value),0) rec, COALESCE(SUM(pending_value),0) pend')
             ->first();
@@ -63,9 +83,9 @@ class FinanceSummaryService
     }
 
     /** @return array{estimated_1:float,estimated_2:float,current:float,actual:float,count:int} */
-    public function costTotals(FinanceSheet $sheet): array
+    public function costTotals(FinanceSheet $sheet, ?CostItemFilter $filter = null): array
     {
-        $row = FinanceCostItem::where('finance_sheet_id', $sheet->id)
+        $row = $this->costItems($sheet, $filter)
             ->selectRaw(sprintf(
                 'COALESCE(SUM(total_estimated_1),0) e1, COALESCE(SUM(total_estimated_2),0) e2, '
                 .'COALESCE(SUM(%s),0) cur, COALESCE(SUM(total_actual),0) act, COUNT(*) total',
@@ -87,9 +107,12 @@ class FinanceSummaryService
      *
      * @return array<int,array<string,mixed>>
      */
-    public function byCategory(FinanceSheet $sheet): array
+    public function byCategory(FinanceSheet $sheet, ?CostItemFilter $filter = null): array
     {
         $rows = FinanceCostItem::where('finance_cost_items.finance_sheet_id', $sheet->id)
+            // Filtro por subconsulta de ids, não aplicado direto: aqui há join com a categoria, e as
+            // colunas do filtro (status, description…) ficariam ambíguas.
+            ->when($filter, fn ($q) => $q->whereIn('finance_cost_items.id', $this->costItems($sheet, $filter)->select('finance_cost_items.id')))
             ->leftJoin('fornecedor_categorias as fc', 'fc.id', '=', 'finance_cost_items.fornecedor_categoria_id')
             ->selectRaw(sprintf(
                 "COALESCE(fc.nome, 'Sem categoria') as label, SUM(total_estimated_1) e1, SUM(%s) cur, "
@@ -135,17 +158,17 @@ class FinanceSummaryService
      *
      * @return array<int,array{month:string,label:string,in:float,out:float,balance:float}>
      */
-    public function cashFlow(FinanceSheet $sheet): array
+    public function cashFlow(FinanceSheet $sheet, ?CostItemFilter $filter = null): array
     {
         $out = FinancePayment::whereIn(
             'finance_cost_item_id',
-            FinanceCostItem::where('finance_sheet_id', $sheet->id)->select('id')
+            $this->costItems($sheet, $filter)->select('finance_cost_items.id')
         )
             ->selectRaw("DATE_FORMAT(COALESCE(paid_at, created_at), '%Y-%m') ym, SUM(amount) total")
             ->groupBy('ym')
             ->pluck('total', 'ym');
 
-        $in = FinanceRevenue::where('finance_sheet_id', $sheet->id)
+        $in = $this->revenues($sheet, $filter)
             ->whereNotNull('received_at')
             ->where('received_value', '>', 0)
             ->selectRaw("DATE_FORMAT(received_at, '%Y-%m') ym, SUM(received_value) total")

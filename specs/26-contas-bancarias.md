@@ -60,11 +60,26 @@ custos (specs/25).
 - Aba **CUSTOS**: sem coluna. Os pagamentos ali são somados por grupo de pagamento; uma linha pode ter
   vários pagamentos de contas diferentes.
 
+## 4.1 Filtro por conta bancária (Custos e Relatório) — ajuste de 23/11/2026
+
+- Filtro **Conta bancária** no bloco de filtros da aba **Custos** e do **Relatório** (o mesmo partial
+  `financeiro/eventos/_cost_filters.blade.php`), logo antes de "Grupo de pagamento". Seleção múltipla
+  com busca, no padrão do filtro Centro de custo (`bank_account_id[]`).
+- A conta mora no **pagamento**: a linha de custo entra se tiver ao menos um pagamento saído da(s)
+  conta(s) escolhida(s). A opção **"Pagamento sem conta"** (`none`) acha as linhas com pagamento ainda
+  sem conta. Linha sem nenhum pagamento não entra quando o filtro está ativo.
+- Os números da linha continuam inteiros (todos os pagamentos dela), como no filtro por grupo de
+  pagamento. O rodapé respeita o filtro.
+- Opções: contas ativas + as já usadas em algum pagamento da planilha (inativas aparecem com "(inativa)").
+- Nas **receitas** (Relatório e exportação), o filtro vale pela conta de entrada da receita.
+- A regra mora em `App\Services\Finance\CostItemFilter` — a mesma da grade, da exportação e do
+  relatório (specs/23 §8.4 e §12).
+
 ## 5. Fora do escopo (por enquanto)
 
 - Pagamentos e recebimentos de **Locações** (specs/24).
 - Conta bancária no modal "Enviar para o Financeiro" do card (o card não lança pagamento).
-- Filtro por conta nas grades, extrato ou saldo por conta.
+- Filtro por conta na grade de Receitas, extrato ou saldo por conta.
 - Leitura da conta na importação da planilha.
 
 ## 6. Testes
@@ -72,3 +87,6 @@ custos (specs/25).
 `tests/Feature/Finance/BankAccountTest.php`: CRUD com várias empresas, obrigatórios, unicidade com a
 lixeira, exclusão bloqueada e soft delete, permissões, conta no pagamento (registrar, opcional, trocar e
 limpar, regra da inativa), opções da tela de Custos, receitas e exportação.
+
+`tests/Feature/Finance/FinanceCostFiltersTest.php`: filtro por conta (contas, "pagamento sem conta",
+rodapé), exportação e relatório filtrados.

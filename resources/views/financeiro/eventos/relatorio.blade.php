@@ -18,19 +18,48 @@
 
     <x-page-header title="Relatório" :subtitle="$evento->name" icon="fa-chart-column">
         <x-slot name="actions">
-            <a href="{{ route('finance.export', $evento) }}"
+            {{-- Leva os filtros aplicados: o arquivo sai com o mesmo recorte dos gráficos. --}}
+            <a href="{{ route('finance.export', ['evento' => $evento] + request()->only(\App\Services\Finance\CostItemFilter::KEYS)) }}"
+               title="{{ $filter ? 'Exporta só as linhas filtradas' : 'Exporta a planilha completa' }}"
                class="inline-flex items-center gap-2 rounded-md border border-hairline px-4 py-2 text-sm font-medium text-brand-ink hover:bg-surface">
-                <i class="fa-solid fa-file-excel"></i> Exportar
+                <i class="fa-solid fa-file-excel"></i> {{ $filter ? 'Exportar filtrado' : 'Exportar' }}
             </a>
         </x-slot>
     </x-page-header>
 
     @include('financeiro.eventos._tabs', ['active' => 'relatorio'])
 
+    {{-- Os mesmos filtros da aba Custos (App\Services\Finance\CostItemFilter). --}}
+    @include('financeiro.eventos._cost_filters', ['clearUrl' => route('finance.report', $evento)])
+
+    @if ($filter)
+        @php
+            $filtrosReceita = $filter->describe(revenuesOnly: true);
+        @endphp
+        <div class="mb-4 rounded-lg border border-hairline bg-surface px-4 py-3 text-sm text-brand-ink">
+            <p><i class="fa-solid fa-filter text-steel mr-1"></i> <span class="font-medium">Relatório filtrado:</span> {{ implode(' · ', $filter->describe()) }}</p>
+            <p class="mt-1 text-xs text-steel">
+                Os custos mostram só as linhas filtradas.
+                @if ($filtrosReceita && $filter->hasCostOnlyFilters())
+                    As receitas (entradas da evolução de caixa) seguem só centro de custo e conta bancária; os demais filtros são de custos.
+                @elseif ($filtrosReceita)
+                    As receitas (entradas da evolução de caixa) também seguem esse filtro.
+                @else
+                    As receitas (entradas da evolução de caixa) não mudam: esses filtros são só de custos.
+                @endif
+            </p>
+        </div>
+    @endif
+
     @unless ($temDados)
         <div class="bg-white border border-hairline rounded-xl">
-            <x-empty-state icon="fa-chart-column" title="Sem dados para o relatório"
-                message="Lance receitas ou custos deste evento para os gráficos aparecerem." />
+            @if ($filter)
+                <x-empty-state icon="fa-filter" title="Nenhum dado com esses filtros"
+                    message="Ajuste os filtros ou limpe para ver o relatório completo do evento." />
+            @else
+                <x-empty-state icon="fa-chart-column" title="Sem dados para o relatório"
+                    message="Lance receitas ou custos deste evento para os gráficos aparecerem." />
+            @endif
         </div>
     @else
         <div class="grid gap-4 lg:grid-cols-2">

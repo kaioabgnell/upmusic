@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Finance;
 
 use App\Actions\Finance\ImportFinanceSpreadsheet;
 use App\Models\Event;
+use App\Services\Finance\CostItemFilter;
 use App\Services\Finance\FinanceExportService;
 use App\Services\Finance\FinanceSheetProvider;
 use Illuminate\Http\Request;
@@ -15,14 +16,16 @@ class FinanceImportExportController extends FinanceController
 {
     public function __construct(private FinanceSheetProvider $sheets) {}
 
-    public function export(Event $evento, FinanceExportService $service)
+    /** Os filtros da aba CUSTOS / RELATÓRIO vêm na query string e o arquivo sai com o mesmo recorte. */
+    public function export(Request $request, Event $evento, FinanceExportService $service)
     {
         $sheet = $this->sheets->forEvent($evento);
         $this->authorize('view', $sheet);
 
-        $path = $service->toXlsx($sheet);
+        $filter = CostItemFilter::fromRequest($request);
+        $path = $service->toXlsx($sheet, $filter);
 
-        return response()->download($path, $service->filename($sheet))->deleteFileAfterSend();
+        return response()->download($path, $service->filename($sheet, $filter))->deleteFileAfterSend();
     }
 
     /** Pré-visualização obrigatória: nada é gravado antes de o usuário conferir. */
