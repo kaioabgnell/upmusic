@@ -5,7 +5,6 @@ namespace Tests\Feature\Bid;
 use App\Domain\Enums\BidMatchStatus;
 use App\Domain\Enums\BidNoticeStatus;
 use App\Domain\Enums\BidVerdict;
-use App\Domain\Enums\UserRole;
 use App\Models\BidAiCall;
 use App\Models\BidCompany;
 use App\Models\BidDocument;
@@ -46,7 +45,7 @@ class BidNoticeAnalysisTest extends TestCase
         config(['services.gemini.key' => 'chave-de-teste', 'services.gemini.attempts' => 1]);
 
         $this->admin = User::factory()->create([
-            'email' => 'admin@teste.local', 'role' => UserRole::Admin->value, 'active' => true,
+            'email' => 'admin@teste.local', 'is_admin' => true, 'active' => true,
         ])->fresh();
 
         $this->forte = BidCompany::create([

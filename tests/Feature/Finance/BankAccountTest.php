@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Domain\Enums\AccessModule;
 use App\Domain\Enums\BankAccountType;
-use App\Domain\Enums\UserRole;
 use App\Models\BankAccount;
 use App\Models\Empresa;
 use App\Models\FinanceCostItem;
@@ -134,15 +134,16 @@ class BankAccountTest extends FinanceTestCase
         $this->assertSoftDeleted($free);
     }
 
-    public function test_so_admin_e_coordenador_sem_escopo_gerenciam(): void
+    /** specs/28: o módulo do perfil decide; "Eventos visíveis" não esconde cadastro que não é de evento. */
+    public function test_gerenciar_depende_do_modulo_contas_bancarias(): void
     {
-        $this->actingAs($this->user(UserRole::Usuario))->get(route('bank-accounts.index'))->assertForbidden();
+        $this->actingAs($this->user('usuario'))->get(route('bank-accounts.index'))->assertForbidden();
 
-        $scoped = $this->user(UserRole::Coordenador);
+        $scoped = $this->user('sem-acesso', modules: [AccessModule::BankAccounts]);
         $scoped->events()->attach($this->event());
-        $this->actingAs($scoped)->get(route('bank-accounts.index'))->assertForbidden();
+        $this->actingAs($scoped->fresh())->get(route('bank-accounts.index'))->assertOk();
 
-        $this->actingAs($this->user(UserRole::Coordenador))->get(route('bank-accounts.create'))->assertOk();
+        $this->actingAs($this->user('coordenador'))->get(route('bank-accounts.create'))->assertOk();
     }
 
     // ---- Pagamentos de custo (de onde sai) ---------------------------------

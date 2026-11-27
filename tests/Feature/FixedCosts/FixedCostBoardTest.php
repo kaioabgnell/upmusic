@@ -3,7 +3,7 @@
 namespace Tests\Feature\FixedCosts;
 
 use App\Actions\Finance\SyncCardToFinance;
-use App\Domain\Enums\UserRole;
+use App\Domain\Enums\AccessModule;
 use App\Models\Board;
 use App\Models\Card;
 use App\Models\Event;
@@ -37,7 +37,7 @@ class FixedCostBoardTest extends FixedCostTestCase
 
         $this->actingAs($admin)->get(route('boards.config', $board))->assertOk()
             ->assertSee('Este quadro recebe custos fixos')
-            ->assertSee('Quadros de custos fixos são visíveis só para Admin e Coordenador sem eventos vinculados.');
+            ->assertSee('Veem este quadro os administradores e os perfis de acesso com o módulo');
 
         $this->makeCost($board->fresh(), $this->empresa(), ['installments_total' => 1]);
 
@@ -46,13 +46,14 @@ class FixedCostBoardTest extends FixedCostTestCase
             ->assertJsonValidationErrors(['fixed_costs' => '1 custo(s) fixo(s) geram cards neste quadro. Troque o quadro de destino deles antes.']);
     }
 
-    public function test_quadro_visivel_so_para_admin_e_coordenador_sem_eventos(): void
+    /** specs/28 §4 e §6: o quadro vem com o módulo Custos fixos; "Eventos visíveis" não o esconde. */
+    public function test_quadro_visivel_so_com_o_modulo_custos_fixos(): void
     {
         $board = $this->board();
         $card = $this->makeCost($board, $this->empresa(), ['installments_total' => 1])->installments()->first()->card;
 
-        $usuario = $this->user(UserRole::Usuario);
-        $usuario->boards()->attach($board->id);
+        $usuario = $this->user('usuario');
+        $usuario = $this->giveBoards($usuario, $board);
         // Nem como responsável o usuário comum entra.
         $card->update(['assignee_id' => $usuario->id]);
 
@@ -60,9 +61,18 @@ class FixedCostBoardTest extends FixedCostTestCase
         $this->actingAs($usuario)->getJson(route('cards.show', $card))->assertForbidden();
         $this->actingAs($usuario)->get(route('boards.index'))->assertOk()->assertDontSee('Custos Fixos');
 
-        $this->actingAs($this->scopedCoordinator())->get(route('boards.show', $board))->assertForbidden();
+        // "Configurar quadros" sozinho não abre o quadro de custos fixos (specs/28 §10).
+        $configurador = $this->userAs('sem-acesso', modules: [AccessModule::BoardsConfigure]);
+        $this->actingAs($configurador)->get(route('boards.show', $board))->assertForbidden();
 
-        $this->actingAs($this->user(UserRole::Coordenador))->get(route('boards.show', $board))->assertOk();
+        // Restrito por evento com o módulo: vê o quadro e os cards, que nunca têm evento.
+        $scoped = $this->scopedUser([AccessModule::FixedCosts]);
+        $this->actingAs($scoped)->get(route('boards.show', $board))->assertOk();
+        $this->actingAs($scoped)->getJson(route('cards.show', $card))->assertOk();
+        $this->actingAs($scoped)->getJson(route('boards.kanban.data', $board))->assertOk()
+            ->assertJsonPath('columns.0.cards.0.id', $card->id);
+
+        $this->actingAs($this->user('coordenador'))->get(route('boards.show', $board))->assertOk();
         $this->actingAs($this->user())->get(route('boards.index'))->assertOk()->assertSee('Custos Fixos');
     }
 
@@ -103,7 +113,7 @@ class FixedCostBoardTest extends FixedCostTestCase
             ->assertJsonValidationErrors(['empresa_id', 'event_id']);
 
         $this->actingAs($admin)->postJson(route('cards.store', $board), [
-            'title' => 'Internet', 'empresa_id' => $this->empresa()->id, 'event_id' => '', 'assignee_id' => $this->user(UserRole::Usuario)->id,
+            'title' => 'Internet', 'empresa_id' => $this->empresa()->id, 'event_id' => '', 'assignee_id' => $this->user('usuario')->id,
         ])->assertUnprocessable()->assertJsonValidationErrors(['assignee_id']);
 
         $this->actingAs($admin)->postJson(route('cards.store', $board), [

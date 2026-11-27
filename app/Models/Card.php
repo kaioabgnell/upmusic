@@ -103,9 +103,11 @@ class Card extends Model
     }
 
     /**
-     * Restringe os cards aos eventos permitidos do usuário (specs/20). Se o usuário não é restrito
-     * (allowedEventIds() === null), não aplica filtro nenhum. Se é restrito, mostra só os cards cujo
-     * event_id está na lista — cards sem evento (event_id null) ficam de fora, por decisão de produto.
+     * Restringe os cards aos eventos visíveis do usuário (specs/20 e specs/28 §6). Sem restrição
+     * (allowedEventIds() === null), não filtra nada. Com restrição, mostra só os cards dos eventos
+     * dele — card sem evento fica de fora — **exceto no quadro de custos fixos**: custo fixo é da
+     * empresa e nunca tem evento, então ali a restrição não se aplica (o acesso ao quadro continua
+     * dependendo do módulo Custos fixos).
      */
     public function scopeVisibleTo($query, User $user)
     {
@@ -115,7 +117,12 @@ class Card extends Model
             return $query;
         }
 
-        return $query->whereNotNull('event_id')->whereIn('event_id', $ids);
+        $eventColumn = $query->qualifyColumn('event_id');
+        $boardColumn = $query->qualifyColumn('board_id');
+
+        return $query->where(fn ($q) => $q
+            ->whereIn($eventColumn, $ids)
+            ->orWhereIn($boardColumn, Board::query()->fixedCosts()->select('id')));
     }
 
     public function scopeArchived($query)

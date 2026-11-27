@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\Enums\AccessModule;
+use App\Models\AccessProfile;
 use App\Models\BankAccount;
 use App\Models\BidBusinessLine;
 use App\Models\BidCompany;
@@ -16,16 +18,17 @@ use App\Models\Card;
 use App\Models\CardCapture;
 use App\Models\CardTemplate;
 use App\Models\CostCenter;
-use App\Models\FixedCost;
 use App\Models\Empresa;
 use App\Models\Event;
 use App\Models\FinanceSheet;
+use App\Models\FixedCost;
 use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
 use App\Models\RentalItem;
 use App\Models\RentalOrder;
 use App\Models\Setor;
 use App\Models\User;
+use App\Policies\AccessProfilePolicy;
 use App\Policies\BankAccountPolicy;
 use App\Policies\BidModulePolicy;
 use App\Policies\BoardPolicy;
@@ -33,10 +36,10 @@ use App\Policies\CardCapturePolicy;
 use App\Policies\CardPolicy;
 use App\Policies\CardTemplatePolicy;
 use App\Policies\CostCenterPolicy;
-use App\Policies\FixedCostPolicy;
 use App\Policies\EmpresaPolicy;
 use App\Policies\EventPolicy;
 use App\Policies\FinanceSheetPolicy;
+use App\Policies\FixedCostPolicy;
 use App\Policies\FornecedorCategoriaPolicy;
 use App\Policies\FornecedorPolicy;
 use App\Policies\RentalItemPolicy;
@@ -57,6 +60,7 @@ class AuthServiceProvider extends ServiceProvider
         User::class => UserPolicy::class,
         Setor::class => SetorPolicy::class,
         Empresa::class => EmpresaPolicy::class,
+        AccessProfile::class => AccessProfilePolicy::class,
         CostCenter::class => CostCenterPolicy::class,
         BankAccount::class => BankAccountPolicy::class,
         FixedCost::class => FixedCostPolicy::class,
@@ -74,7 +78,7 @@ class AuthServiceProvider extends ServiceProvider
         RentalItem::class => RentalItemPolicy::class,
         RentalOrder::class => RentalOrderPolicy::class,
 
-        // Módulo de Licitações — exclusivo do Admin (ver specs/21 §7).
+        // Módulo de Licitações (specs/21) — liberado pelo módulo `bids` do perfil de acesso.
         BidCompany::class => BidModulePolicy::class,
         BidDocument::class => BidModulePolicy::class,
         BidNotice::class => BidModulePolicy::class,
@@ -90,11 +94,10 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Admin tem acesso total (ver specs/04). Retornar null deixa a decisão para a policy.
+        // Admin tem acesso total (specs/28). Retornar null deixa a decisão para a policy.
         Gate::before(fn (User $user) => $user->isAdmin() ? true : null);
 
-        // Gestão de Locações (specs/24 §11) — usados pelo menu e pelo middleware das rotas do módulo.
-        Gate::define('access-rentals', fn (User $user) => $user->canAccessRentals());
-        Gate::define('manage-rentals', fn (User $user) => $user->canManageRentals());
+        // Módulo ligado no perfil de acesso (specs/28 §8.3) — usado no menu (`@can('module', ...)`).
+        Gate::define('module', fn (User $user, AccessModule $module) => $user->hasModule($module));
     }
 }

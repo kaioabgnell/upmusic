@@ -4,6 +4,15 @@
 > menus em várias telas (transversal, alta complexidade). Melhoria pós-entrega (numeração fora das fases
 > 0–12, como [14](14-kanban-reatividade-assincrona.md)…[19](19-formulario-de-minuta-do-fornecedor.md)).
 
+> **Generalizada pela [28 — Perfis de acesso](28-perfis-de-acesso.md) §6 (26/11/2026).** O papel
+> Coordenador não existe mais. "Eventos visíveis: todos / somente os selecionados" fica no cadastro de
+> qualquer usuário que não é admin (mesma tabela `event_user`) e filtra só dados ligados a evento: cards,
+> Eventos e Financeiro dos Eventos. Mudanças em relação ao texto abaixo:
+> - menus e cadastros não são mais escondidos pela restrição — quem decide é o perfil de acesso;
+> - cards do quadro de custos fixos não sofrem a restrição (nunca têm evento);
+> - quem é restrito pode criar evento, e o evento novo entra na hora nos eventos visíveis dele;
+> - a lista de Usuários é só do Administrador, então o filtro de usuários por evento (§6) saiu.
+
 ## 1. Objetivo
 
 Hoje há 3 perfis ([04](04-autenticacao-e-permissoes.md)): **Usuário**, **Coordenador** e **Admin**.

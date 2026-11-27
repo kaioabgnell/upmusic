@@ -56,28 +56,29 @@
         {{-- Acesso --}}
         <section class="bg-white border border-hairline rounded-xl p-6">
             <h3 class="font-semibold text-brand-ink mb-4"><i class="fa-solid fa-user-lock text-brand-orange mr-2"></i>Acesso ao quadro</h3>
+            {{-- Acesso vem do perfil de acesso (specs/28 §4) — aqui só se mostra quem vê o quadro. --}}
             @if ($board->fixed_costs)
-                {{-- Quadro de custos fixos ignora o vínculo do Usuário (specs/27 §1.2). --}}
-                <p class="text-xs text-steel mb-3 rounded-md bg-surface border border-hairline p-3">
-                    <i class="fa-solid fa-lock mr-1"></i>Quadros de custos fixos são visíveis só para Admin e Coordenador sem eventos vinculados.
+                <p class="text-xs text-steel rounded-md bg-surface border border-hairline p-3">
+                    <i class="fa-solid fa-lock mr-1"></i>Veem este quadro os administradores e os perfis de acesso com o módulo <strong>Custos fixos</strong>.
                 </p>
             @else
-            <p class="text-xs text-steel mb-3">Usuários com perfil "Usuário" só veem os quadros marcados. Admin e Coordenador veem todos.</p>
-            <form method="POST" action="{{ route('boards.access', $board) }}">
-                @csrf @method('PUT')
-                <div class="space-y-2 max-h-80 overflow-y-auto">
-                    @foreach ($users as $u)
-                        <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
-                            <input type="checkbox" name="users[]" value="{{ $u->id }}" @checked(in_array($u->id, $accessIds)) class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-                            <span class="text-sm text-brand-ink">{{ $u->name }}</span>
-                            <span class="ml-auto text-[11px] text-steel uppercase">{{ $u->role->value }}</span>
-                        </label>
-                    @endforeach
-                </div>
-                <button type="submit" class="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-orange-deep">
-                    <i class="fa-solid fa-floppy-disk"></i> Salvar acesso
-                </button>
-            </form>
+                <p class="text-xs text-steel mb-3">Veem este quadro os administradores, os perfis com <strong>Configurar quadros</strong> e os perfis de acesso abaixo.</p>
+                @if ($board->accessProfiles->isEmpty())
+                    <p class="text-sm text-steel rounded-md bg-surface border border-hairline px-3 py-2">Nenhum perfil de acesso liga este quadro ainda.</p>
+                @else
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($board->accessProfiles->sortBy('name') as $profile)
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1 text-xs font-medium text-brand-ink">
+                                <i class="fa-solid fa-id-badge text-steel"></i>{{ $profile->name }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+            @endif
+            @if (auth()->user()->isAdmin())
+                <a href="{{ route('access-profiles.index') }}" class="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-orange-deep hover:underline">
+                    <i class="fa-solid fa-user-shield"></i> Gerenciar perfis de acesso
+                </a>
             @endif
 
             {{-- Formulário do fornecedor (minuta) — specs/19 --}}
@@ -95,7 +96,7 @@
             {{-- Quadro de custos fixos — specs/27 §1.1. Exclusivo com "Alimenta o Financeiro". --}}
             <div class="mt-6 pt-6 border-t border-hairline">
                 <h3 class="font-semibold text-brand-ink mb-1"><i class="fa-solid fa-arrows-rotate text-brand-orange mr-2"></i>Quadro de custos fixos</h3>
-                <p class="text-xs text-steel mb-3">Quando ligado, o quadro passa a receber os cards das parcelas dos custos fixos. Os cards daqui não têm evento, não vão para o Financeiro e não trocam de quadro com os quadros dos eventos. Só Admin e Coordenador sem eventos vinculados veem o quadro.</p>
+                <p class="text-xs text-steel mb-3">Quando ligado, o quadro passa a receber os cards das parcelas dos custos fixos. Os cards daqui não têm evento, não vão para o Financeiro e não trocam de quadro com os quadros dos eventos. Veem o quadro os administradores e os perfis de acesso com o módulo Custos fixos.</p>
                 <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
                     <input type="checkbox" @checked($board->fixed_costs)
                            onchange="boardConfig.saveFixedCosts(this)"
@@ -150,7 +151,7 @@
         window.boardConfig = (function () {
             const boardId = document.getElementById('board-config').dataset.board;
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
-            const admins = {{ Illuminate\Support\Js::from($admins->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])) }};
+            const approverCandidates = {{ Illuminate\Support\Js::from($approverCandidates->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])) }};
 
             async function api(url, method, body) {
                 const res = await fetch(url, {
@@ -234,12 +235,12 @@
                     const row = document.querySelector(`.column-row[data-id="${columnId}"]`);
                     const current = (row.dataset.approvers || '').split(',').filter(Boolean).map(Number);
 
-                    if (!admins.length) {
-                        window.upAlerts.notifyError('Nenhum usuário Administrador ativo para configurar como aprovador.');
+                    if (!approverCandidates.length) {
+                        window.upAlerts.notifyError('Nenhum usuário ativo com acesso a este quadro para configurar como aprovador.');
                         return;
                     }
 
-                    const optionsHtml = admins.map(a => `
+                    const optionsHtml = approverCandidates.map(a => `
                         <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface text-left">
                             <input type="checkbox" class="approver-option rounded border-gray-300 text-brand-orange focus:ring-brand-orange" value="${a.id}" ${current.includes(a.id) ? 'checked' : ''}>
                             <span class="text-sm text-brand-ink">${a.name}</span>

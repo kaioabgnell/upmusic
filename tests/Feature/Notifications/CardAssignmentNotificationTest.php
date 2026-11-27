@@ -5,7 +5,6 @@ namespace Tests\Feature\Notifications;
 use App\Actions\Cards\CreateCard;
 use App\Actions\Cards\UpdateCard;
 use App\Domain\Enums\NotificationType;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -22,13 +21,9 @@ class CardAssignmentNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function user(string $name, UserRole $role = UserRole::Usuario, bool $active = true): User
+    private function user(string $name, string $role = 'usuario', bool $active = true): User
     {
-        return User::factory()->create([
-            'name' => $name,
-            'role' => $role->value,
-            'active' => $active,
-        ])->fresh();
+        return $this->userAs($role, ['name' => $name, 'active' => $active]);
     }
 
     private function board(): Board
@@ -48,7 +43,7 @@ class CardAssignmentNotificationTest extends TestCase
 
     public function test_atribuir_responsavel_cria_notificacao_com_snapshot_do_card(): void
     {
-        $actor = $this->user('Kaio Gomes', UserRole::Admin);
+        $actor = $this->user('Kaio Gomes', 'admin');
         $assignee = $this->user('Maria Souza');
         $board = $this->board();
         $card = $this->card($board);
@@ -69,7 +64,7 @@ class CardAssignmentNotificationTest extends TestCase
 
     public function test_auto_atribuicao_nao_gera_notificacao(): void
     {
-        $actor = $this->user('Kaio Gomes', UserRole::Admin);
+        $actor = $this->user('Kaio Gomes', 'admin');
         $card = $this->card($this->board());
 
         $this->actingAs($actor);
@@ -80,7 +75,7 @@ class CardAssignmentNotificationTest extends TestCase
 
     public function test_trocar_responsavel_notifica_apenas_o_novo(): void
     {
-        $actor = $this->user('Kaio Gomes', UserRole::Admin);
+        $actor = $this->user('Kaio Gomes', 'admin');
         $primeiro = $this->user('Maria Souza');
         $segundo = $this->user('João Lima');
         $card = $this->card($this->board());
@@ -95,7 +90,7 @@ class CardAssignmentNotificationTest extends TestCase
 
     public function test_remover_responsavel_nao_gera_notificacao(): void
     {
-        $actor = $this->user('Kaio Gomes', UserRole::Admin);
+        $actor = $this->user('Kaio Gomes', 'admin');
         $assignee = $this->user('Maria Souza');
         $card = $this->card($this->board());
 
@@ -108,7 +103,7 @@ class CardAssignmentNotificationTest extends TestCase
 
     public function test_card_criado_ja_com_responsavel_notifica(): void
     {
-        $actor = $this->user('Kaio Gomes', UserRole::Admin);
+        $actor = $this->user('Kaio Gomes', 'admin');
         $assignee = $this->user('Maria Souza');
 
         $this->actingAs($actor);
@@ -121,8 +116,8 @@ class CardAssignmentNotificationTest extends TestCase
 
     public function test_responsavel_inativo_nao_recebe_notificacao(): void
     {
-        $actor = $this->user('Kaio Gomes', UserRole::Admin);
-        $inativo = $this->user('Maria Souza', UserRole::Usuario, active: false);
+        $actor = $this->user('Kaio Gomes', 'admin');
+        $inativo = $this->user('Maria Souza', 'usuario', active: false);
         $card = $this->card($this->board());
 
         $this->actingAs($actor);

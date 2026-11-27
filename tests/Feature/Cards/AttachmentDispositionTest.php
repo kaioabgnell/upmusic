@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Cards;
 
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -26,7 +25,7 @@ class AttachmentDispositionTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        return User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
     }
 
     private function card(): Card
@@ -188,7 +187,7 @@ class AttachmentDispositionTest extends TestCase
         $admin = $this->admin();
         $attachment = $this->attach($admin, $this->card(), $this->pngFile());
 
-        $estranho = User::factory()->create(['role' => UserRole::Usuario->value, 'active' => true])->fresh();
+        $estranho = $this->userAs('usuario');
 
         $this->actingAs($estranho)
             ->get(route('cards.attachments.download', $attachment))

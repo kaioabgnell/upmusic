@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\Board;
 use App\Models\User;
 
@@ -15,10 +16,10 @@ class BoardPolicy
     }
 
     /**
-     * Leitura do quadro. Quem é responsável por algum card daqui entra mesmo sem vínculo em
-     * `user_board` (specs/22) — é o que faz o link da notificação abrir o card. Isso **não** coloca
-     * o quadro no menu (`BoardController::index` tem consulta própria) nem libera escrita: mover,
-     * transferir e editar continuam passando por `canAccessBoard()`.
+     * Leitura do quadro. Quem é responsável por algum card daqui entra mesmo sem o quadro no perfil
+     * (specs/22) — é o que faz o link da notificação abrir o card. Isso **não** coloca o quadro no
+     * menu (`Board::visibleTo()`) nem libera escrita: mover, transferir e editar continuam passando
+     * por `canAccessBoard()`.
      */
     public function view(User $user, Board $board): bool
     {
@@ -26,23 +27,28 @@ class BoardPolicy
         return $user->canAccessBoard($board) || (! $board->fixed_costs && $user->isAssignedOnBoard($board));
     }
 
+    /** Estrutura dos quadros: módulo "Configurar quadros" (specs/28 §3). */
     public function create(User $user): bool
     {
-        return $user->isCoordenador();
+        return $user->hasModule(AccessModule::BoardsConfigure);
     }
 
     public function update(User $user, Board $board): bool
     {
-        return $user->isCoordenador();
+        return $this->configure($user, $board);
     }
 
+    /**
+     * "Configurar quadros" + acesso ao quadro: o quadro de custos fixos só se configura com o módulo
+     * Custos fixos também (specs/28 §10).
+     */
     public function configure(User $user, Board $board): bool
     {
-        return $user->isCoordenador();
+        return $user->hasModule(AccessModule::BoardsConfigure) && $user->canAccessBoard($board);
     }
 
     public function delete(User $user, Board $board): bool
     {
-        return $user->isCoordenador();
+        return $this->configure($user, $board);
     }
 }

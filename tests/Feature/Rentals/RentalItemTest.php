@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Rentals;
 
+use App\Domain\Enums\AccessModule;
 use App\Domain\Enums\RentalOrderStatus;
-use App\Domain\Enums\UserRole;
 use App\Models\RentalOrderItem;
 
 /** Inventário da Gestão de Locações (specs/24 §4.1 / §2 Q11-Q22). */
@@ -18,7 +18,7 @@ class RentalItemTest extends RentalTestCase
 
     public function test_telas_de_itens_renderizam_para_o_admin(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
 
         $this->actingAs($admin)->get(route('rentals.items.index'))->assertOk();
@@ -29,7 +29,7 @@ class RentalItemTest extends RentalTestCase
 
     public function test_admin_cadastra_item(): void
     {
-        $this->actingAs($this->user(UserRole::Admin))
+        $this->actingAs($this->user('admin'))
             ->post(route('rentals.items.store'), [
                 'name' => 'Painel de LED 3x2',
                 'quantity' => 5,
@@ -41,46 +41,54 @@ class RentalItemTest extends RentalTestCase
         $this->assertDatabaseHas('rental_items', ['name' => 'Painel de LED 3x2', 'quantity' => 5]);
     }
 
-    public function test_usuario_sem_checkbox_nao_acessa_o_modulo(): void
+    public function test_sem_o_modulo_locacoes_nao_acessa(): void
     {
-        $this->actingAs($this->user(UserRole::Usuario))
+        $this->actingAs($this->user('usuario'))
             ->get(route('rentals.items.index'))
             ->assertForbidden();
     }
 
-    public function test_usuario_habilitado_nao_cadastra_edita_ou_exclui_item(): void
+    /** specs/28 §3: o módulo Locações libera o módulo inteiro, inclusive o inventário. */
+    public function test_modulo_locacoes_libera_cadastrar_editar_e_excluir_item(): void
     {
-        $usuario = $this->user(UserRole::Usuario, ['can_access_rentals' => true]);
+        $usuario = $this->user('sem-acesso', modules: [AccessModule::Rentals]);
         $item = $this->item();
 
-        $this->actingAs($usuario)->get(route('rentals.items.create'))->assertForbidden();
-        $this->actingAs($usuario)->post(route('rentals.items.store'), ['name' => 'X', 'quantity' => 1, 'unit_cost' => 10])->assertForbidden();
-        $this->actingAs($usuario)->get(route('rentals.items.edit', $item))->assertForbidden();
-        $this->actingAs($usuario)->put(route('rentals.items.update', $item), ['name' => 'Y', 'quantity' => 1, 'unit_cost' => 10])->assertForbidden();
+        $this->actingAs($usuario)->get(route('rentals.items.create'))->assertOk();
+        $this->actingAs($usuario)->post(route('rentals.items.store'), [
+            'name' => 'Painel de LED 3x2', 'quantity' => 5, 'unit_cost' => '1.200,00', 'rental_price' => '150,00',
+        ])->assertRedirect(route('rentals.items.index'));
+        $this->actingAs($usuario)->get(route('rentals.items.edit', $item))->assertOk();
         $this->actingAs($usuario)
             ->deleteJson(route('rentals.items.destroy', $item), ['deletion_reason' => 'venda'])
-            ->assertForbidden();
+            ->assertOk();
+
+        $this->assertDatabaseHas('rental_items', ['name' => 'Painel de LED 3x2']);
+        $this->assertSoftDeleted('rental_items', ['id' => $item->id]);
     }
 
-    public function test_usuario_habilitado_nao_recebe_valor_do_produto_nem_investimento(): void
+    public function test_modulo_locacoes_ve_valor_do_produto_e_investimento(): void
     {
-        $usuario = $this->user(UserRole::Usuario, ['can_access_rentals' => true]);
+        $usuario = $this->user('sem-acesso', modules: [AccessModule::Rentals]);
         $item = $this->item(['unit_cost' => 7777, 'quantity' => 10, 'name' => 'Telão 4x3']);
 
-        $response = $this->actingAs($usuario)->get(route('rentals.items.index'));
+        $this->actingAs($usuario)->get(route('rentals.items.index'))
+            ->assertOk()
+            ->assertSee(number_format((float) $item->unit_cost, 2, ',', '.'));
+    }
 
-        $response->assertOk();
-        $response->assertDontSee(number_format((float) $item->unit_cost, 2, ',', '.'));
-        $response->assertDontSee(number_format((float) $item->refresh()->total_investment, 2, ',', '.'));
+    public function test_admin_ve_valor_do_produto(): void
+    {
+        $item = $this->item(['unit_cost' => 7777, 'quantity' => 10, 'name' => 'Telão 4x3']);
 
-        $this->actingAs($this->user(UserRole::Admin))
+        $this->actingAs($this->user('admin'))
             ->get(route('rentals.items.index'))
             ->assertSee(number_format((float) $item->unit_cost, 2, ',', '.'));
     }
 
     public function test_exclusao_exige_motivo(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
 
         $this->actingAs($admin)
@@ -91,7 +99,7 @@ class RentalItemTest extends RentalTestCase
 
     public function test_exclusao_com_motivo_outros_exige_texto(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
 
         $this->actingAs($admin)
@@ -110,7 +118,7 @@ class RentalItemTest extends RentalTestCase
 
     public function test_exclusao_bloqueada_com_reserva_ativa_e_permitida_sem_ela(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item(['quantity' => 5]);
 
         $orderAtivo = $this->order($admin, [

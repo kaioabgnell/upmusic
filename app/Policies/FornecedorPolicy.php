@@ -2,29 +2,30 @@
 
 namespace App\Policies;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\User;
 
 class FornecedorPolicy
 {
-    // Fornecedores é liberado a qualquer usuário autenticado (Admin/Coordenador/Usuário) — não é
-    // um cadastro base restrito como Setores/Empresas/Eventos.
+    // Tela de cadastro de Fornecedores: módulo `fornecedores` (specs/28). Escolher e cadastrar
+    // rapidamente um fornecedor dentro do card continua livre para quem acessa o quadro.
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasModule(AccessModule::Fornecedores);
     }
 
     public function create(User $user): bool
     {
-        return true;
+        return $user->hasModule(AccessModule::Fornecedores);
     }
 
     public function update(User $user): bool
     {
-        return true;
+        return $user->hasModule(AccessModule::Fornecedores);
     }
 
     public function delete(User $user): bool
     {
-        return true;
+        return $user->hasModule(AccessModule::Fornecedores);
     }
 }

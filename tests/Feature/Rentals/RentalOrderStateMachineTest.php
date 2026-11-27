@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Rentals;
 
+use App\Domain\Enums\AccessModule;
 use App\Domain\Enums\RentalOrderLogType;
 use App\Domain\Enums\RentalOrderStatus;
-use App\Domain\Enums\UserRole;
 use App\Models\RentalOrderItem;
 
 /** Máquina de estados do Pedido de Locação (specs/24 §6). */
@@ -12,7 +12,7 @@ class RentalOrderStateMachineTest extends RentalTestCase
 {
     public function test_confirmar_exige_cliente_periodo_e_item(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin);
 
         $this->actingAs($admin)
@@ -25,7 +25,7 @@ class RentalOrderStateMachineTest extends RentalTestCase
 
     public function test_confirmar_com_falta_de_estoque_nao_bloqueia_mas_avisa(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item(['quantity' => 1]);
 
         $order = $this->order($admin, [
@@ -50,7 +50,7 @@ class RentalOrderStateMachineTest extends RentalTestCase
 
     public function test_pular_etapas_roda_os_gates_no_caminho(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin, [
             'client_name' => 'Cliente', 'start_at' => now()->addDay(), 'end_at' => now()->addDays(2),
@@ -73,7 +73,7 @@ class RentalOrderStateMachineTest extends RentalTestCase
 
     public function test_voltar_antes_de_devolvida_limpa_a_conferencia(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin, [
             'client_name' => 'Cliente', 'start_at' => now()->addDay(), 'end_at' => now()->addDays(2),
@@ -93,7 +93,7 @@ class RentalOrderStateMachineTest extends RentalTestCase
 
     public function test_devolucao_com_divergencia_grava_o_aviso(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin, [
             'client_name' => 'Cliente', 'start_at' => now()->addDay(), 'end_at' => now()->addDays(2),
@@ -116,7 +116,7 @@ class RentalOrderStateMachineTest extends RentalTestCase
 
     public function test_encerrar_exige_realizado_em_receita_e_custos(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin, ['client_name' => 'Cliente']);
         $order->update(['status' => RentalOrderStatus::Devolvida->value]);
         $order->costs()->create(['description' => 'Sublocação', 'estimated_value' => 100]);
@@ -139,40 +139,34 @@ class RentalOrderStateMachineTest extends RentalTestCase
         $this->assertEquals(100, (float) $cost->refresh()->actual_value);
     }
 
-    public function test_usuario_habilitado_nao_encerra_pedido(): void
+    /** specs/28 §3: o módulo Locações inclui encerrar, reabrir e reativar pedidos. */
+    public function test_modulo_locacoes_encerra_reabre_e_reativa_pedido(): void
     {
-        $admin = $this->user(UserRole::Admin);
-        $usuario = $this->user(UserRole::Usuario, ['can_access_rentals' => true]);
+        $admin = $this->user('admin');
+        $usuario = $this->user('sem-acesso', modules: [AccessModule::Rentals]);
+        $semModulo = $this->user('usuario');
+
         $order = $this->order($admin, ['client_name' => 'Cliente']);
         $order->update(['status' => RentalOrderStatus::Devolvida->value]);
 
-        $this->actingAs($usuario)
+        $this->actingAs($semModulo)
             ->postJson(route('rentals.orders.close', $order), ['revenue_actual' => '0,00'])
             ->assertForbidden();
-    }
+        $this->actingAs($usuario)
+            ->postJson(route('rentals.orders.close', $order), ['revenue_actual' => '0,00'])
+            ->assertOk();
 
-    public function test_reabrir_e_reativar_sao_exclusivos_de_admin_coordenador(): void
-    {
-        $admin = $this->user(UserRole::Admin);
-        $usuario = $this->user(UserRole::Usuario, ['can_access_rentals' => true]);
-
-        $order = $this->order($admin, ['client_name' => 'Cliente']);
-        $order->update(['status' => RentalOrderStatus::Devolvida->value]);
-        $this->actingAs($admin)->postJson(route('rentals.orders.close', $order), ['revenue_actual' => '0,00'])->assertOk();
-
-        $this->actingAs($usuario)->postJson(route('rentals.orders.reopen', $order->refresh()), [])->assertForbidden();
-        $this->actingAs($admin)->postJson(route('rentals.orders.reopen', $order->refresh()), [])->assertOk();
+        $this->actingAs($usuario)->postJson(route('rentals.orders.reopen', $order->refresh()), [])->assertOk();
         $this->assertSame(RentalOrderStatus::Devolvida, $order->refresh()->status);
 
         $order->update(['status' => RentalOrderStatus::Cancelada->value, 'cancelled_at' => now(), 'cancel_reason' => 'teste']);
-        $this->actingAs($usuario)->postJson(route('rentals.orders.reactivate', $order), [])->assertForbidden();
-        $this->actingAs($admin)->postJson(route('rentals.orders.reactivate', $order), [])->assertOk();
+        $this->actingAs($usuario)->postJson(route('rentals.orders.reactivate', $order), [])->assertOk();
         $this->assertSame(RentalOrderStatus::Orcamento, $order->refresh()->status);
     }
 
     public function test_cancelar_exige_motivo(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin);
 
         $this->actingAs($admin)

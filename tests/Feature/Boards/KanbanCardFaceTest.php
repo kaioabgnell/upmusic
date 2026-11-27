@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Boards;
 
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -70,7 +69,7 @@ class KanbanCardFaceTest extends TestCase
 
     public function test_quadro_renderiza_com_o_valor_realizado_na_face(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        $admin = User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
         $board = Board::create(['name' => 'Orçamentos']);
         BoardColumn::create(['board_id' => $board->id, 'name' => 'Entrada', 'position' => 1, 'is_entry' => true]);
 

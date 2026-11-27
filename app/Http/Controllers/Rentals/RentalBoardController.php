@@ -58,7 +58,7 @@ class RentalBoardController extends Controller
             'empresas' => Empresa::active()->orderBy('corporate_name')->get(['id', 'corporate_name', 'trade_name']),
             'items' => RentalItem::active()->orderBy('name')->get(['id', 'name', 'rental_price', 'quantity']),
             'sources' => FinancePaymentSource::active()->ordered()->get(['id', 'name']),
-            'canManage' => $request->user()->canManageRentals(),
+            'canManage' => $request->user()->hasModule(\App\Domain\Enums\AccessModule::Rentals),
         ]);
     }
 }

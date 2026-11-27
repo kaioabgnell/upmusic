@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Boards;
 
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\User;
@@ -28,9 +27,9 @@ class SidebarBoardsSubmenuTest extends TestCase
         return $board;
     }
 
-    private function user(UserRole $role): User
+    private function user(string $role): User
     {
-        return User::factory()->create(['role' => $role->value, 'active' => true])->fresh();
+        return $this->userAs($role);
     }
 
     public function test_admin_ve_todos_os_quadros_como_submenu(): void
@@ -38,7 +37,7 @@ class SidebarBoardsSubmenuTest extends TestCase
         $orcamentos = $this->board('Orçamentos');
         $producao = $this->board('Produção', 2);
 
-        $html = $this->actingAs($this->user(UserRole::Admin))
+        $html = $this->actingAs($this->user('admin'))
             ->get(route('dashboard'))
             ->assertOk()
             ->getContent();
@@ -54,8 +53,8 @@ class SidebarBoardsSubmenuTest extends TestCase
         $meu = $this->board('Orçamentos');
         $alheio = $this->board('Financeiro', 2);
 
-        $user = $this->user(UserRole::Usuario);
-        $user->boards()->attach($meu);
+        $user = $this->user('usuario');
+        $user = $this->giveBoards($user, $meu);
 
         $html = $this->actingAs($user)
             ->get(route('dashboard'))
@@ -71,7 +70,7 @@ class SidebarBoardsSubmenuTest extends TestCase
         $board = $this->board('Orçamentos');
         $outro = $this->board('Produção', 2);
 
-        $html = $this->actingAs($this->user(UserRole::Admin))
+        $html = $this->actingAs($this->user('admin'))
             ->get(route('boards.show', $board))
             ->assertOk()
             ->getContent();

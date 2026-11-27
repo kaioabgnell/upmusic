@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
-use App\Domain\Enums\UserRole;
+use App\Domain\Enums\AccessModule;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -18,8 +22,7 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
-        'name', 'email', 'password', 'role', 'setor_id', 'phone', 'avatar_path', 'active',
-        'can_access_rentals',
+        'name', 'email', 'password', 'is_admin', 'access_profile_id', 'setor_id', 'phone', 'avatar_path', 'active',
     ];
 
     protected $hidden = [
@@ -29,9 +32,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        'role' => UserRole::class,
+        'is_admin' => 'boolean',
         'active' => 'boolean',
-        'can_access_rentals' => 'boolean',
     ];
 
     // Relacionamentos -------------------------------------------------------
@@ -41,12 +43,13 @@ class User extends Authenticatable
         return $this->belongsTo(Setor::class);
     }
 
-    public function boards(): BelongsToMany
+    /** Perfil de acesso (specs/28). Nulo para o Administrador. */
+    public function accessProfile(): BelongsTo
     {
-        return $this->belongsToMany(Board::class, 'user_board');
+        return $this->belongsTo(AccessProfile::class);
     }
 
-    /** Eventos aos quais um coordenador está restrito (ver specs/20). Vazio = sem restrição. */
+    /** "Eventos visíveis: somente os selecionados" (specs/28 §6). Vazio = vê todos os eventos. */
     public function events(): BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_user');
@@ -63,95 +66,164 @@ class User extends Authenticatable
         return $this->hasMany(UserNotification::class)->latest('id');
     }
 
-    // Perfis ----------------------------------------------------------------
+    // Acesso (specs/28) -----------------------------------------------------
 
     public function isAdmin(): bool
     {
-        return $this->role === UserRole::Admin;
-    }
-
-    public function isCoordenador(): bool
-    {
-        return $this->role === UserRole::Coordenador;
+        return (bool) $this->is_admin;
     }
 
     /**
-     * Gestão de Locações (specs/24 §11) — módulo isolado dos quadros/eventos. Admin e coordenador
-     * sem escopo de evento acessam automaticamente; usuário só com o checkbox habilitado.
+     * Módulo ligado no perfil de acesso. Admin tem todos. É a régua do middleware `module`, do Gate
+     * `module` (menu) e das Policies.
      */
-    public function canAccessRentals(): bool
+    public function hasModule(AccessModule $module): bool
+    {
+        return $this->isAdmin() || in_array($module->value, $this->moduleValues(), true);
+    }
+
+    /** @return list<string> valores de `AccessModule` ligados no perfil */
+    public function moduleValues(): array
+    {
+        if ($this->isAdmin() || ! $this->access_profile_id) {
+            return [];
+        }
+
+        return $this->accessCached('modules', fn () => DB::table('access_profile_modules')
+            ->where('access_profile_id', $this->access_profile_id)
+            ->pluck('module')
+            ->all());
+    }
+
+    /** Quadros ligados um a um no perfil (sem contar "Configurar quadros"). */
+    public function profileBoardIds(): Collection
+    {
+        if (! $this->access_profile_id) {
+            return collect();
+        }
+
+        return $this->accessCached('boards', fn () => DB::table('access_profile_board')
+            ->where('access_profile_id', $this->access_profile_id)
+            ->pluck('board_id')
+            ->map(fn ($id) => (int) $id));
+    }
+
+    /**
+     * Régua única de acesso a quadro (specs/28 §4) — escrita, menu e Kanban:
+     * Admin → sim; quadro de custos fixos → módulo Custos fixos; "Configurar quadros" → todos os
+     * outros; senão, o quadro precisa estar ligado no perfil.
+     */
+    public function canAccessBoard(Board $board): bool
     {
         if ($this->isAdmin()) {
             return true;
         }
-        if ($this->isCoordenador()) {
-            return ! $this->isEventScoped();
-        }
-
-        return $this->role === UserRole::Usuario && $this->can_access_rentals;
-    }
-
-    /** Encerrar/reabrir/reativar pedido, cadastrar/excluir item e ver investimento (specs/24 §11). */
-    public function canManageRentals(): bool
-    {
-        return $this->isAdmin() || ($this->isCoordenador() && ! $this->isEventScoped());
-    }
-
-    public function canAccessBoard(Board $board): bool
-    {
-        // Quadro de custos fixos (specs/27 §1.2): só Admin e Coordenador sem eventos vinculados —
-        // nem o vínculo em `user_board` abre para o Usuário comum.
         if ($board->fixed_costs) {
-            return $this->canManageFixedCosts();
+            return $this->hasModule(AccessModule::FixedCosts);
         }
-
-        if ($this->isAdmin() || $this->isCoordenador()) {
+        if ($this->hasModule(AccessModule::BoardsConfigure)) {
             return true;
         }
 
-        return $this->boards()->whereKey($board->getKey())->exists();
+        return $this->profileBoardIds()->contains($board->getKey());
     }
 
     /**
-     * É responsável por algum card deste quadro (specs/22). Dá **leitura** do quadro/card mesmo sem
-     * vínculo em `user_board`: sem isso, atribuir alguém de outro departamento como responsável
-     * criava um responsável que não recebia a notificação nem conseguia abrir o próprio card.
+     * É responsável por algum card deste quadro (specs/22). Dá **leitura** do quadro/card mesmo sem o
+     * quadro no perfil: sem isso, atribuir alguém de outro departamento como responsável criava um
+     * responsável que não recebia a notificação nem conseguia abrir o próprio card.
      *
      * Deliberadamente separado de `canAccessBoard()`, que continua sendo a régua de escrita
      * (mover, transferir, editar, excluir) e do menu de quadros.
      */
-    /** Custos fixos (specs/27): cadastro e quadros só para Admin e Coordenador sem eventos vinculados. */
-    public function canManageFixedCosts(): bool
-    {
-        return $this->isAdmin() || ($this->isCoordenador() && ! $this->isEventScoped());
-    }
-
     public function isAssignedOnBoard(Board $board): bool
     {
         return $this->assignedCards()->where('board_id', $board->getKey())->exists();
     }
 
     /**
-     * Coordenador restrito por evento (specs/20): coordenador com ao menos um evento vinculado.
-     * Admin nunca é restrito; coordenador sem eventos e usuário comum também não.
+     * "Eventos visíveis: somente os selecionados" (specs/28 §6): usuário que não é admin com ao menos
+     * um evento vinculado.
      */
     public function isEventScoped(): bool
     {
-        return $this->isCoordenador() && $this->events()->exists();
+        return ! $this->isAdmin() && $this->linkedEventIds()->isNotEmpty();
     }
 
     /**
-     * Fonte única da verdade do escopo por evento (specs/20):
-     * - null  → sem restrição (Admin, Coordenador sem eventos, Usuário) — vê tudo;
+     * Fonte única da verdade do escopo por evento:
+     * - null  → sem restrição (Admin ou "Todos os eventos");
      * - Collection de event_id → restrito a esses eventos.
      */
-    public function allowedEventIds(): ?\Illuminate\Support\Collection
+    public function allowedEventIds(): ?Collection
     {
-        if (! $this->isEventScoped()) {
-            return null;
+        return $this->isEventScoped() ? $this->linkedEventIds() : null;
+    }
+
+    /** Descarta o que foi lido nesta requisição (após mudar perfil, eventos ou Administrador). */
+    public function flushAccessCache(): void
+    {
+        foreach (['modules', 'boards', 'events'] as $key) {
+            request()->attributes->remove($this->accessCacheKey($key));
+        }
+    }
+
+    /** Usuários com um módulo ligado (Admin incluído). */
+    public function scopeWithModule(Builder $query, AccessModule $module): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->where('is_admin', true)
+            ->orWhereIn('access_profile_id', AccessProfileModule::query()
+                ->where('module', $module->value)
+                ->select('access_profile_id')));
+    }
+
+    /** Usuários que passam em `canAccessBoard($board)`, em uma consulta só. */
+    public function scopeWithBoardAccess(Builder $query, Board $board): Builder
+    {
+        if ($board->fixed_costs) {
+            return $query->withModule(AccessModule::FixedCosts);
         }
 
-        return $this->events()->pluck('events.id');
+        return $query->where(fn (Builder $q) => $q
+            ->where('is_admin', true)
+            ->orWhereIn('access_profile_id', AccessProfileModule::query()
+                ->where('module', AccessModule::BoardsConfigure->value)
+                ->select('access_profile_id'))
+            ->orWhereIn('access_profile_id', DB::table('access_profile_board')
+                ->where('board_id', $board->getKey())
+                ->select('access_profile_id')));
+    }
+
+    private function linkedEventIds(): Collection
+    {
+        if (! $this->exists) {
+            return collect();
+        }
+
+        return $this->accessCached('events', fn () => $this->events()->pluck('events.id'));
+    }
+
+    /**
+     * Guarda o resultado na requisição atual, não na instância: o menu, as Policies e o Kanban
+     * consultam o acesso várias vezes por requisição (no máximo 1 consulta por tipo), e a próxima
+     * requisição já enxerga uma mudança no perfil — specs/28 §7.1 "mudança vale na hora".
+     */
+    private function accessCached(string $key, Closure $resolve): mixed
+    {
+        $attributes = request()->attributes;
+        $cacheKey = $this->accessCacheKey($key);
+
+        if (! $attributes->has($cacheKey)) {
+            $attributes->set($cacheKey, $resolve());
+        }
+
+        return $attributes->get($cacheKey);
+    }
+
+    private function accessCacheKey(string $key): string
+    {
+        return "access.{$this->getKey()}.{$this->access_profile_id}.{$key}";
     }
 
     /**

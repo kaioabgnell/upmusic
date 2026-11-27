@@ -14,8 +14,11 @@ services). FKs sempre indexadas com constraint. Dinheiro em `DECIMAL(15,2)`.
 ```mermaid
 erDiagram
     users }o--o| setores : "lotado em"
-    users ||--o{ user_board : acessa
-    boards ||--o{ user_board : permite
+    access_profiles ||--o{ users : "perfil de acesso"
+    access_profiles ||--o{ access_profile_modules : "módulos ligados"
+    access_profiles ||--o{ access_profile_board : "quadros ligados"
+    boards ||--o{ access_profile_board : "ligado em"
+    users ||--o{ event_user : "eventos visíveis"
     setores ||--o{ boards : "possui"
     boards ||--o{ board_columns : "tem colunas"
     boards ||--o{ board_fields : "define campos"
@@ -47,10 +50,11 @@ erDiagram
 Respeitar esta ordem em migrations e nos fluxos de criação da UI:
 
 ```
-users → setores → (users.setor_id) 
+access_profiles → access_profile_modules
+users (→ access_profiles) → setores → (users.setor_id)
 empresas
 fornecedores
-boards (→ setores) → board_columns → board_fields → user_board
+boards (→ setores) → board_columns → board_fields → access_profile_board (→ access_profiles)
 cards (→ boards, board_columns, empresas, users) → card_field_values, card_attachments, card_comments, card_movements
 card_templates → card_template_items
 financial_plans → financial_entries (→ empresas, cards)
@@ -69,14 +73,18 @@ Autenticação e perfil. Base do Breeze estendida.
 | name | varchar(150) | obrigatório |
 | email | varchar(150) | único |
 | password | varchar | hash |
-| role | enum(`admin`,`coordenador`,`usuario`) | default `usuario` |
+| is_admin | boolean | default false. Administrador ignora o perfil e vê tudo ([28](28-perfis-de-acesso.md)) |
+| access_profile_id | bigint FK→access_profiles | nullable (nulo para Administrador), `onDelete restrict` |
 | setor_id | bigint FK→setores | nullable, `onDelete set null` |
 | phone | varchar(20) | nullable |
 | avatar_path | varchar | nullable |
 | active | boolean | default true |
 | email_verified_at, remember_token, timestamps, deleted_at | | |
 
-Índices: `email` (unique), `role`, `setor_id`.
+Índices: `email` (unique), `is_admin`, `setor_id`, `access_profile_id`.
+
+Até a [28](28-perfis-de-acesso.md) havia `role` (`admin`/`coordenador`/`usuario`) e `can_access_rentals`;
+as duas colunas saíram na migration `2026_11_26_000006`.
 
 ### 3.2 setores (departamentos)
 Cadastro base de setores/departamentos da empresa.
@@ -243,14 +251,37 @@ Anexos gerais, notas fiscais e fotos de comprovação.
 | type | enum(`column`,`board`) | movimento entre colunas ou entre quadros |
 | timestamps | | |
 
-### 3.13 user_board (pivot de acesso)
-Define a quais quadros um usuário perfil `usuario` tem acesso.
+### 3.13 Perfis de acesso ([28](28-perfis-de-acesso.md))
+Substituem o pivot `user_board` (removido em `2026_11_26_000006`).
 
-| Coluna | Tipo |
-|--------|------|
-| user_id | bigint FK→users `cascade` |
-| board_id | bigint FK→boards `cascade` |
-| PK composta (user_id, board_id) | |
+**access_profiles**
+
+| Coluna | Tipo | Regras |
+|--------|------|--------|
+| id | bigint PK | |
+| name | varchar(60) | único. Sem soft delete: só se exclui perfil sem usuários |
+| timestamps | | |
+
+**access_profile_modules** — módulos ligados (valores do enum `App\Domain\Enums\AccessModule`)
+
+| Coluna | Tipo | Regras |
+|--------|------|--------|
+| id | bigint PK | |
+| access_profile_id | bigint FK→access_profiles | `cascade` |
+| module | varchar(40) | valor do enum; único por perfil, indexado |
+| timestamps | | |
+
+**access_profile_board** — quadros de evento ligados no perfil
+
+| Coluna | Tipo | Regras |
+|--------|------|--------|
+| id | bigint PK | |
+| access_profile_id | bigint FK→access_profiles | `cascade` |
+| board_id | bigint FK→boards | `cascade` |
+| timestamps | | único `(access_profile_id, board_id)` |
+
+**event_user** ([20](20-coordenador-por-evento.md), generalizada pela 28): "Eventos visíveis: somente os
+selecionados" de qualquer usuário que não é admin. Sem linhas = vê todos os eventos.
 
 ### 3.14 card_templates + card_template_items
 Ver [08](08-templates-de-cards.md).
@@ -388,7 +419,8 @@ Ver [11](11-formulario-externo.md).
 
 ## 5. Seeders
 
-- `RoleUserSeeder`: 1 admin (`admin@upmusic.local`), 1 coordenador, 1 usuário.
+- `UserSeeder`: 1 admin (`admin@upmusic.local`), 1 usuário com o perfil "Coordenador" e 1 com o perfil
+  "Orçamentos" (pacotes da [28](28-perfis-de-acesso.md) §9). O `BoardSeeder` liga o quadro Orçamentos no perfil.
 - `SetorSeeder`: Orçamentos, Jurídico, Financeiro, Conclusão.
 - `BoardSeeder`: um quadro por setor com colunas do [fluxo de processos](12-fluxo-de-processos.md) e `is_final`/`is_entry` marcados.
 - Seeders de exemplo (empresas, fornecedores, serviços) para demonstração — sem emojis.

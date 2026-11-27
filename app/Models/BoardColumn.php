@@ -48,15 +48,21 @@ class BoardColumn extends Model
             : $this->approvers()->exists();
     }
 
+    /**
+     * Aprovador = estar na lista da coluna, estar ativo e ainda ter acesso ao quadro (specs/28 §5).
+     * Quem perde o quadro no perfil deixa de aprovar sem precisar sair da lista.
+     */
     public function isApproverFor(?User $user): bool
     {
-        if (! $user || ! $user->isAdmin()) {
+        if (! $user || ! $user->active) {
             return false;
         }
 
-        return $this->relationLoaded('approvers')
+        $listed = $this->relationLoaded('approvers')
             ? $this->approvers->contains('id', $user->id)
             : $this->approvers()->whereKey($user->id)->exists();
+
+        return $listed && $user->canAccessBoard($this->board);
     }
 
     /**

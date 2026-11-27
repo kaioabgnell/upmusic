@@ -19,10 +19,11 @@
             <x-text-input name="search" :value="request('search')" placeholder="Buscar por nome ou e-mail"
                           class="pl-9" />
         </div>
-        <x-form.select name="role" class="sm:w-48" onchange="this.form.submit()">
-            <option value="">Todos os perfis</option>
-            @foreach ($roles as $value => $label)
-                <option value="{{ $value }}" @selected(request('role') === $value)>{{ $label }}</option>
+        <x-form.select name="perfil" class="sm:w-56" onchange="this.form.submit()">
+            <option value="">Todos os perfis de acesso</option>
+            <option value="admin" @selected(request('perfil') === 'admin')>Administrador</option>
+            @foreach ($profiles as $profile)
+                <option value="{{ $profile->id }}" @selected(request('perfil') === (string) $profile->id)>{{ $profile->name }}</option>
             @endforeach
         </x-form.select>
         <x-form.select name="status" class="sm:w-40" onchange="this.form.submit()">
@@ -45,7 +46,7 @@
             <x-slot name="head">
                 <th class="px-4 py-3 font-medium">Nome</th>
                 <th class="px-4 py-3 font-medium">E-mail</th>
-                <th class="px-4 py-3 font-medium">Perfil</th>
+                <th class="px-4 py-3 font-medium">Perfil de acesso</th>
                 <th class="px-4 py-3 font-medium">Setor</th>
                 <th class="px-4 py-3 font-medium">Status</th>
                 <th class="px-4 py-3 font-medium text-right">Ações</th>
@@ -61,9 +62,13 @@
                     </td>
                     <td class="px-4 py-3 text-steel">{{ $u->email }}</td>
                     <td class="px-4 py-3">
-                        <x-badge :variant="$u->isAdmin() ? 'dark' : ($u->isCoordenador() ? 'orange' : 'neutral')">
-                            {{ $u->role->label() }}
-                        </x-badge>
+                        @if ($u->isAdmin())
+                            <x-badge variant="dark">Administrador</x-badge>
+                        @elseif ($u->accessProfile)
+                            <x-badge variant="neutral">{{ $u->accessProfile->name }}</x-badge>
+                        @else
+                            <x-badge variant="danger">Sem perfil</x-badge>
+                        @endif
                     </td>
                     <td class="px-4 py-3 text-steel">{{ $u->setor?->nome ?? '—' }}</td>
                     <td class="px-4 py-3">

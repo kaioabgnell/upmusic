@@ -2,22 +2,20 @@
 
 namespace Tests\Feature\Finance;
 
-use App\Domain\Enums\UserRole;
-
 /** Permissões do módulo e o efeito do fechamento (specs/23 §11). */
 class FinanceAccessTest extends FinanceTestCase
 {
     public function test_usuario_comum_nao_acessa_o_modulo(): void
     {
-        $this->actingAs($this->user(UserRole::Usuario))
+        $this->actingAs($this->user('usuario'))
             ->get(route('finance.index'))
             ->assertForbidden();
     }
 
     public function test_admin_e_coordenador_acessam_a_lista(): void
     {
-        $this->actingAs($this->user(UserRole::Admin))->get(route('finance.index'))->assertOk();
-        $this->actingAs($this->user(UserRole::Coordenador))->get(route('finance.index'))->assertOk();
+        $this->actingAs($this->user('admin'))->get(route('finance.index'))->assertOk();
+        $this->actingAs($this->user('coordenador'))->get(route('finance.index'))->assertOk();
     }
 
     public function test_coordenador_restrito_so_enxerga_a_planilha_dos_eventos_dele(): void
@@ -25,7 +23,7 @@ class FinanceAccessTest extends FinanceTestCase
         $meu = $this->event('Meu evento');
         $outro = $this->event('Evento de terceiros');
 
-        $coordenador = $this->user(UserRole::Coordenador);
+        $coordenador = $this->user('coordenador');
         $coordenador->events()->attach($meu->id);
 
         $this->actingAs($coordenador->fresh())->get(route('finance.show', $meu))->assertOk();
@@ -37,7 +35,7 @@ class FinanceAccessTest extends FinanceTestCase
         $meu = $this->event('Meu evento');
         $this->event('Evento de terceiros');
 
-        $coordenador = $this->user(UserRole::Coordenador);
+        $coordenador = $this->user('coordenador');
         $coordenador->events()->attach($meu->id);
 
         $this->actingAs($coordenador->fresh())
@@ -56,7 +54,7 @@ class FinanceAccessTest extends FinanceTestCase
 
         // 422 (e não 403) porque o motivo não é falta de permissão: a planilha está congelada.
         // Vale para qualquer papel — inclusive Admin, que o Gate::before liberaria numa policy.
-        foreach ([UserRole::Coordenador, UserRole::Admin] as $role) {
+        foreach (['coordenador', 'admin'] as $role) {
             $this->actingAs($this->user($role))
                 ->putJson(route('finance.costs.update', $item), ['description' => 'Alterado'])
                 ->assertStatus(422);
@@ -71,11 +69,11 @@ class FinanceAccessTest extends FinanceTestCase
         $sheet = $this->sheet($event);
         $sheet->update(['status' => 'fechado']);
 
-        $this->actingAs($this->user(UserRole::Coordenador))
+        $this->actingAs($this->user('coordenador'))
             ->post(route('finance.reopen', $event))
             ->assertForbidden();
 
-        $this->actingAs($this->user(UserRole::Admin))
+        $this->actingAs($this->user('admin'))
             ->post(route('finance.reopen', $event))
             ->assertRedirect();
 
@@ -84,11 +82,11 @@ class FinanceAccessTest extends FinanceTestCase
 
     public function test_configuracoes_sao_exclusivas_do_admin(): void
     {
-        $this->actingAs($this->user(UserRole::Coordenador))
+        $this->actingAs($this->user('coordenador'))
             ->get(route('finance.settings.index'))
             ->assertForbidden();
 
-        $this->actingAs($this->user(UserRole::Admin))
+        $this->actingAs($this->user('admin'))
             ->get(route('finance.settings.index'))
             ->assertOk();
     }
@@ -97,8 +95,8 @@ class FinanceAccessTest extends FinanceTestCase
     {
         $event = $this->event();
         $board = $this->board();
-        $usuario = $this->user(UserRole::Usuario);
-        $usuario->boards()->attach($board->id);
+        $usuario = $this->user('usuario');
+        $usuario = $this->giveBoards($usuario, $board);
         $card = $this->card($board, $event);
 
         // Ele não abre o módulo, mas empurra a despesa a partir do card — a autorização é da

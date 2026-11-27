@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateColumnApproversRequest;
 use App\Models\Board;
 use App\Models\BoardColumn;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -48,25 +48,9 @@ class BoardColumnController extends Controller
      * Sincroniza os aprovadores da coluna (specs/17) — a existência de aprovadores já marca a
      * coluna como "exige aprovação para avançar", sem flag própria.
      */
-    public function updateApprovers(Request $request, BoardColumn $column)
+    public function updateApprovers(UpdateColumnApproversRequest $request, BoardColumn $column)
     {
-        $this->authorize('configure', $column->board);
-
-        $data = $request->validate([
-            'user_ids' => ['array'],
-            'user_ids.*' => ['integer', 'exists:users,id'],
-        ]);
-
-        $userIds = $data['user_ids'] ?? [];
-
-        if ($userIds) {
-            $nonAdminCount = User::whereIn('id', $userIds)->where('role', '!=', 'admin')->count();
-            abort_if($nonAdminCount > 0, 422, 'Só usuários com perfil Administrador podem ser aprovadores.');
-
-            abort_if(! $column->nextColumn(), 422, 'Não é possível exigir aprovação na última etapa do quadro.');
-        }
-
-        $column->approvers()->sync($userIds);
+        $column->approvers()->sync($request->validated('user_ids', []));
 
         return response()->json(['ok' => true]);
     }

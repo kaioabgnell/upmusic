@@ -3,7 +3,6 @@
 namespace Tests\Feature\Rentals;
 
 use App\Actions\Rentals\SaveRentalOrderLine;
-use App\Domain\Enums\UserRole;
 use App\Models\RentalOrder;
 use App\Services\Rentals\RentalOrderSummaryService;
 
@@ -12,7 +11,7 @@ class RentalOrderCalculationsTest extends RentalTestCase
 {
     public function test_total_da_linha_e_quantidade_vezes_diarias_vezes_unitario(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin);
 
@@ -26,7 +25,7 @@ class RentalOrderCalculationsTest extends RentalTestCase
 
     public function test_desconto_em_valor_e_limitado_ao_subtotal(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin);
         app(SaveRentalOrderLine::class)->store($order, ['rental_item_id' => $item->id, 'quantity' => 1, 'daily_count' => 1, 'unit_price' => 100]);
@@ -40,7 +39,7 @@ class RentalOrderCalculationsTest extends RentalTestCase
 
     public function test_desconto_percentual(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin);
         app(SaveRentalOrderLine::class)->store($order, ['rental_item_id' => $item->id, 'quantity' => 1, 'daily_count' => 1, 'unit_price' => 200]);
@@ -54,7 +53,7 @@ class RentalOrderCalculationsTest extends RentalTestCase
 
     public function test_a_receber_falta_pagar_e_resultado(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin);
         $order->update(['revenue_estimated' => 1000, 'revenue_actual' => 1000]);
         $order->receipts()->create(['amount' => 400, 'received_at' => now()]);
@@ -70,7 +69,7 @@ class RentalOrderCalculationsTest extends RentalTestCase
 
     public function test_rodape_da_lista_bate_com_a_soma_da_query_filtrada(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $a = $this->order($admin, ['client_name' => 'Cliente A']);
         $a->update(['revenue_estimated' => 500]);
         $b = $this->order($admin, ['client_name' => 'Cliente B']);

@@ -2,36 +2,40 @@
 
 namespace App\Policies;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\Event;
 use App\Models\User;
 
 class EventPolicy
 {
-    // Admin liberado via Gate::before. Gestão de cadastros: Coordenador.
+    // Admin liberado via Gate::before. Demais: módulo `events` do perfil de acesso (specs/28).
+
     public function viewAny(User $user): bool
     {
-        // Coordenador restrito vê o menu Eventos, mas a lista é filtrada no controller (specs/20).
-        return $user->isCoordenador();
+        // Quem tem "Eventos visíveis: somente os selecionados" vê a lista filtrada no controller.
+        return $user->hasModule(AccessModule::Events);
     }
 
-    // Coordenador restrito por evento (specs/20) não cria eventos (um evento novo, fora do seu
-    // vínculo, sumiria da lista logo após criar).
+    /**
+     * Quem é restrito por evento também cria: o evento novo entra na hora nos eventos visíveis dele
+     * (specs/28 §6, `CreateEvent`).
+     */
     public function create(User $user): bool
     {
-        return $user->isCoordenador() && ! $user->isEventScoped();
+        return $user->hasModule(AccessModule::Events);
     }
 
     public function update(User $user, Event $event): bool
     {
-        return $user->isCoordenador() && $this->withinScope($user, $event);
+        return $user->hasModule(AccessModule::Events) && $this->withinScope($user, $event);
     }
 
     public function delete(User $user, Event $event): bool
     {
-        return $user->isCoordenador() && $this->withinScope($user, $event);
+        return $this->update($user, $event);
     }
 
-    /** Coordenador restrito só mexe nos eventos vinculados; coordenador comum, em qualquer um. */
+    /** Restrito por evento só mexe nos eventos vinculados; sem restrição, em qualquer um. */
     private function withinScope(User $user, Event $event): bool
     {
         $ids = $user->allowedEventIds();

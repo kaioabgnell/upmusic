@@ -2,6 +2,12 @@
 
 > **Modelo recomendado:** `sonnet` (Sonnet 5).
 
+> **Substituída em parte pela [28 — Perfis de acesso](28-perfis-de-acesso.md) (26/11/2026).** Os papéis
+> fixos Admin/Coordenador/Usuário, a matriz de permissão (§4), o vínculo `user_board` e o middleware
+> `role:` (§5) não existem mais: hoje há "Administrador: sim/não" + um Perfil de acesso por usuário,
+> com módulos e quadros ligados ou desligados. Usuários é só do Administrador. A autenticação (§2) e
+> as travas de exclusão (§3) continuam valendo.
+
 ## 1. Objetivo
 
 Controlar o acesso ao sistema com login, gestão de usuários e três níveis de permissão

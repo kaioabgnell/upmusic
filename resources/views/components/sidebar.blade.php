@@ -1,3 +1,4 @@
+@php use App\Domain\Enums\AccessModule; @endphp
 {{-- Sidebar de navegação (SaaS). Fundo escuro + logo branca. Ver specs/02 e 06. --}}
 <aside x-cloak
     class="fixed inset-y-0 left-0 z-40 w-64 bg-brand-ink flex flex-col transform transition-transform duration-200 lg:translate-x-0"
@@ -15,18 +16,16 @@
 
     {{-- Navegação --}}
     @php
-        $isManager = auth()->user()->isAdmin() || auth()->user()->isCoordenador();
-        $isAdmin = auth()->user()->isAdmin();
-        // Coordenador restrito por evento (specs/20): esconde os cadastros que ele não pode acessar.
-        $isEventScoped = auth()->user()->isEventScoped();
+        // Cada item aparece só com o módulo ligado no perfil de acesso (specs/28 §7.3); Admin vê
+        // tudo. Uma seção some quando nenhum item dela aparece.
+        $authUser = auth()->user();
+        $isAdmin = $authUser->isAdmin();
+        $can = fn (AccessModule $module) => $authUser->hasModule($module);
 
-        // Quadros no menu: mesma régua do BoardController::index — admin/coordenador veem todos,
-        // usuário comum só os que tem vínculo em `user_board`. Ser responsável por um card não
-        // coloca o quadro aqui (é leitura avulsa, ver BoardPolicy::view).
-        // Quadros de custos fixos (specs/27 §1.2) ficam junto com os demais, mas só para Admin e
-        // Coordenador sem eventos vinculados — `Board::visibleTo()` aplica as duas réguas.
+        // Quadros no menu: mesma régua de User::canAccessBoard() (Board::visibleTo). Ser responsável
+        // por um card não coloca o quadro aqui (é leitura avulsa, ver BoardPolicy::view).
         $menuBoards = \App\Models\Board::query()
-            ->visibleTo(auth()->user())
+            ->visibleTo($authUser)
             ->orderBy('position')->orderBy('name')
             ->get(['id', 'name', 'icon']);
 
@@ -34,6 +33,13 @@
         // parâmetro, então os dois acendem o submenu certo.
         $currentBoard = request()->route('board');
         $currentBoardId = $currentBoard instanceof \App\Models\Board ? $currentBoard->id : $currentBoard;
+
+        $showCadastros = collect([
+            AccessModule::Setores, AccessModule::Empresas, AccessModule::CostCenters, AccessModule::BankAccounts,
+            AccessModule::FixedCosts, AccessModule::Fornecedores, AccessModule::FornecedorCategorias,
+            AccessModule::Events, AccessModule::Templates,
+        ])->contains($can);
+        $showFinanceiro = collect([AccessModule::Finance, AccessModule::Prices, AccessModule::FinanceSettings])->contains($can);
     @endphp
     <nav class="sidebar-nav flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div class="space-y-1">
@@ -53,71 +59,81 @@
                 </div>
             @endforeach
             <x-nav-item route="cards.index" pattern="cards.index" icon="fa-layer-group" label="Todos os Cards" />
-            @if ($isAdmin)
+            @if ($can(AccessModule::Captures))
                 <x-nav-item route="captures.index" pattern="captures.*" icon="fa-bolt" label="Captura rápida" />
             @endif
         </div>
 
-        {{-- Fornecedores é liberado a qualquer usuário (todos podem criar/editar/excluir) — diferente
-             de Setores/Empresas/Eventos/Templates, que continuam restritos a Admin/Coordenador, e do
-             coordenador restrito por evento (specs/20), que não vê os demais cadastros. --}}
-        <div class="space-y-1">
-            <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Cadastros</p>
-            @if ($isManager && ! $isEventScoped)
-                <x-nav-item route="setores.index" pattern="setores.*" icon="fa-sitemap" label="Setores" />
-                <x-nav-item route="empresas.index" pattern="empresas.*" icon="fa-building" label="Empresas" />
-                <x-nav-item route="cost-centers.index" pattern="cost-centers.*" icon="fa-diagram-project" label="Centros de custo" />
-                <x-nav-item route="bank-accounts.index" pattern="bank-accounts.*" icon="fa-building-columns" label="Contas bancárias" />
-                {{-- Custos fixos recorrentes (specs/27): mesma régua — Admin e Coordenador sem eventos. --}}
-                <x-nav-item route="fixed-costs.index" pattern="fixed-costs.*" icon="fa-arrows-rotate" label="Custos fixos" />
-            @endif
-            <x-nav-item route="fornecedores.index" pattern="fornecedores.*" icon="fa-truck-field" label="Fornecedores" />
-            @if ($isManager && ! $isEventScoped)
-                {{-- Submenu de Fornecedores: gestão de categorias (restrito a Admin/Coordenador, specs/20). --}}
-                <div class="pl-4">
-                    <x-nav-item route="fornecedor-categorias.index" pattern="fornecedor-categorias.*" icon="fa-tags"
-                        label="Categorias" />
-                </div>
-            @endif
-            @if ($isManager)
-                <x-nav-item route="eventos.index" pattern="eventos.*" icon="fa-calendar-days" label="Eventos" />
-                @unless ($isEventScoped)
+        @if ($showCadastros)
+            <div class="space-y-1">
+                <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Cadastros</p>
+                @if ($can(AccessModule::Setores))
+                    <x-nav-item route="setores.index" pattern="setores.*" icon="fa-sitemap" label="Setores" />
+                @endif
+                @if ($can(AccessModule::Empresas))
+                    <x-nav-item route="empresas.index" pattern="empresas.*" icon="fa-building" label="Empresas" />
+                @endif
+                @if ($can(AccessModule::CostCenters))
+                    <x-nav-item route="cost-centers.index" pattern="cost-centers.*" icon="fa-diagram-project" label="Centros de custo" />
+                @endif
+                @if ($can(AccessModule::BankAccounts))
+                    <x-nav-item route="bank-accounts.index" pattern="bank-accounts.*" icon="fa-building-columns" label="Contas bancárias" />
+                @endif
+                @if ($can(AccessModule::FixedCosts))
+                    <x-nav-item route="fixed-costs.index" pattern="fixed-costs.*" icon="fa-arrows-rotate" label="Custos fixos" />
+                @endif
+                @if ($can(AccessModule::Fornecedores))
+                    <x-nav-item route="fornecedores.index" pattern="fornecedores.*" icon="fa-truck-field" label="Fornecedores" />
+                @endif
+                @if ($can(AccessModule::FornecedorCategorias))
+                    {{-- Submenu de Fornecedores: gestão de categorias. --}}
+                    <div class="{{ $can(AccessModule::Fornecedores) ? 'pl-4' : '' }}">
+                        <x-nav-item route="fornecedor-categorias.index" pattern="fornecedor-categorias.*" icon="fa-tags"
+                            label="Categorias" />
+                    </div>
+                @endif
+                @if ($can(AccessModule::Events))
+                    <x-nav-item route="eventos.index" pattern="eventos.*" icon="fa-calendar-days" label="Eventos" />
+                @endif
+                @if ($can(AccessModule::Templates))
                     <x-nav-item route="templates.index" pattern="templates.*" icon="fa-clone" label="Templates de Cards" />
-                @endunless
-            @endif
-        </div>
+                @endif
+            </div>
+        @endif
 
-
-        <div class="space-y-1">
-            <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Financeiro</p>
-            {{-- Financeiro do Evento (specs/23): substitui o "Planejamento" (specs/09), que segue
-                 acessível por URL só para consulta do histórico. --}}
-            @if ($isManager)
-                <x-nav-item route="finance.index" pattern="finance.*" except="finance.settings.*"
-                    icon="fa-file-invoice-dollar" label="Financeiro dos Eventos" />
-            @endif
-            <x-nav-item route="prices.categorias.index" pattern="prices.*" icon="fa-tags" label="Banco de Preços" />
-            @if ($isAdmin)
-                <x-nav-item route="finance.settings.index" pattern="finance.settings.*" icon="fa-sliders"
-                    label="Config. Financeiro" />
-            @endif
-        </div>
+        @if ($showFinanceiro)
+            <div class="space-y-1">
+                <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Financeiro</p>
+                {{-- Financeiro do Evento (specs/23): substitui o "Planejamento" (specs/09), que segue
+                     acessível por URL só para consulta do histórico. --}}
+                @if ($can(AccessModule::Finance))
+                    <x-nav-item route="finance.index" pattern="finance.*" except="finance.settings.*"
+                        icon="fa-file-invoice-dollar" label="Financeiro dos Eventos" />
+                @endif
+                @if ($can(AccessModule::Prices))
+                    <x-nav-item route="prices.categorias.index" pattern="prices.*" icon="fa-tags" label="Banco de Preços" />
+                @endif
+                @if ($can(AccessModule::FinanceSettings))
+                    <x-nav-item route="finance.settings.index" pattern="finance.settings.*" icon="fa-sliders"
+                        label="Config. Financeiro" />
+                @endif
+            </div>
+        @endif
 
         {{-- Gestão de Locações (specs/24): departamento isolado dos quadros/eventos — inventário e
-             pedidos de LED, mesa, telão, som... Admin e coordenador sem escopo de evento entram
-             sempre; usuário comum só com o checkbox habilitado (User::canAccessRentals()). --}}
-        @can('access-rentals')
+             pedidos de LED, mesa, telão, som... --}}
+        @if ($can(AccessModule::Rentals))
             <div class="space-y-1">
                 <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Locações</p>
                 <x-nav-item route="rentals.board" pattern="rentals.board" icon="fa-table-columns" label="Painel" />
                 <x-nav-item route="rentals.orders.index" pattern="rentals.orders.*" icon="fa-file-invoice-dollar" label="Pedidos" />
                 <x-nav-item route="rentals.items.index" pattern="rentals.items.*" icon="fa-boxes-stacked" label="Itens" />
             </div>
-        @endcan
+        @endif
 
-        {{-- Licitações (specs/21): módulo exclusivo do Admin. O badge conta documentos vencidos +
-             vencendo e vem do mesmo cache do painel (TTL curto, invalidado ao mexer no acervo). --}}
-        @if ($isAdmin)
+        {{-- Licitações (specs/21). O badge conta documentos vencidos + vencendo e vem do mesmo cache
+             do painel (TTL curto, invalidado ao mexer no acervo). --}}
+        @if ($can(AccessModule::Bids))
             @php($bidPending = app(\App\Services\Bid\BidDashboardService::class)->pendingCount())
             <div class="space-y-1">
                 <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Licitações</p>
@@ -131,10 +147,12 @@
             </div>
         @endif
 
-        @if ($isManager)
+        {{-- Administração: só o Administrador (specs/28 §2). --}}
+        @if ($isAdmin)
             <div class="space-y-1">
                 <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-white/40">Administração</p>
                 <x-nav-item route="users.index" pattern="users.*" icon="fa-users" label="Usuários" />
+                <x-nav-item route="access-profiles.index" pattern="access-profiles.*" icon="fa-user-shield" label="Perfis de acesso" />
             </div>
         @endif
     </nav>

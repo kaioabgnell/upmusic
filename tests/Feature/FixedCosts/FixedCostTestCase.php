@@ -4,7 +4,6 @@ namespace Tests\Feature\FixedCosts;
 
 use App\Actions\FixedCosts\CreateFixedCost;
 use App\Domain\Enums\FixedCostGenerationMode;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Empresa;
@@ -19,15 +18,19 @@ abstract class FixedCostTestCase extends TestCase
 {
     use RefreshDatabase;
 
-    protected function user(UserRole $role = UserRole::Admin): User
+    protected function user(string $role = 'admin'): User
     {
-        return User::factory()->create(['role' => $role->value, 'active' => true])->fresh();
+        return $this->userAs($role);
     }
 
-    /** Coordenador restrito por evento (specs/20). */
-    protected function scopedCoordinator(): User
+    /**
+     * Usuário com "Eventos visíveis: somente os selecionados" (specs/28 §6) e os módulos pedidos.
+     *
+     * @param  list<\App\Domain\Enums\AccessModule>  $modules
+     */
+    protected function scopedUser(array $modules = []): User
     {
-        $user = $this->user(UserRole::Coordenador);
+        $user = $this->userAs('sem-acesso', modules: $modules);
         $user->events()->attach(Event::create([
             'name' => 'Festa', 'location' => 'Goiânia', 'start_date' => '2026-06-20', 'end_date' => '2026-06-22', 'active' => true,
         ])->id);

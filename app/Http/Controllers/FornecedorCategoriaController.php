@@ -67,11 +67,12 @@ class FornecedorCategoriaController extends Controller
     }
 
     /**
-     * Cadastro inline (a partir do select no formulário de fornecedor). Admin/Coordenador.
+     * Cadastro inline (a partir do select no formulário de fornecedor).
      */
     public function quick(Request $request)
     {
-        $this->authorize('create', FornecedorCategoria::class);
+        // Libera também com o módulo Fornecedores: é usado dentro do formulário de fornecedor (specs/28 §3).
+        $this->authorize('quickCreate', FornecedorCategoria::class);
 
         $data = $request->validate([
             'nome' => ['required', 'string', 'max:120', Rule::unique('fornecedor_categorias', 'nome')->whereNull('deleted_at')],

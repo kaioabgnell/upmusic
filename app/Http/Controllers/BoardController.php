@@ -228,28 +228,13 @@ class BoardController extends Controller
     {
         $this->authorize('configure', $board);
 
-        $board->load(['columns.approvers:id,name', 'fields', 'users:id']);
+        $board->load(['columns.approvers:id,name', 'fields', 'accessProfiles:id,name']);
 
         return view('boards.config', [
             'board' => $board,
-            'users' => User::where('active', true)->orderBy('name')->get(['id', 'name', 'role']),
-            'accessIds' => $board->users->pluck('id')->all(),
-            'admins' => User::where('active', true)->where('role', 'admin')->orderBy('name')->get(['id', 'name']),
+            // Aprovador = qualquer usuário ativo com acesso ao quadro (specs/28 §5).
+            'approverCandidates' => User::where('active', true)->withBoardAccess($board)->orderBy('name')->get(['id', 'name']),
         ]);
-    }
-
-    public function updateAccess(Request $request, Board $board)
-    {
-        $this->authorize('configure', $board);
-
-        $data = $request->validate([
-            'users' => ['array'],
-            'users.*' => ['integer', 'exists:users,id'],
-        ]);
-
-        $board->users()->sync($data['users'] ?? []);
-
-        return back()->with('success', 'Acesso atualizado com sucesso.');
     }
 
     /**

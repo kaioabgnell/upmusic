@@ -271,12 +271,10 @@
                                             </div>
                                             <div class="border-t border-hairline pt-1 mt-1">
                                                 <button type="button" x-show="form.fornecedor_id" @click="form.fornecedor_id = ''; fornecedorOpen = false" class="w-full text-left px-2 py-1.5 text-xs text-red-600 hover:underline">Remover fornecedor</button>
-                                                {{-- Coordenador restrito por evento (specs/20) não cadastra fornecedores. --}}
-                                                @unless (auth()->user()->isEventScoped())
-                                                    <button type="button" @click="quickFornecedor()" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left text-brand-orange-deep font-medium">
-                                                        <i class="fa-solid fa-plus text-xs"></i> Novo fornecedor
-                                                    </button>
-                                                @endunless
+                                                {{-- Cadastro rápido dentro do card: livre para quem acessa o quadro (specs/28 §2). --}}
+                                                <button type="button" @click="quickFornecedor()" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface text-sm text-left text-brand-orange-deep font-medium">
+                                                    <i class="fa-solid fa-plus text-xs"></i> Novo fornecedor
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

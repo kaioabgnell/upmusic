@@ -3,7 +3,6 @@
 namespace Tests\Feature\Rentals;
 
 use App\Domain\Enums\RentalOrderStatus;
-use App\Domain\Enums\UserRole;
 
 /**
  * Pedido Encerrado/Cancelado trava dados/linhas/custos, mas recebimentos e pagamentos continuam
@@ -13,7 +12,7 @@ class RentalOrderLockTest extends RentalTestCase
 {
     public function test_pedido_encerrado_recusa_escrita_em_dados_linhas_e_custos(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $item = $this->item();
         $order = $this->order($admin, ['client_name' => 'Cliente']);
         $order->update(['status' => RentalOrderStatus::Encerrada->value, 'revenue_actual' => 0]);
@@ -33,7 +32,7 @@ class RentalOrderLockTest extends RentalTestCase
 
     public function test_pedido_encerrado_aceita_recebimentos_e_pagamentos(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin, ['client_name' => 'Cliente']);
         $order->update(['status' => RentalOrderStatus::Encerrada->value, 'revenue_actual' => 500]);
         $cost = $order->costs()->create(['description' => 'Sublocação', 'estimated_value' => 100, 'actual_value' => 100]);
@@ -52,7 +51,7 @@ class RentalOrderLockTest extends RentalTestCase
 
     public function test_pedido_cancelado_tambem_trava_dados(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin, ['client_name' => 'Cliente']);
         $order->update(['status' => RentalOrderStatus::Cancelada->value, 'cancelled_at' => now(), 'cancel_reason' => 'x']);
 

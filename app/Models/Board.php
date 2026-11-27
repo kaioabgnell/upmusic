@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Enums\AccessModule;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,9 +46,10 @@ class Board extends Model
         return $this->hasMany(Card::class);
     }
 
-    public function users(): BelongsToMany
+    /** Perfis de acesso que ligam este quadro (specs/28 §4). */
+    public function accessProfiles(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'user_board');
+        return $this->belongsToMany(AccessProfile::class, 'access_profile_board')->withTimestamps();
     }
 
     public function externalForms(): HasMany
@@ -79,9 +81,9 @@ class Board extends Model
     }
 
     /**
-     * Quadros que o usuário enxerga no menu e nas listas — a mesma régua de `User::canAccessBoard()`:
-     * Admin e Coordenador veem todos, Usuário só os vinculados em `user_board`, e quadros de custos
-     * fixos só aparecem para Admin e Coordenador sem eventos vinculados (specs/27 §1.2).
+     * Quadros que o usuário enxerga no menu e nas listas — a mesma régua de `User::canAccessBoard()`
+     * (specs/28 §4): Admin vê todos; quadros de evento pelo perfil ("Configurar quadros" = todos) e
+     * quadros de custos fixos pelo módulo Custos fixos.
      */
     public function scopeVisibleTo($query, User $user)
     {
@@ -89,11 +91,22 @@ class Board extends Model
             return $query;
         }
 
-        if ($user->isCoordenador()) {
-            return $user->isEventScoped() ? $query->where('fixed_costs', false) : $query;
-        }
+        $configureAll = $user->hasModule(AccessModule::BoardsConfigure);
+        $fixedCosts = $user->hasModule(AccessModule::FixedCosts);
+        $boardIds = $user->profileBoardIds();
+        $fixedColumn = $query->qualifyColumn('fixed_costs');
 
-        return $query->where('fixed_costs', false)
-            ->whereHas('users', fn ($q) => $q->whereKey($user->id));
+        return $query->where(function ($q) use ($configureAll, $fixedCosts, $boardIds, $fixedColumn, $query) {
+            $q->where(function ($q) use ($configureAll, $boardIds, $fixedColumn, $query) {
+                $q->where($fixedColumn, false);
+                if (! $configureAll) {
+                    $q->whereIn($query->qualifyColumn('id'), $boardIds);
+                }
+            });
+
+            if ($fixedCosts) {
+                $q->orWhere($fixedColumn, true);
+            }
+        });
     }
 }

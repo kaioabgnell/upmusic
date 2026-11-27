@@ -4,36 +4,34 @@ namespace App\Policies;
 
 use App\Models\User;
 
+/**
+ * Usuários é só do Administrador (specs/28 §2), liberado pelo Gate::before. Nenhum perfil de acesso
+ * libera esta tela: quem gerencia usuários pode dar a si mesmo qualquer acesso.
+ */
 class UserPolicy
 {
-    /**
-     * Admin é liberado em tudo via Gate::before (AuthServiceProvider).
-     * Aqui tratamos apenas o Coordenador; Usuário comum não gerencia usuários.
-     */
     public function viewAny(User $user): bool
     {
-        return $user->isCoordenador();
+        return false;
     }
 
     public function view(User $user, User $target): bool
     {
-        return $user->isCoordenador();
+        return false;
     }
 
     public function create(User $user): bool
     {
-        return $user->isCoordenador();
+        return false;
     }
 
     public function update(User $user, User $target): bool
     {
-        // Coordenador só edita usuários comuns (não Admin nem outro Coordenador).
-        return $user->isCoordenador() && $target->role === \App\Domain\Enums\UserRole::Usuario;
+        return false;
     }
 
     public function delete(User $user, User $target): bool
     {
-        // Exclusão de usuários é exclusiva do Admin (coberta pelo Gate::before).
         return false;
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Finance;
 
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -20,12 +19,10 @@ abstract class FinanceTestCase extends TestCase
 {
     use RefreshDatabase;
 
-    protected function user(UserRole $role = UserRole::Admin, array $attributes = []): User
+    /** @param list<\App\Domain\Enums\AccessModule> $modules */
+    protected function user(string $role = 'admin', array $attributes = [], array $modules = []): User
     {
-        return User::factory()->create([
-            'role' => $role->value,
-            'active' => true,
-        ] + $attributes)->fresh();
+        return $this->userAs($role, $attributes, $modules);
     }
 
     protected function event(string $name = 'Festa Junina 2026'): Event

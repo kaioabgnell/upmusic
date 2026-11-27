@@ -4,7 +4,6 @@ namespace Tests\Feature\Cards;
 
 use App\Domain\Enums\AttachmentKind;
 use App\Domain\Enums\FinanceDocumentKind;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\User;
@@ -25,7 +24,7 @@ class CardPanelFinanceModalTest extends TestCase
 
     public function test_tipos_de_documento_sao_renderizados_pelo_servidor_no_modal(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true]);
+        $admin = User::factory()->create(['is_admin' => true, 'active' => true]);
         $board = Board::create(['name' => 'Orçamentos']);
         BoardColumn::create(['board_id' => $board->id, 'name' => 'Entrada', 'position' => 1, 'is_entry' => true]);
 
@@ -50,7 +49,7 @@ class CardPanelFinanceModalTest extends TestCase
      */
     public function test_recibo_aparece_no_select_de_anexos_do_card_e_no_modal_do_financeiro(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true]);
+        $admin = User::factory()->create(['is_admin' => true, 'active' => true]);
         $board = Board::create(['name' => 'Orçamentos']);
         BoardColumn::create(['board_id' => $board->id, 'name' => 'Entrada', 'position' => 1, 'is_entry' => true]);
 
@@ -77,7 +76,7 @@ class CardPanelFinanceModalTest extends TestCase
      */
     public function test_fatura_aparece_no_select_de_anexos_do_card_e_no_modal_do_financeiro(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true]);
+        $admin = User::factory()->create(['is_admin' => true, 'active' => true]);
         $board = Board::create(['name' => 'Orçamentos']);
         BoardColumn::create(['board_id' => $board->id, 'name' => 'Entrada', 'position' => 1, 'is_entry' => true]);
 

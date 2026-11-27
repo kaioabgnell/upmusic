@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\FixedCosts;
 
+use App\Domain\Enums\AccessModule;
 use App\Domain\Enums\CardOrigin;
 use App\Domain\Enums\FixedCostGenerationMode;
-use App\Domain\Enums\UserRole;
 use App\Models\Card;
 use App\Models\FixedCost;
 
@@ -100,9 +100,10 @@ class FixedCostCrudTest extends FixedCostTestCase
     {
         $this->get(route('fixed-costs.index'))->assertRedirect(route('login'));
 
-        $this->actingAs($this->user(UserRole::Usuario))->get(route('fixed-costs.index'))->assertForbidden();
-        $this->actingAs($this->scopedCoordinator())->get(route('fixed-costs.index'))->assertForbidden();
-        $this->actingAs($this->user(UserRole::Coordenador))->get(route('fixed-costs.index'))->assertOk();
+        $this->actingAs($this->user('usuario'))->get(route('fixed-costs.index'))->assertForbidden();
+        $this->actingAs($this->scopedUser())->get(route('fixed-costs.index'))->assertForbidden();
+        $this->actingAs($this->scopedUser([AccessModule::FixedCosts]))->get(route('fixed-costs.index'))->assertOk();
+        $this->actingAs($this->user('coordenador'))->get(route('fixed-costs.index'))->assertOk();
         $this->actingAs($this->user())->get(route('fixed-costs.create'))->assertOk();
     }
 

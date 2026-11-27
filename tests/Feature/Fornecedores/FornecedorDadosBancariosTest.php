@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Fornecedores;
 
-use App\Domain\Enums\UserRole;
 use App\Models\Fornecedor;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,7 +14,7 @@ class FornecedorDadosBancariosTest extends TestCase
 
     private function user(): User
     {
-        return User::factory()->create(['role' => UserRole::Usuario->value, 'active' => true])->fresh();
+        return $this->userAs('usuario');
     }
 
     public function test_cadastra_fornecedor_com_dados_bancarios(): void

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Bid;
 
-use App\Domain\Enums\UserRole;
 use App\Models\BidCompany;
 use App\Models\BidDocument;
 use App\Models\BidDocumentCategory;
@@ -33,7 +32,7 @@ class BidDocumentFlowTest extends TestCase
         // `->fresh()`: sem isso o modelo não traz `avatar_path` e o layout quebra em modo estrito.
         $this->admin = User::factory()->create([
             'name' => 'Admin', 'email' => 'admin@teste.local',
-            'role' => UserRole::Admin->value, 'active' => true,
+            'is_admin' => true, 'active' => true,
         ])->fresh();
 
         $this->company = BidCompany::create([

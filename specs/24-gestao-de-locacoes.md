@@ -9,6 +9,12 @@
 > **Não se relaciona** com `cards`, `boards`, `events` nem `finance_sheets`. É um departamento à parte
 > dentro do mesmo login, com o próprio painel e o próprio financeiro.
 
+> **Permissões alteradas pela [28 — Perfis de acesso](28-perfis-de-acesso.md) (26/11/2026):** o acesso ao
+> módulo vem do módulo **Locações** do perfil de acesso, que libera tudo — inclusive o que a §11 chama de
+> "gerenciar" (encerrar, reabrir, reativar e excluir pedido; cadastrar, editar e excluir item; ver
+> investimento). O checkbox `can_access_rentals` e os gates `access-rentals`/`manage-rentals` saíram; as
+> rotas usam `module:rentals`.
+
 ## TL;DR
 
 - **Itens** = inventário próprio (LED, Mesa, Telão, Som…). Um registro por produto, com quantidade,

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Bid;
 
-use App\Domain\Enums\UserRole;
 use App\Models\BidCompany;
 use App\Models\Event;
 use App\Models\User;
@@ -18,16 +17,14 @@ class BidAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function user(UserRole $role): User
+    private function user(string $role): User
     {
         // `->fresh()` é obrigatório: o modelo recém-criado não traz `avatar_path` em memória e o
         // componente de avatar do layout quebra com `preventAccessingMissingAttributes` ligado.
-        return User::factory()->create([
-            'name' => 'Usuário '.$role->value,
-            'email' => $role->value.'@teste.local',
-            'role' => $role->value,
-            'active' => true,
-        ])->fresh();
+        return $this->userAs($role, [
+            'name' => 'Usuário '.$role,
+            'email' => $role.'@teste.local',
+        ]);
     }
 
     private function urls(): array
@@ -54,7 +51,7 @@ class BidAccessTest extends TestCase
     public function test_admin_acessa_todas_as_telas_do_modulo(): void
     {
         $this->seed(BidCatalogSeeder::class);
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
 
         foreach ($this->urls() as $url) {
             $this->actingAs($admin)->get($url)->assertOk();
@@ -66,7 +63,7 @@ class BidAccessTest extends TestCase
         $this->seed(BidCatalogSeeder::class);
         $urls = $this->urls();
 
-        foreach ([UserRole::Coordenador, UserRole::Usuario] as $role) {
+        foreach (['coordenador', 'usuario'] as $role) {
             $user = $this->user($role);
 
             foreach ($urls as $url) {
@@ -79,7 +76,7 @@ class BidAccessTest extends TestCase
     {
         $this->seed(BidCatalogSeeder::class);
 
-        $coordenador = $this->user(UserRole::Coordenador);
+        $coordenador = $this->user('coordenador');
         $event = Event::create([
             'name' => 'Evento X',
             'start_date' => now()->toDateString(),
@@ -93,7 +90,7 @@ class BidAccessTest extends TestCase
 
     public function test_escrita_tambem_e_bloqueada_para_nao_admin(): void
     {
-        $coordenador = $this->user(UserRole::Coordenador);
+        $coordenador = $this->user('coordenador');
 
         $this->actingAs($coordenador)
             ->post(route('bid.companies.store'), [
@@ -110,13 +107,13 @@ class BidAccessTest extends TestCase
     {
         $this->seed(BidCatalogSeeder::class);
 
-        $this->actingAs($this->user(UserRole::Admin))
+        $this->actingAs($this->user('admin'))
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Painel de Licitações')
             ->assertSee('Análise de Editais');
 
-        $this->actingAs($this->user(UserRole::Coordenador))
+        $this->actingAs($this->user('coordenador'))
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee('Painel de Licitações')

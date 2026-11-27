@@ -12,7 +12,8 @@ use Illuminate\Validation\Rule;
 
 /**
  * Configurações do Financeiro (specs/23 §9): grupos de pagamento e catálogo de descrições.
- * Exclusivo do Admin — o middleware `role:admin` cuida disso nas rotas.
+ * Módulo Config. Financeiro do perfil de acesso (specs/28) — o middleware `module:finance_settings`
+ * cuida disso nas rotas.
  */
 class FinancePaymentSourceController extends FinanceController
 {

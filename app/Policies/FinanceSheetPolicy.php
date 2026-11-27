@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\Event;
 use App\Models\FinanceSheet;
 use App\Models\User;
@@ -9,20 +10,20 @@ use App\Models\User;
 /**
  * Acesso ao Financeiro do Evento (specs/23 §11).
  *
- * Admin é liberado antes daqui pelo `Gate::before`. `usuario` não tem acesso ao módulo: ele
- * participa pelo Kanban (sobe o anexo no card e usa o botão "Enviar para o Financeiro", que é
- * autorizado pela CardPolicy, não por esta).
+ * Admin é liberado antes daqui pelo `Gate::before`. Demais: módulo `finance` do perfil de acesso
+ * (specs/28) + "Eventos visíveis". Quem não tem o módulo participa pelo Kanban (sobe o anexo no card
+ * e usa o botão "Enviar para o Financeiro", autorizado pela CardPolicy, não por esta).
  */
 class FinanceSheetPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isCoordenador();
+        return $user->hasModule(AccessModule::Finance);
     }
 
     public function view(User $user, FinanceSheet $sheet): bool
     {
-        return $user->isCoordenador() && $this->withinScope($user, $sheet->event_id);
+        return $user->hasModule(AccessModule::Finance) && $this->withinScope($user, $sheet->event_id);
     }
 
     /**
@@ -48,10 +49,10 @@ class FinanceSheetPolicy
         return false;
     }
 
-    /** Coordenador restrito por evento (specs/20) só enxerga as planilhas dos eventos dele. */
+    /** Quem é restrito por evento (specs/28 §6) só enxerga as planilhas dos eventos dele. */
     public function viewEvent(User $user, Event $event): bool
     {
-        return $user->isCoordenador() && $this->withinScope($user, $event->id);
+        return $user->hasModule(AccessModule::Finance) && $this->withinScope($user, $event->id);
     }
 
     private function withinScope(User $user, ?int $eventId): bool

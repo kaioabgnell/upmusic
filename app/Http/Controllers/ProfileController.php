@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Enums\UserRole;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -97,7 +96,7 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
-        if ($user->role === UserRole::Admin && User::where('role', UserRole::Admin->value)->count() <= 1) {
+        if ($user->isAdmin() && User::where('is_admin', true)->count() <= 1) {
             return Redirect::route('profile.edit')->with('error', 'Não é possível excluir sua conta: você é o único administrador.');
         }
 

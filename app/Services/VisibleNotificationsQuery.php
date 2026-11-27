@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Board;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,21 +27,21 @@ class VisibleNotificationsQuery
         return UserNotification::query()
             ->where('user_notifications.user_id', $user->id)
             ->whereHas('card', function ($query) use ($user) {
-                // Escopo por evento do coordenador restrito (specs/20).
+                // Escopo por evento (specs/28 §6).
                 $query->visibleTo($user);
 
-                // Admin e Coordenador acessam todos os quadros (User::canAccessBoard()), então a
-                // restrição por quadro só vale para o papel `usuario`. Subquery em vez de pluck()
-                // para não gastar um round trip extra a cada chamada.
+                // Quadros que o usuário acessa pelo perfil (Board::visibleTo(), a mesma régua de
+                // User::canAccessBoard()). Admin vê todos. Subquery em vez de pluck() para não gastar
+                // um round trip extra a cada chamada.
                 //
                 // `orWhere(assignee_id)`: ser o responsável atual basta, mesmo sem acesso ao quadro
                 // — é o que faz a notificação chegar a quem foi colocado como responsável em um
                 // card de outro departamento (CardPolicy::view segue a mesma régua, então o link
                 // abre). Se o responsável for trocado depois, a notificação some da lista de quem
                 // deixou de ser responsável — coerente com "só aparece o que ainda dá para abrir".
-                if (! $user->isAdmin() && ! $user->isCoordenador()) {
+                if (! $user->isAdmin()) {
                     $query->where(fn ($q) => $q
-                        ->whereIn('board_id', $user->boards()->select('boards.id'))
+                        ->whereIn('board_id', Board::query()->visibleTo($user)->select('boards.id'))
                         ->orWhere('assignee_id', $user->id));
                 }
             });

@@ -5,6 +5,12 @@
 > Melhoria pós-entrega (numeração fora das fases 0–12, como [14](14-kanban-reatividade-assincrona.md),
 > [15](15-banco-de-precos-por-categoria.md) e [16](16-captura-rapida-orcamentos-nf.md)).
 
+> **Alterada pela [28 — Perfis de acesso](28-perfis-de-acesso.md) §5 (26/11/2026):** aprovador não precisa
+> mais ser Administrador. Pode ser escolhido qualquer usuário ativo com acesso ao quadro, e
+> `BoardColumn::isApproverFor()` confere de novo, no momento de aprovar, se ele continua ativo e com o
+> quadro. A validação dos aprovadores saiu do controller para o `UpdateColumnApproversRequest`. Onde o
+> texto abaixo diz "administrador" como aprovador, leia "usuário com acesso ao quadro".
+
 ## 1. Objetivo
 
 Permitir que **colunas específicas de um quadro** exijam aprovação de um administrador antes que o card

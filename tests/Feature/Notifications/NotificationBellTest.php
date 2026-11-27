@@ -3,7 +3,6 @@
 namespace Tests\Feature\Notifications;
 
 use App\Domain\Enums\NotificationType;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -39,7 +38,7 @@ class NotificationBellTest extends TestCase
 
     public function test_sino_aparece_no_layout_com_o_total_de_nao_lidas(): void
     {
-        $user = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        $user = User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
         $this->seedNotifications($user, 3);
 
         $this->actingAs($user)->get(route('dashboard'))
@@ -51,7 +50,7 @@ class NotificationBellTest extends TestCase
 
     public function test_badge_comeca_em_zero_para_quem_nao_tem_notificacao(): void
     {
-        $user = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        $user = User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
 
         $this->actingAs($user)->get(route('dashboard'))
             ->assertOk()

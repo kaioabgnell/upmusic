@@ -3,7 +3,6 @@
 namespace Tests\Feature\External;
 
 use App\Domain\Enums\AttachmentKind;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -25,7 +24,7 @@ class CardInvoiceRequestTest extends TestCase
 
     private function user(): User
     {
-        return User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        return User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
     }
 
     private function card(array $attributes = []): Card

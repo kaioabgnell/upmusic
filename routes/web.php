@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccessProfileController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\Bid\BidCompanyController;
 use App\Http\Controllers\Bid\BidDashboardController;
@@ -34,9 +35,9 @@ use App\Http\Controllers\Finance\FinanceRevenueController;
 use App\Http\Controllers\Finance\FinanceSettlementController;
 use App\Http\Controllers\Finance\FinanceSheetController;
 use App\Http\Controllers\FinancialEntryController;
-use App\Http\Controllers\FixedCostController;
 use App\Http\Controllers\FinancialPlanController;
 use App\Http\Controllers\FinancialReportController;
+use App\Http\Controllers\FixedCostController;
 use App\Http\Controllers\FornecedorCategoriaController;
 use App\Http\Controllers\FornecedorController;
 use App\Http\Controllers\NotificationController;
@@ -112,12 +113,28 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('notificacoes/marcar-todas-lidas', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('notificacoes/{notification}/lida', [NotificationController::class, 'read'])->name('notifications.read');
 
-    // Usuários (Admin/Coordenador) — ver specs/04.
-    Route::resource('usuarios', UserController::class)
-        ->parameters(['usuarios' => 'user'])
-        ->names('users')
-        ->except('show')
-        ->middleware('role:admin,coordenador');
+    /*
+    |--------------------------------------------------------------------------
+    | Acesso por perfil (specs/28)
+    |--------------------------------------------------------------------------
+    | `admin`: só o Administrador. `module:x`: módulo ligado no perfil de acesso (Admin passa
+    | sempre). Rotas sem nenhum dos dois são livres a qualquer autenticado — Painel, quadros e cards
+    | (autorizados pela CardPolicy/BoardPolicy) e as buscas e cadastros rápidos usados dentro do card.
+    */
+
+    // Administração — Usuários e Perfis de acesso (specs/28 §2).
+    Route::middleware('admin')->group(function () {
+        Route::resource('usuarios', UserController::class)
+            ->parameters(['usuarios' => 'user'])
+            ->names('users')
+            ->except('show');
+        Route::resource('perfis-de-acesso', AccessProfileController::class)
+            ->parameters(['perfis-de-acesso' => 'accessProfile'])
+            ->names('access-profiles')
+            ->except('show');
+        Route::post('perfis-de-acesso/{accessProfile}/duplicar', [AccessProfileController::class, 'duplicate'])
+            ->name('access-profiles.duplicate');
+    });
 
     // Empresas — busca e cadastro inline disponíveis a qualquer autenticado (fluxo do card).
     Route::get('empresas/buscar', [EmpresaController::class, 'search'])->name('empresas.search');
@@ -127,17 +144,19 @@ Route::middleware(['auth', 'active'])->group(function () {
     // rápidos de empresa/fornecedor (ver ConsultaCnpjService).
     Route::get('cnpj/{cnpj}', [CnpjLookupController::class, 'show'])->name('cnpj.lookup');
 
-    // Fornecedores — CRUD completo liberado a qualquer usuário autenticado (não é "cadastro base"
-    // restrito a Admin/Coordenador como Setores/Empresas/Eventos).
+    // Fornecedores — cadastro rápido e histórico de preço são usados dentro do card (livres); a tela
+    // de cadastro é o módulo Fornecedores.
     Route::post('fornecedores/quick', [FornecedorController::class, 'quick'])->name('fornecedores.quick');
     Route::get('fornecedores/{fornecedor}/preco-historico', [FornecedorController::class, 'priceHistory'])->name('fornecedores.price-history');
     Route::resource('fornecedores', FornecedorController::class)
-        ->parameters(['fornecedores' => 'fornecedor'])->except('show');
+        ->parameters(['fornecedores' => 'fornecedor'])->except('show')
+        ->middleware('module:fornecedores');
 
     // Quadros / Departamentos — ver specs/06.
     Route::get('quadros', [BoardController::class, 'index'])->name('boards.index');
 
-    Route::middleware('role:admin,coordenador')->group(function () {
+    // Estrutura dos quadros — módulo Configurar quadros (a BoardPolicy exige também acesso ao quadro).
+    Route::middleware('module:boards_configure')->group(function () {
         // Rotas literais antes do wildcard {board}.
         Route::get('quadros/criar', [BoardController::class, 'create'])->name('boards.create');
         Route::post('quadros', [BoardController::class, 'store'])->name('boards.store');
@@ -145,7 +164,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('quadros/{board}', [BoardController::class, 'update'])->name('boards.update');
         Route::delete('quadros/{board}', [BoardController::class, 'destroy'])->name('boards.destroy');
         Route::get('quadros/{board}/configurar', [BoardController::class, 'config'])->name('boards.config');
-        Route::put('quadros/{board}/acesso', [BoardController::class, 'updateAccess'])->name('boards.access');
         Route::put('quadros/{board}/config-fornecedor', [BoardController::class, 'updateSupplierForm'])->name('boards.supplier-form.update');
         Route::put('quadros/{board}/config-custos-fixos', [BoardController::class, 'updateFixedCosts'])->name('boards.fixed-costs.update');
 
@@ -197,32 +215,43 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('anexos/{attachment}', [CardController::class, 'destroyAttachment'])->name('cards.attachments.destroy');
     Route::get('anexos/{attachment}/download', [CardController::class, 'downloadAttachment'])->name('cards.attachments.download');
 
-    // Captura rápida — qualquer usuário autenticado e ativo (ferramenta pessoal, não cadastro base).
-    // Ver specs/16. Autorização por dono via CardCapturePolicy (não por role/quadro).
+    // Captura rápida — módulo Captura rápida (specs/28). Ver specs/16. Além do módulo, cada captura
+    // só abre para o dono (CardCapturePolicy).
     // `captures.show` fica FORA deste grupo (ver abaixo) — precisa abrir sem sessão prévia via link
     // assinado (Atalho iOS); `captures.store` fica aqui normalmente: por já rodar depois do auto-login
     // feito em show(), sempre chega com sessão válida.
     // Rotas literais (configurar-iphone, upload, token) SEMPRE antes do wildcard `{capture}` — senão o
     // Laravel tenta casar "token"/"upload" como o parâmetro {capture} e falha o binding com 404.
-    Route::get('capturas', [CaptureController::class, 'index'])->name('captures.index');
-    Route::post('capturas/upload', [CaptureController::class, 'upload'])->name('captures.upload');
+    Route::middleware('module:captures')->group(function () {
+        Route::get('capturas', [CaptureController::class, 'index'])->name('captures.index');
+        Route::post('capturas/upload', [CaptureController::class, 'upload'])->name('captures.upload');
 
-    // Configurar iPhone — token pessoal (Sanctum) para o Atalho compartilhar via WhatsApp. Fase 3/specs/16.
-    Route::get('capturas/configurar-iphone', [CaptureTokenController::class, 'edit'])->name('captures.ios.setup');
-    Route::post('capturas/token', [CaptureTokenController::class, 'store'])->name('captures.token.store');
-    Route::delete('capturas/token', [CaptureTokenController::class, 'destroy'])->name('captures.token.destroy');
+        // Configurar iPhone — token pessoal (Sanctum) para o Atalho compartilhar via WhatsApp. Fase 3/specs/16.
+        Route::get('capturas/configurar-iphone', [CaptureTokenController::class, 'edit'])->name('captures.ios.setup');
+        Route::post('capturas/token', [CaptureTokenController::class, 'store'])->name('captures.token.store');
+        Route::delete('capturas/token', [CaptureTokenController::class, 'destroy'])->name('captures.token.destroy');
 
-    Route::get('capturas/{capture}/preview', [CaptureController::class, 'preview'])->name('captures.preview');
-    Route::post('capturas/{capture}/criar-card', [CaptureController::class, 'store'])->name('captures.store');
-    Route::delete('capturas/{capture}', [CaptureController::class, 'destroy'])->name('captures.destroy');
+        Route::get('capturas/{capture}/preview', [CaptureController::class, 'preview'])->name('captures.preview');
+        Route::post('capturas/{capture}/criar-card', [CaptureController::class, 'store'])->name('captures.store');
+        Route::delete('capturas/{capture}', [CaptureController::class, 'destroy'])->name('captures.destroy');
+    });
 
     // Importar template — qualquer usuário com acesso ao quadro (autorizado no controller).
     Route::post('templates/{template}/importar', [TemplateController::class, 'import'])->name('templates.import');
 
-    // Banco de preços por categoria — leitura liberada a qualquer autenticado. Ver specs/15.
-    Route::get('precos/evolucao', [PriceHistoryController::class, 'index'])->name('prices.history');
-    Route::get('precos/categorias', [PriceCategoriaController::class, 'index'])->name('prices.categorias.index');
-    Route::get('precos/categorias/{fornecedorCategoria}', [PriceCategoriaController::class, 'show'])->name('prices.categorias.show');
+    // Banco de preços por categoria — módulo Banco de Preços (consultar e gerenciar). Ver specs/15.
+    Route::middleware('module:prices')->group(function () {
+        Route::get('precos/evolucao', [PriceHistoryController::class, 'index'])->name('prices.history');
+        Route::get('precos/categorias', [PriceCategoriaController::class, 'index'])->name('prices.categorias.index');
+        Route::get('precos/categorias/{fornecedorCategoria}', [PriceCategoriaController::class, 'show'])->name('prices.categorias.show');
+        Route::post('precos/categorias/{fornecedorCategoria}/registros', [PriceRecordController::class, 'store'])->name('prices.store');
+        Route::put('precos/registros/{priceRecord}', [PriceRecordController::class, 'update'])->name('prices.update');
+        Route::delete('precos/registros/{priceRecord}', [PriceRecordController::class, 'destroy'])->name('prices.destroy');
+    });
+
+    // Autocomplete da coluna DESCRIÇÃO (leitura) — usado pela grade do Financeiro e pelo modal
+    // "Enviar para o Financeiro" do card, então é livre (specs/28 §2).
+    Route::get('financeiro/itens', [FinanceItemPresetController::class, 'index'])->name('finance.presets.index');
 
     // Dados assíncronos do quadro (colunas + cards) — ver specs/14.
     Route::get('quadros/{board}/kanban', [BoardController::class, 'kanbanData'])->name('boards.kanban.data');
@@ -236,17 +265,22 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('quadros/{board}', [BoardController::class, 'show'])->name('boards.show')
         ->missing(fn () => redirect()->route('boards.index'));
 
-    // Cadastros base (Admin/Coordenador) — ver specs/05.
-    Route::middleware('role:admin,coordenador')->group(function () {
-        Route::resource('setores', SetorController::class)
-            ->parameters(['setores' => 'setor'])->except('show');
-        Route::resource('empresas', EmpresaController::class)->except('show');
-        // Centros de custo (specs/25) — classificam linhas de custos e receitas do financeiro.
-        Route::resource('centros-de-custo', CostCenterController::class)
-            ->parameters(['centros-de-custo' => 'costCenter'])->names('cost-centers')->except('show');
-        Route::resource('contas-bancarias', BankAccountController::class)
-            ->parameters(['contas-bancarias' => 'bankAccount'])->names('bank-accounts')->except('show');
-        // Custos fixos recorrentes (specs/27) — geram um card por parcela no quadro de custos fixos.
+    // Cadastros — um módulo do perfil de acesso por cadastro (specs/28 §3). Ver specs/05.
+    Route::resource('setores', SetorController::class)
+        ->parameters(['setores' => 'setor'])->except('show')
+        ->middleware('module:setores');
+    Route::resource('empresas', EmpresaController::class)->except('show')
+        ->middleware('module:empresas');
+    // Centros de custo (specs/25) — classificam linhas de custos e receitas do financeiro.
+    Route::resource('centros-de-custo', CostCenterController::class)
+        ->parameters(['centros-de-custo' => 'costCenter'])->names('cost-centers')->except('show')
+        ->middleware('module:cost_centers');
+    Route::resource('contas-bancarias', BankAccountController::class)
+        ->parameters(['contas-bancarias' => 'bankAccount'])->names('bank-accounts')->except('show')
+        ->middleware('module:bank_accounts');
+
+    // Custos fixos recorrentes (specs/27) — geram um card por parcela no quadro de custos fixos.
+    Route::middleware('module:fixed_costs')->group(function () {
         Route::resource('custos-fixos', FixedCostController::class)
             ->parameters(['custos-fixos' => 'fixedCost'])->names('fixed-costs');
         Route::post('custos-fixos/{fixedCost}/gerar-proxima', [FixedCostController::class, 'generateNext'])->name('fixed-costs.generate-next');
@@ -257,42 +291,47 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::delete('custos-fixos/{fixedCost}/parcelas/{installment}', [FixedCostController::class, 'destroyInstallment'])->name('fixed-costs.installments.destroy');
             Route::post('custos-fixos/{fixedCost}/parcelas/{installment}/gerar-card', [FixedCostController::class, 'regenerateInstallment'])->name('fixed-costs.installments.regenerate');
         });
-        Route::resource('fornecedor-categorias', FornecedorCategoriaController::class)
-            ->parameters(['fornecedor-categorias' => 'fornecedorCategoria'])->except('show');
-        Route::post('fornecedor-categorias/quick', [FornecedorCategoriaController::class, 'quick'])->name('fornecedor-categorias.quick');
-        Route::resource('eventos', EventController::class)
-            ->parameters(['eventos' => 'evento'])->except('show');
+    });
 
-        // Templates de cards — ver specs/08.
+    Route::resource('fornecedor-categorias', FornecedorCategoriaController::class)
+        ->parameters(['fornecedor-categorias' => 'fornecedorCategoria'])->except('show')
+        ->middleware('module:fornecedor_categorias');
+    // Cadastro rápido de categoria dentro do formulário de fornecedor — libera com qualquer um dos dois.
+    Route::post('fornecedor-categorias/quick', [FornecedorCategoriaController::class, 'quick'])
+        ->middleware('module:fornecedor_categorias,fornecedores')->name('fornecedor-categorias.quick');
+    Route::resource('eventos', EventController::class)
+        ->parameters(['eventos' => 'evento'])->except('show')
+        ->middleware('module:events');
+
+    // Templates de cards — ver specs/08.
+    Route::middleware('module:templates')->group(function () {
         Route::resource('templates', TemplateController::class)->except('show');
         Route::post('templates/{template}/itens', [TemplateItemController::class, 'store'])->name('template.items.store');
         Route::put('template-itens/{item}', [TemplateItemController::class, 'update'])->name('template.items.update');
         Route::delete('template-itens/{item}', [TemplateItemController::class, 'destroy'])->name('template.items.destroy');
         Route::post('templates/{template}/itens/reordenar', [TemplateItemController::class, 'reorder'])->name('template.items.reorder');
+    });
 
-        /*
-        |------------------------------------------------------------------
-        | Financeiro do Evento (specs/23) — substitui a planilha do evento
-        |------------------------------------------------------------------
-        | Rotas literais e prefixos fixos SEMPRE antes dos wildcards ({evento}, {item}, ...).
-        | `usuario` não entra aqui (o grupo é role:admin,coordenador) e o coordenador restrito por
-        | evento é filtrado pela FinanceSheetPolicy.
-        */
+    // Config. Financeiro — catálogo do módulo (fontes de pagamento e itens).
+    Route::middleware('module:finance_settings')->group(function () {
+        Route::get('financeiro/configuracoes', [FinancePaymentSourceController::class, 'index'])->name('finance.settings.index');
+        Route::post('financeiro/configuracoes/fontes', [FinancePaymentSourceController::class, 'store'])->name('finance.sources.store');
+        Route::put('financeiro/configuracoes/fontes/{source}', [FinancePaymentSourceController::class, 'update'])->name('finance.sources.update');
+        Route::delete('financeiro/configuracoes/fontes/{source}', [FinancePaymentSourceController::class, 'destroy'])->name('finance.sources.destroy');
+        Route::post('financeiro/configuracoes/itens', [FinanceItemPresetController::class, 'store'])->name('finance.presets.store');
+        Route::put('financeiro/configuracoes/itens/{preset}', [FinanceItemPresetController::class, 'update'])->name('finance.presets.update');
+        Route::delete('financeiro/configuracoes/itens/{preset}', [FinanceItemPresetController::class, 'destroy'])->name('finance.presets.destroy');
+    });
+
+    /*
+    |------------------------------------------------------------------
+    | Financeiro do Evento (specs/23) — módulo Financeiro dos Eventos
+    |------------------------------------------------------------------
+    | Rotas literais e prefixos fixos SEMPRE antes dos wildcards ({evento}, {item}, ...). Quem é
+    | restrito por evento é filtrado pela FinanceSheetPolicy. Reabrir é só do Administrador.
+    */
+    Route::middleware('module:finance')->group(function () {
         Route::get('financeiro', [FinanceSheetController::class, 'index'])->name('finance.index');
-
-        // Catálogo do módulo — configuração é do Admin (o middleware fecha para o coordenador).
-        Route::middleware('role:admin')->group(function () {
-            Route::get('financeiro/configuracoes', [FinancePaymentSourceController::class, 'index'])->name('finance.settings.index');
-            Route::post('financeiro/configuracoes/fontes', [FinancePaymentSourceController::class, 'store'])->name('finance.sources.store');
-            Route::put('financeiro/configuracoes/fontes/{source}', [FinancePaymentSourceController::class, 'update'])->name('finance.sources.update');
-            Route::delete('financeiro/configuracoes/fontes/{source}', [FinancePaymentSourceController::class, 'destroy'])->name('finance.sources.destroy');
-            Route::post('financeiro/configuracoes/itens', [FinanceItemPresetController::class, 'store'])->name('finance.presets.store');
-            Route::put('financeiro/configuracoes/itens/{preset}', [FinanceItemPresetController::class, 'update'])->name('finance.presets.update');
-            Route::delete('financeiro/configuracoes/itens/{preset}', [FinanceItemPresetController::class, 'destroy'])->name('finance.presets.destroy');
-        });
-
-        // Autocomplete da coluna DESCRIÇÃO (leitura) — usado pela grade e pelo modal do card.
-        Route::get('financeiro/itens', [FinanceItemPresetController::class, 'index'])->name('finance.presets.index');
 
         // Linhas, pagamentos e documentos (wildcards próprios, fora do prefixo de evento).
         Route::put('financeiro/custos/{item}', [FinanceCostItemController::class, 'update'])->name('finance.costs.update');
@@ -315,7 +354,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::get('/', [FinanceSheetController::class, 'show'])->name('finance.show');
             Route::put('config', [FinanceSheetController::class, 'updateConfig'])->name('finance.config.update');
             Route::post('fechar', [FinanceSheetController::class, 'close'])->name('finance.close');
-            Route::post('reabrir', [FinanceSheetController::class, 'reopen'])->name('finance.reopen');
+            // Reabrir prestação de contas fechada: só o Administrador (specs/28 §2).
+            Route::post('reabrir', [FinanceSheetController::class, 'reopen'])->middleware('admin')->name('finance.reopen');
             Route::put('socios', [FinanceSettlementController::class, 'sync'])->name('finance.settlements.sync');
 
             Route::get('receitas', [FinanceRevenueController::class, 'index'])->name('finance.revenues.index');
@@ -344,23 +384,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('financeiro/planos/{plan}/lancamentos', [FinancialEntryController::class, 'store'])->name('entries.store');
         Route::put('financeiro/lancamentos/{entry}', [FinancialEntryController::class, 'update'])->name('entries.update');
         Route::delete('financeiro/lancamentos/{entry}', [FinancialEntryController::class, 'destroy'])->name('entries.destroy');
-
-        // Banco de preços (gestão dos registros) — ver specs/15.
-        Route::post('precos/categorias/{fornecedorCategoria}/registros', [PriceRecordController::class, 'store'])->name('prices.store');
-        Route::put('precos/registros/{priceRecord}', [PriceRecordController::class, 'update'])->name('prices.update');
-        Route::delete('precos/registros/{priceRecord}', [PriceRecordController::class, 'destroy'])->name('prices.destroy');
     });
 
     /*
     |--------------------------------------------------------------------------
     | Gestão de Locações (specs/24) — departamento isolado de cards/boards/events/financeiro
     |--------------------------------------------------------------------------
-    | `can:access-rentals`: admin e coordenador sem escopo de evento entram sempre; `usuario` só com
-    | o checkbox habilitado no cadastro (ver User::canAccessRentals()). Encerrar/reabrir/reativar/
-    | excluir pedido e cadastrar/editar/excluir item exigem `manage-rentals` (admin/coordenador),
-    | verificado nas Policies dentro dos controllers.
+    | Módulo Locações do perfil de acesso (specs/28): libera o módulo inteiro, inclusive encerrar,
+    | reabrir, reativar e excluir pedidos e cadastrar/editar/excluir itens.
     */
-    Route::middleware('can:access-rentals')->prefix('locacoes')->name('rentals.')->group(function () {
+    Route::middleware('module:rentals')->prefix('locacoes')->name('rentals.')->group(function () {
         Route::get('/', [RentalBoardController::class, 'index'])->name('board');
         Route::get('disponibilidade', [RentalAvailabilityController::class, 'index'])->name('availability');
 
@@ -409,12 +442,12 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Módulo de Licitações — exclusivo do Admin (ver specs/21)
+    | Módulo de Licitações (specs/21) — módulo Licitações do perfil de acesso (specs/28)
     |--------------------------------------------------------------------------
-    | Coordenador (restrito ou não) e Usuário recebem 403 aqui; o bloqueio é de servidor, e não
-    | apenas o item oculto na sidebar. Rotas literais sempre antes dos wildcards.
+    | O bloqueio é de servidor, e não apenas o item oculto na sidebar. Rotas literais sempre antes
+    | dos wildcards.
     */
-    Route::middleware('role:admin')->prefix('licitacoes')->name('bid.')->group(function () {
+    Route::middleware('module:bids')->prefix('licitacoes')->name('bid.')->group(function () {
         Route::get('/', [BidDashboardController::class, 'index'])->name('dashboard');
 
         // Empresas licitantes
@@ -482,7 +515,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 // token) em vez do `auth` simples do grupo acima. Isenta de CSRF (ver VerifyCsrfToken::$except) porque o
 // POST é disparado pelo SO/Atalho, nunca por um form Blade.
 Route::post('captura/receber', [CaptureController::class, 'receive'])
-    ->middleware(['auth:web,sanctum', 'active', 'throttle:20,1'])
+    ->middleware(['auth:web,sanctum', 'active', 'module:captures', 'throttle:20,1'])
     ->name('captures.receive');
 
 // `capturas/{capture}` (confirmação): o Atalho abre esta URL assinada no Safari sem sessão prévia —

@@ -3,7 +3,6 @@
 namespace Tests\Feature\Rentals;
 
 use App\Domain\Enums\RentalOrderStatus;
-use App\Domain\Enums\UserRole;
 use App\Models\RentalOrderItem;
 use App\Services\Rentals\RentalAvailabilityService;
 
@@ -12,7 +11,7 @@ class RentalAvailabilityServiceTest extends RentalTestCase
 {
     private function reserve(string $itemOwner, $item, string $start, string $end, string $status, int $qty): void
     {
-        $order = $this->order($this->user(UserRole::Admin), [
+        $order = $this->order($this->user('admin'), [
             'client_name' => $itemOwner, 'start_at' => $start, 'end_at' => $end,
         ]);
         RentalOrderItem::create([
@@ -66,7 +65,7 @@ class RentalAvailabilityServiceTest extends RentalTestCase
     public function test_pedido_atual_nao_conta_contra_si_mesmo(): void
     {
         $item = $this->item(['quantity' => 5]);
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $order = $this->order($admin, ['client_name' => 'X', 'start_at' => '2026-12-01', 'end_at' => '2026-12-05']);
         RentalOrderItem::create([
             'rental_order_id' => $order->id, 'rental_item_id' => $item->id,

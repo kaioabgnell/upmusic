@@ -2,28 +2,29 @@
 
 namespace App\Policies;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\User;
 
-/** Conta bancária (specs/26): gestão igual a Centros de custo — Admin (Gate::before) e Coordenador sem escopo de evento. */
+/** Contas bancárias (specs/26): módulo `bank_accounts` do perfil de acesso (specs/28). Admin via Gate::before. */
 class BankAccountPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isCoordenador() && ! $user->isEventScoped();
+        return $user->hasModule(AccessModule::BankAccounts);
     }
 
     public function create(User $user): bool
     {
-        return $user->isCoordenador() && ! $user->isEventScoped();
+        return $user->hasModule(AccessModule::BankAccounts);
     }
 
     public function update(User $user): bool
     {
-        return $user->isCoordenador() && ! $user->isEventScoped();
+        return $user->hasModule(AccessModule::BankAccounts);
     }
 
     public function delete(User $user): bool
     {
-        return $user->isCoordenador() && ! $user->isEventScoped();
+        return $user->hasModule(AccessModule::BankAccounts);
     }
 }

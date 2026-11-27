@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Fornecedores;
 
+use App\Domain\Enums\AccessModule;
 use App\Domain\Enums\PessoaTipo;
-use App\Domain\Enums\UserRole;
 use App\Models\Event;
 use App\Models\Fornecedor;
 use App\Models\FornecedorCategoria;
@@ -21,17 +21,14 @@ class FornecedorCategoriaMenuTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function user(UserRole $role): User
+    private function user(string $role): User
     {
-        return User::factory()->create([
-            'role' => $role->value,
-            'active' => true,
-        ])->fresh();
+        return $this->userAs($role);
     }
 
     public function test_admin_ve_o_submenu_de_categorias(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
 
         $this->actingAs($admin)
             ->get(route('dashboard'))
@@ -42,7 +39,7 @@ class FornecedorCategoriaMenuTest extends TestCase
 
     public function test_coordenador_sem_restricao_de_evento_ve_o_submenu(): void
     {
-        $coordenador = $this->user(UserRole::Coordenador);
+        $coordenador = $this->user('coordenador');
 
         $this->actingAs($coordenador)
             ->get(route('dashboard'))
@@ -50,27 +47,34 @@ class FornecedorCategoriaMenuTest extends TestCase
             ->assertSee(route('fornecedor-categorias.index'), false);
     }
 
-    public function test_coordenador_restrito_por_evento_nao_ve_o_submenu(): void
+    /** specs/28 §6: "Eventos visíveis" não esconde cadastros — quem decide é o módulo do perfil. */
+    public function test_submenu_depende_do_modulo_e_nao_da_restricao_por_evento(): void
     {
-        $coordenador = $this->user(UserRole::Coordenador);
         $event = Event::create([
             'name' => 'Evento X',
             'start_date' => now()->toDateString(),
             'end_date' => now()->addDay()->toDateString(),
         ]);
-        $coordenador->events()->attach($event);
 
-        $this->assertTrue($coordenador->isEventScoped());
-
-        $this->actingAs($coordenador)
+        $semModulo = $this->userAs('sem-acesso', modules: [AccessModule::Fornecedores]);
+        $semModulo->events()->attach($event);
+        $this->actingAs($semModulo->fresh())
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee(route('fornecedor-categorias.index'), false);
+
+        $comModulo = $this->userAs('sem-acesso', modules: [AccessModule::FornecedorCategorias]);
+        $comModulo->events()->attach($event);
+        $this->assertTrue($comModulo->fresh()->isEventScoped());
+        $this->actingAs($comModulo->fresh())
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee(route('fornecedor-categorias.index'), false);
     }
 
     public function test_usuario_comum_nao_ve_o_submenu_e_nao_acessa_a_rota(): void
     {
-        $usuario = $this->user(UserRole::Usuario);
+        $usuario = $this->user('usuario');
 
         $this->actingAs($usuario)
             ->get(route('dashboard'))
@@ -84,7 +88,7 @@ class FornecedorCategoriaMenuTest extends TestCase
 
     public function test_listagem_mostra_o_contador_de_fornecedores_por_categoria(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
 
         $categoria = FornecedorCategoria::create(['nome' => 'Som', 'active' => true]);
         $outra = FornecedorCategoria::create(['nome' => 'Cenografia', 'active' => true]);

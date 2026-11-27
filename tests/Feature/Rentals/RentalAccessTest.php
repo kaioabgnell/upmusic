@@ -2,42 +2,43 @@
 
 namespace Tests\Feature\Rentals;
 
-use App\Domain\Enums\UserRole;
+use App\Domain\Enums\AccessModule;
 
-/** Acesso ao módulo (specs/24 §11). */
+/** Acesso ao módulo (specs/24 §11, alterado pela specs/28: módulo Locações do perfil). */
 class RentalAccessTest extends RentalTestCase
 {
-    public function test_admin_e_coordenador_sem_escopo_entram(): void
+    public function test_admin_e_perfil_com_locacoes_entram(): void
     {
-        $this->actingAs($this->user(UserRole::Admin))->get(route('rentals.board'))->assertOk();
-        $this->actingAs($this->user(UserRole::Coordenador))->get(route('rentals.board'))->assertOk();
+        $this->actingAs($this->user('admin'))->get(route('rentals.board'))->assertOk();
+        $this->actingAs($this->user('coordenador'))->get(route('rentals.board'))->assertOk();
     }
 
-    public function test_coordenador_restrito_por_evento_nao_acessa(): void
+    /** specs/28 §6: Locações não é ligada a evento — a restrição por evento não tira o módulo. */
+    public function test_restrito_por_evento_com_o_modulo_acessa(): void
     {
-        $coordenador = $this->user(UserRole::Coordenador);
+        $user = $this->user('sem-acesso', modules: [AccessModule::Rentals]);
         $event = \App\Models\Event::create([
             'name' => 'Evento X', 'location' => 'Goiânia', 'start_date' => '2026-12-01', 'end_date' => '2026-12-02', 'active' => true,
         ]);
-        $coordenador->events()->attach($event->id);
+        $user->events()->attach($event->id);
 
-        $this->actingAs($coordenador->fresh())->get(route('rentals.board'))->assertForbidden();
+        $this->actingAs($user->fresh())->get(route('rentals.board'))->assertOk();
     }
 
-    public function test_usuario_sem_checkbox_nao_acessa_e_com_checkbox_acessa(): void
+    public function test_sem_o_modulo_nao_acessa_e_com_o_modulo_acessa(): void
     {
-        $this->actingAs($this->user(UserRole::Usuario))
+        $this->actingAs($this->user('usuario'))
             ->get(route('rentals.board'))
             ->assertForbidden();
 
-        $this->actingAs($this->user(UserRole::Usuario, ['can_access_rentals' => true]))
+        $this->actingAs($this->user('usuario', modules: [AccessModule::Rentals]))
             ->get(route('rentals.board'))
             ->assertOk();
     }
 
     public function test_lista_de_pedidos_renderiza(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
         $this->order($admin, ['client_name' => 'Cliente']);
 
         $this->actingAs($admin)->get(route('rentals.orders.index'))->assertOk()->assertSee('LOC-');
@@ -45,7 +46,7 @@ class RentalAccessTest extends RentalTestCase
 
     public function test_codigo_do_pedido_e_sequencial_e_unico(): void
     {
-        $admin = $this->user(UserRole::Admin);
+        $admin = $this->user('admin');
 
         $first = $this->order($admin);
         $second = $this->order($admin);

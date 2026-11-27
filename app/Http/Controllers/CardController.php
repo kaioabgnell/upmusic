@@ -399,7 +399,7 @@ class CardController extends Controller
             // Financeiro" e exige Empresa. `installment` alimenta o selo "Parcela X de Y".
             'board_fixed_costs' => (bool) $card->board?->fixed_costs,
             'installment' => CardPresenter::installment($card),
-            'fixed_cost_url' => ($i = CardPresenter::installment($card)) && auth()->user()->canManageFixedCosts()
+            'fixed_cost_url' => ($i = CardPresenter::installment($card)) && auth()->user()->hasModule(\App\Domain\Enums\AccessModule::FixedCosts)
                 ? route('fixed-costs.show', $i['fixed_cost_id'])
                 : null,
             'concluded_at' => $card->concluded_at?->format('d/m/Y H:i'),

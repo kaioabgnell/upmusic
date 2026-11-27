@@ -69,7 +69,10 @@ php artisan test                  # testes de backend (feature/unit) — sem tes
 - Validação sempre em Form Requests; nunca validar dentro do controller.
 - Regras de negócio em Actions/Services, não em controllers nem models.
 - Toda listagem tem paginação, busca e filtros server-side.
-- Autorização via Policies + middleware de role (`admin`, `coordenador`, `usuario`).
+- Autorização via Policies + middlewares `module:<módulo>` e `admin` (Perfis de acesso, ver [`specs/28`](../specs/28-perfis-de-acesso.md)).
+  Não existem mais papéis fixos: Administrador vê tudo; os demais têm um Perfil de acesso com módulos e quadros.
+- Nunca rodar `php artisan ... --env=testing`: não há `.env.testing`, então o comando cai no `upmusic_local`.
+  O banco de testes (`upmusic_test`) só é usado via `php artisan test` (phpunit.xml).
 - Não implementar testes de automação de front, carga, Playwright ou similares (fora de escopo).
 
 ## Modelo do Claude por fase

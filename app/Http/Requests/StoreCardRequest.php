@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\AccessModule;
 use App\Domain\Enums\CardColor;
 use App\Domain\Enums\CardNegociado;
 use App\Models\Board;
@@ -63,7 +64,7 @@ class StoreCardRequest extends FormRequest
 
     /**
      * Quadro de custos fixos (specs/27 §1.4): Empresa obrigatória, Evento proibido e responsável só
-     * entre quem enxerga o quadro (Admin e Coordenador sem eventos vinculados).
+     * entre quem enxerga o quadro (Admin e quem tem o módulo Custos fixos — specs/28 §4).
      */
     private function applyFixedCostsRules(array $rules, ?Board $board): array
     {
@@ -75,8 +76,8 @@ class StoreCardRequest extends FormRequest
         $rules['event_id'] = ['prohibited'];
         $rules['assignee_id'] = ['nullable', 'exists:users,id', function ($attribute, $value, $fail) {
             $user = User::find($value);
-            if ($user && ! $user->canManageFixedCosts()) {
-                $fail('Nos quadros de custos fixos, o responsável precisa ser Admin ou Coordenador sem eventos vinculados.');
+            if ($user && ! $user->hasModule(AccessModule::FixedCosts)) {
+                $fail('Nos quadros de custos fixos, o responsável precisa ter o módulo Custos fixos no perfil de acesso.');
             }
         }];
 
@@ -84,7 +85,7 @@ class StoreCardRequest extends FormRequest
     }
 
     /**
-     * Regra do evento (specs/20): para o coordenador restrito, o evento é obrigatório e precisa estar
+     * Regra do evento (specs/20 e specs/28 §6): para quem é restrito por evento, o evento é obrigatório e precisa estar
      * dentro dos eventos vinculados (o select já vem filtrado, isto impede burlar via requisição). Para
      * os demais perfis, evento continua opcional e livre.
      */

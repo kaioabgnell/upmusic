@@ -62,11 +62,11 @@ class BoardSeeder extends Seeder
             }
         }
 
-        // Dá ao usuário de operação acesso ao quadro de Orçamentos.
+        // Liga o quadro de Orçamentos no perfil de acesso do usuário de operação (specs/28 §4).
         $usuario = User::where('email', 'usuario@upmusic.local')->first();
         $orcamentos = Board::where('name', 'Orçamentos')->first();
-        if ($usuario && $orcamentos) {
-            $usuario->boards()->syncWithoutDetaching([$orcamentos->id]);
+        if ($usuario?->accessProfile && $orcamentos) {
+            $usuario->accessProfile->boards()->syncWithoutDetaching([$orcamentos->id]);
         }
     }
 }

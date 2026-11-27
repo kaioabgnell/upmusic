@@ -3,7 +3,6 @@
 namespace Tests\Feature\Notifications;
 
 use App\Domain\Enums\NotificationType;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -21,13 +20,9 @@ class NotificationPanelTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function user(string $name, UserRole $role = UserRole::Admin): User
+    private function user(string $name, string $role = 'admin'): User
     {
-        return User::factory()->create([
-            'name' => $name,
-            'role' => $role->value,
-            'active' => true,
-        ])->fresh();
+        return $this->userAs($role, ['name' => $name]);
     }
 
     private function board(string $name = 'Comercial'): Board
@@ -205,10 +200,10 @@ class NotificationPanelTest extends TestCase
 
     public function test_usuario_comum_sem_acesso_ao_quadro_nao_ve_a_notificacao(): void
     {
-        $semAcesso = $this->user('Maria Souza', UserRole::Usuario);
-        $comAcesso = $this->user('João Lima', UserRole::Usuario);
+        $semAcesso = $this->user('Maria Souza', 'usuario');
+        $comAcesso = $this->user('João Lima', 'usuario');
         $board = $this->board();
-        $comAcesso->boards()->attach($board->id);
+        $this->giveBoards($comAcesso, $board);
         $card = $this->card($board);
 
         $this->notify($semAcesso, $card);
@@ -227,9 +222,9 @@ class NotificationPanelTest extends TestCase
      */
     public function test_responsavel_recebe_notificacao_de_card_em_quadro_sem_acesso(): void
     {
-        $responsavel = $this->user('Alice', UserRole::Usuario);
+        $responsavel = $this->user('Alice', 'usuario');
         $outroQuadro = $this->board('Conclusão');
-        $responsavel->boards()->attach($outroQuadro->id);   // só tem acesso a este
+        $this->giveBoards($responsavel, $outroQuadro);   // só tem acesso a este
 
         // Sem notify() manual: quem cria a notificação aqui é o próprio observer, como em produção.
         $card = $this->card($this->board('Orçamentos'), ['assignee_id' => $responsavel->id]);
@@ -247,8 +242,8 @@ class NotificationPanelTest extends TestCase
 
     public function test_deixar_de_ser_responsavel_tira_a_notificacao_do_quadro_sem_acesso(): void
     {
-        $antigo = $this->user('Alice', UserRole::Usuario);
-        $novo = $this->user('Bruno', UserRole::Usuario);
+        $antigo = $this->user('Alice', 'usuario');
+        $novo = $this->user('Bruno', 'usuario');
         $card = $this->card($this->board('Orçamentos'), ['assignee_id' => $antigo->id]);
 
         $card->update(['assignee_id' => $novo->id]);
@@ -265,7 +260,7 @@ class NotificationPanelTest extends TestCase
 
     public function test_ser_responsavel_nao_libera_escrita_no_card(): void
     {
-        $responsavel = $this->user('Alice', UserRole::Usuario);
+        $responsavel = $this->user('Alice', 'usuario');
         $card = $this->card($this->board('Orçamentos'), ['assignee_id' => $responsavel->id]);
 
         // Leitura liberada, escrita continua presa ao acesso ao quadro.
@@ -278,7 +273,7 @@ class NotificationPanelTest extends TestCase
 
     public function test_coordenador_restrito_nao_ve_card_fora_do_escopo_nem_sendo_responsavel(): void
     {
-        $coordenador = $this->user('Ana Dias', UserRole::Coordenador);
+        $coordenador = $this->user('Ana Dias', 'coordenador');
         $coordenador->events()->attach($this->event('Festa Junina')->id);
 
         $this->card($this->board(), [
@@ -293,8 +288,8 @@ class NotificationPanelTest extends TestCase
 
     public function test_admin_e_coordenador_veem_notificacao_de_qualquer_quadro(): void
     {
-        $admin = $this->user('Kaio Gomes', UserRole::Admin);
-        $coordenador = $this->user('Ana Dias', UserRole::Coordenador);
+        $admin = $this->user('Kaio Gomes', 'admin');
+        $coordenador = $this->user('Ana Dias', 'coordenador');
         $card = $this->card($this->board());
 
         $this->notify($admin, $card);
@@ -306,7 +301,7 @@ class NotificationPanelTest extends TestCase
 
     public function test_coordenador_restrito_por_evento_nao_ve_card_fora_do_escopo(): void
     {
-        $coordenador = $this->user('Ana Dias', UserRole::Coordenador);
+        $coordenador = $this->user('Ana Dias', 'coordenador');
         $board = $this->board();
 
         $permitido = $this->event('Festa Junina');
@@ -352,7 +347,7 @@ class NotificationPanelTest extends TestCase
     public function test_marcar_como_lida_notificacao_de_outro_usuario_retorna_403(): void
     {
         $dono = $this->user('Maria Souza');
-        $intruso = $this->user('Kaio Gomes', UserRole::Admin);
+        $intruso = $this->user('Kaio Gomes', 'admin');
         $notification = $this->notify($dono, $this->card($this->board()));
 
         $this->actingAs($intruso)->postJson(route('notifications.read', $notification))->assertForbidden();

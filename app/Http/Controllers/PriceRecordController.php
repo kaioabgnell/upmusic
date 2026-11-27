@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\FornecedorCategoria;
 use App\Models\PriceRecord;
 use App\Support\Br;
@@ -11,7 +12,8 @@ class PriceRecordController extends Controller
 {
     public function store(Request $request, FornecedorCategoria $fornecedorCategoria)
     {
-        $this->authorize('update', $fornecedorCategoria);
+        // Gerenciar registros de preço = módulo Banco de Preços (specs/28 §3), não o cadastro de categorias.
+        $this->authorize('module', AccessModule::Prices);
 
         $data = $this->validated($request);
 
@@ -23,7 +25,7 @@ class PriceRecordController extends Controller
 
     public function update(Request $request, PriceRecord $priceRecord)
     {
-        $this->authorize('update', $priceRecord->categoria);
+        $this->authorize('module', AccessModule::Prices);
 
         $priceRecord->update($this->validated($request));
         $priceRecord->load(['fornecedor:id,name', 'event:id,name']);
@@ -33,7 +35,7 @@ class PriceRecordController extends Controller
 
     public function destroy(PriceRecord $priceRecord)
     {
-        $this->authorize('update', $priceRecord->categoria);
+        $this->authorize('module', AccessModule::Prices);
 
         $priceRecord->delete();
 

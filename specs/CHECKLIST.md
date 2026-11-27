@@ -1357,6 +1357,31 @@ de implementação).
     parcela não saem. "Gerar card novamente" para parcela com card excluído.
   - [x] Cobertura: `tests/Feature/FixedCosts/` (32 testes).
   - [ ] Cron `schedule:run` configurado no servidor de produção (linha em specs/27 §3.2).
+- [x] **Perfis de acesso (specs/28)**:
+  - [x] Papéis fixos (admin/coordenador/usuario) trocados por "Administrador: sim/não" + um Perfil de acesso
+    por usuário (`access_profiles`, `access_profile_modules`, `access_profile_board`, `users.is_admin`,
+    `users.access_profile_id`). Módulos no enum `AccessModule` (16), quadros um a um, "Configurar quadros"
+    abre todos (menos o de custos fixos, que vem com o módulo Custos fixos).
+  - [x] Migração dos papéis (`MigrateRolesToAccessProfiles`, migration `2026_11_26_000005`): admins viram
+    Administrador; coordenadores ganham o perfil "Coordenador" (ou "Coordenador restrito por evento");
+    usuários são agrupados pela combinação de quadros + Locações. Banco de Preços ligado nos perfis
+    gerados (§9.1). `role`, `can_access_rentals` e `user_board` removidos (`2026_11_26_000006`).
+  - [x] Middlewares `module` e `admin`, Gate `module` e Policies sobre `User::hasModule()`; `EnsureRole`,
+    `UserRole` e os gates de Locações removidos. Usuários, Perfis de acesso e reabrir prestação de contas
+    só do Admin.
+  - [x] Menu por módulo (seção some sem itens), `Board::visibleTo()`, `Card::visibleTo()`, notificações,
+    responsáveis do quadro de custos fixos e captura rápida na régua nova.
+  - [x] "Eventos visíveis" para qualquer não-admin, sem esconder cadastros; exceção do quadro de custos
+    fixos; evento criado por quem é restrito entra nos eventos visíveis dele (`CreateEvent`).
+  - [x] Aprovador de etapa = usuário ativo com acesso ao quadro (`UpdateColumnApproversRequest`,
+    `BoardColumn::isApproverFor()`).
+  - [x] Tela Perfis de acesso (lista com contagens, formulário com chaves `x-form.toggle`, duplicar,
+    exclusão bloqueada com usuários) e cadastro/lista de usuários com Administrador, Perfil de acesso,
+    Eventos visíveis e filtro por perfil. Bloco "Acesso ao quadro" da configuração virou lista de perfis.
+  - [x] Specs 03, 04, 17, 20 e 24 atualizadas.
+  - [x] Cobertura: `tests/Feature/AccessProfiles/` (38 testes) e testes antigos migrados para
+    `Tests\Concerns\CreatesAccessUsers`.
+  - [ ] Rodar `php artisan migrate` em produção (a migration converte os papéis com os dados de lá).
 
 ---
 

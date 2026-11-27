@@ -1,14 +1,13 @@
 @php
     $isEdit = isset($user);
-    $coordenador = auth()->user()->isCoordenador();
-    $selectedRole = old('role', $isEdit ? $user->role->value : 'usuario');
-    $selectedBoards = old('boards', $isEdit ? $user->boards->pluck('id')->all() : []);
-    $selectedEvents = old('events', $isEdit ? $user->events->pluck('id')->all() : []);
+    $isAdmin = (bool) old('is_admin', $isEdit ? $user->is_admin : false);
+    $selectedEvents = array_map('intval', old('events', $isEdit ? $user->events->pluck('id')->all() : []));
+    $eventScope = old('event_scope', $isEdit && $user->events->isNotEmpty() ? 'selected' : 'all');
 @endphp
 
 <form method="POST"
       action="{{ $isEdit ? route('users.update', $user) : route('users.store') }}"
-      x-data="{ role: '{{ $selectedRole }}' }"
+      x-data="{ isAdmin: @js($isAdmin), eventScope: @js($eventScope) }"
       class="bg-white border border-hairline rounded-xl p-6 space-y-5 max-w-2xl">
     @csrf
     @if ($isEdit) @method('PUT') @endif
@@ -24,22 +23,6 @@
             <x-input-label for="email" value="E-mail" />
             <x-text-input id="email" type="email" name="email" :value="old('email', $isEdit ? $user->email : '')" class="mt-1" required />
             <x-input-error :messages="$errors->get('email')" class="mt-1" />
-        </div>
-
-        <div>
-            <x-input-label for="role" value="Perfil" />
-            <x-form.select id="role" name="role" class="mt-1" x-model="role" :disabled="$coordenador">
-                @foreach ($roles as $value => $label)
-                    {{-- Coordenador só cria/edita usuários comuns --}}
-                    @if (! $coordenador || $value === 'usuario')
-                        <option value="{{ $value }}" @selected($selectedRole === $value)>{{ $label }}</option>
-                    @endif
-                @endforeach
-            </x-form.select>
-            @if ($coordenador)
-                <input type="hidden" name="role" value="usuario">
-            @endif
-            <x-input-error :messages="$errors->get('role')" class="mt-1" />
         </div>
 
         <div>
@@ -83,60 +66,73 @@
         </div>
     </div>
 
-    {{-- Vínculo de eventos (somente perfil Coordenador) — specs/20. Vazio = coordenador vê tudo;
-         com eventos = restrito a eles. Só o Admin chega aqui, pois coordenador não define role=coordenador. --}}
-    <div x-show="role === 'coordenador'" x-cloak class="border-t border-hairline pt-5">
-        <x-input-label value="Eventos que este coordenador pode ver" />
-        <p class="text-xs text-steel mb-2">Deixe vazio para o coordenador ver todos os eventos. Selecionando um ou mais, ele passa a ver apenas os cards, filtros e dados desses eventos.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-            @forelse ($events as $event)
-                <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
-                    <input type="checkbox" name="events[]" value="{{ $event->id }}"
-                           @checked(in_array($event->id, $selectedEvents))
-                           class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-                    <span class="text-sm text-brand-ink">
-                        <i class="fa-solid fa-calendar-days text-steel mr-1"></i>
-                        {{ $event->name }}
-                    </span>
-                </label>
-            @empty
-                <p class="text-sm text-steel">Nenhum evento cadastrado ainda.</p>
-            @endforelse
+    {{-- Acesso (specs/28 §7.2): Administrador → Perfil de acesso → Eventos visíveis. --}}
+    <div class="border-t border-hairline pt-5 space-y-5">
+        <h3 class="text-sm font-semibold text-brand-ink"><i class="fa-solid fa-user-lock text-steel mr-1"></i> Acesso</h3>
+
+        <div>
+            <input type="hidden" name="is_admin" value="0">
+            <label class="flex items-start gap-3 cursor-pointer">
+                <x-form.toggle name="is_admin" value="1" x-model="isAdmin" />
+                <span>
+                    <span class="block text-sm font-medium text-brand-ink">Administrador</span>
+                    <span class="block text-xs text-steel">Vê e faz tudo no sistema. Não usa perfil de acesso.</span>
+                </span>
+            </label>
+            <x-input-error :messages="$errors->get('is_admin')" class="mt-1" />
         </div>
-    </div>
 
-    {{-- Gestão de Locações (specs/24 §11) — só o perfil Usuário precisa do checkbox; admin e
-         coordenador sem escopo de evento já acessam automaticamente. --}}
-    <div x-show="role === 'usuario'" x-cloak class="border-t border-hairline pt-5">
-        <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" name="can_access_rentals" value="1"
-                   @checked(old('can_access_rentals', $isEdit ? $user->can_access_rentals : false))
-                   class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-            <span class="text-sm text-brand-ink">
-                <i class="fa-solid fa-boxes-stacked text-steel mr-1"></i>
-                Acesso à Gestão de Locações
-            </span>
-        </label>
-    </div>
+        <div x-show="!isAdmin" x-cloak>
+            <div class="flex items-center justify-between gap-3">
+                <x-input-label for="access_profile_id" value="Perfil de acesso" />
+                <a href="{{ route('access-profiles.index') }}" target="_blank" rel="noopener"
+                   class="text-xs font-medium text-brand-orange-deep hover:underline">
+                    <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Gerenciar perfis
+                </a>
+            </div>
+            <x-form.select id="access_profile_id" name="access_profile_id" class="mt-1" x-bind:disabled="isAdmin">
+                <option value="">Selecione um perfil</option>
+                @foreach ($profiles as $profile)
+                    <option value="{{ $profile->id }}" @selected((string) old('access_profile_id', $isEdit ? $user->access_profile_id : '') === (string) $profile->id)>
+                        {{ $profile->name }}
+                    </option>
+                @endforeach
+            </x-form.select>
+            <x-input-error :messages="$errors->get('access_profile_id')" class="mt-1" />
+            @if ($profiles->isEmpty())
+                <p class="text-xs text-steel mt-1">Nenhum perfil cadastrado. Crie um em Perfis de acesso antes.</p>
+            @endif
+        </div>
 
-    {{-- Vínculo de quadros (somente perfil Usuário) --}}
-    <div x-show="role === 'usuario'" x-cloak class="border-t border-hairline pt-5">
-        <x-input-label value="Quadros com acesso" />
-        <p class="text-xs text-steel mb-2">Selecione os quadros que este usuário poderá operar.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            @forelse ($boards as $board)
-                <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
-                    <input type="checkbox" name="boards[]" value="{{ $board->id }}"
-                           @checked(in_array($board->id, $selectedBoards))
-                           class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
-                    <span class="text-sm text-brand-ink">
-                        <i class="fa-solid {{ $board->icon ?? 'fa-table-columns' }} text-steel mr-1"></i>
-                        {{ $board->name }}
-                    </span>
+        <div x-show="!isAdmin" x-cloak>
+            <x-input-label value="Eventos visíveis" />
+            <p class="text-xs text-steel mb-2">Com "Somente os selecionados", o usuário vê só os cards, eventos e planilhas financeiras desses eventos. Os cards do quadro de custos fixos não são afetados.</p>
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-6 mb-3">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-brand-ink">
+                    <input type="radio" name="event_scope" value="all" x-model="eventScope" class="border-gray-300 text-brand-orange focus:ring-brand-orange">
+                    Todos os eventos
                 </label>
-            @empty
-                <p class="text-sm text-steel">Nenhum quadro cadastrado ainda.</p>
-            @endforelse
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-brand-ink">
+                    <input type="radio" name="event_scope" value="selected" x-model="eventScope" class="border-gray-300 text-brand-orange focus:ring-brand-orange">
+                    Somente os selecionados
+                </label>
+            </div>
+            <div x-show="eventScope === 'selected'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                @forelse ($events as $event)
+                    <label class="flex items-center gap-2 rounded-md border border-hairline px-3 py-2 cursor-pointer hover:bg-surface">
+                        <input type="checkbox" name="events[]" value="{{ $event->id }}"
+                               @checked(in_array($event->id, $selectedEvents, true))
+                               class="rounded border-gray-300 text-brand-orange focus:ring-brand-orange">
+                        <span class="text-sm text-brand-ink">
+                            <i class="fa-solid fa-calendar-days text-steel mr-1"></i>
+                            {{ $event->name }}
+                        </span>
+                    </label>
+                @empty
+                    <p class="text-sm text-steel">Nenhum evento cadastrado ainda.</p>
+                @endforelse
+            </div>
+            <x-input-error :messages="$errors->get('events')" class="mt-1" />
         </div>
     </div>
 

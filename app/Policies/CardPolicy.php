@@ -12,8 +12,8 @@ class CardPolicy
 
     /**
      * O responsável atual sempre lê o próprio card, mesmo sem acesso ao quadro (specs/22). O escopo
-     * por evento (specs/20) continua valendo como limite absoluto: ser responsável não fura a
-     * restrição de eventos de um coordenador restrito.
+     * por evento (specs/28 §6) continua valendo como limite absoluto: ser responsável não fura a
+     * restrição de eventos.
      */
     public function view(User $user, Card $card): bool
     {
@@ -40,14 +40,14 @@ class CardPolicy
     }
 
     /**
-     * Coordenador restrito por evento (specs/20) só enxerga/opera cards dos seus eventos. Cards sem
-     * evento também ficam fora. Para os demais perfis (allowedEventIds === null) não há restrição.
+     * Quem é restrito por evento (specs/28 §6) só enxerga/opera cards dos seus eventos. Card sem
+     * evento também fica fora, exceto no quadro de custos fixos, onde os cards nunca têm evento.
      */
     private function withinEventScope(User $user, Card $card): bool
     {
         $ids = $user->allowedEventIds();
 
-        if ($ids === null) {
+        if ($ids === null || $card->board?->fixed_costs) {
             return true;
         }
 

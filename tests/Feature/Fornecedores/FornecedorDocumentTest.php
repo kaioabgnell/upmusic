@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Fornecedores;
 
-use App\Domain\Enums\UserRole;
 use App\Models\Fornecedor;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +21,7 @@ class FornecedorDocumentTest extends TestCase
         // ->fresh(): sem isso o model só carrega os atributos passados ao factory, e
         // Model::preventAccessingMissingAttributes() (ligado fora de produção) explode ao
         // renderizar o layout completo (x-user-avatar lê avatar_path, ausente do array criado).
-        return User::factory()->create(['role' => UserRole::Usuario->value, 'active' => true])->fresh();
+        return $this->userAs('usuario');
     }
 
     public function test_fornecedor_pj_aceita_cpf_como_documento(): void

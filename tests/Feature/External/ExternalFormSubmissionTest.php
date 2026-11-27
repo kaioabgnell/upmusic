@@ -3,7 +3,6 @@
 namespace Tests\Feature\External;
 
 use App\Domain\Enums\AttachmentKind;
-use App\Domain\Enums\UserRole;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\Card;
@@ -73,7 +72,7 @@ class ExternalFormSubmissionTest extends TestCase
         $this->assertSame('Carla Produtora', $submission->requester_name);
         $this->assertNotNull($submission->card_id);
 
-        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        $admin = User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
 
         $this->actingAs($admin)
             ->getJson(route('cards.show', $submission->card_id))
@@ -155,7 +154,7 @@ class ExternalFormSubmissionTest extends TestCase
     public function test_card_criado_na_mao_nao_tem_solicitante(): void
     {
         $form = $this->form();
-        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'active' => true])->fresh();
+        $admin = User::factory()->create(['is_admin' => true, 'active' => true])->fresh();
 
         $card = $form->board->cards()->create([
             'board_column_id' => $form->target_column_id,

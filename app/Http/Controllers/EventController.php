@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Events\CreateEvent;
 use App\Http\Requests\StoreEventRequest;
 use App\Http\Requests\UpdateEventRequest;
 use App\Models\Event;
@@ -13,7 +14,7 @@ class EventController extends Controller
     {
         $this->authorize('viewAny', Event::class);
 
-        // Coordenador restrito por evento (specs/20) só vê os eventos vinculados.
+        // Quem é restrito por evento (specs/28 §6) só vê os eventos vinculados.
         $allowedEventIds = $request->user()->allowedEventIds();
 
         $events = Event::query()
@@ -35,9 +36,9 @@ class EventController extends Controller
         return view('eventos.create');
     }
 
-    public function store(StoreEventRequest $request)
+    public function store(StoreEventRequest $request, CreateEvent $action)
     {
-        Event::create($request->validated());
+        $action->execute($request->validated(), $request->user());
 
         return redirect()->route('eventos.index')->with('success', 'Evento criado com sucesso.');
     }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Fornecedores;
 
-use App\Domain\Enums\UserRole;
 use App\Models\FornecedorCategoria;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,7 +18,7 @@ class FornecedorCategoriaOrderingTest extends TestCase
 
     private function user(): User
     {
-        return User::factory()->create(['role' => UserRole::Usuario->value, 'active' => true])->fresh();
+        return $this->userAs('usuario');
     }
 
     public function test_categorias_chegam_em_ordem_alfabetica_no_formulario_de_criacao(): void

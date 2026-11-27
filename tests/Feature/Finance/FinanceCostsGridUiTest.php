@@ -60,7 +60,7 @@ class FinanceCostsGridUiTest extends FinanceTestCase
         $event = $this->event();
         $this->sheet($event);
 
-        $scoped = $this->user(\App\Domain\Enums\UserRole::Coordenador);
+        $scoped = $this->user('coordenador');
         $scoped->events()->attach($this->event('Outro evento'));
 
         $this->actingAs($scoped)->getJson(route('finance.costs.rows', $event))->assertForbidden();

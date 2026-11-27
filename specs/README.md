@@ -33,6 +33,7 @@ completa para execução do projeto, organizada por módulo. Leia na ordem abaix
 | 25 | [Centro de custos](25-centro-de-custos.md) | Cadastro global de centros de custo (código, nome, descrição, ativo) e classificação opcional das linhas de custos e receitas do Financeiro do Evento, inclusive no modal "Enviar para o Financeiro" do card | `opus` |
 | 26 | [Contas bancárias](26-contas-bancarias.md) | Cadastro global de contas bancárias (banco, nome, agência, conta, tipo, situação) vinculadas a uma ou mais empresas, e o vínculo opcional em cada pagamento de custo (de onde sai) e em cada receita (para onde entra) do Financeiro do Evento | `opus` |
 | 27 | [Custos fixos](27-custos-fixos.md) | Cadastro de custos recorrentes por empresa (aluguel, água, parcelamentos) que gera um card por parcela num quadro de custos fixos, todas de uma vez ou X dias antes do vencimento, com selo "Parcela X de Y". Nesta etapa, nada vai para o Financeiro | `opus` |
+| 28 | [Perfis de acesso](28-perfis-de-acesso.md) | Substitui os papéis Admin/Coordenador/Usuário por perfis cadastrados pelo Admin: módulos e quadros ligados ou desligados, um perfil por usuário, Admin vê tudo e restrição por evento para qualquer usuário que não é admin | `opus` |
 | — | [CHECKLIST](CHECKLIST.md) | **Checklist de desenvolvimento — atualizar a cada entrega** | `sonnet` |
 
 ## Modelo por fase

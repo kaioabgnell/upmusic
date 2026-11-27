@@ -19,7 +19,7 @@ class RentalItemController extends Controller
     {
         $this->authorize('viewAny', RentalItem::class);
 
-        $withCost = $request->user()->canManageRentals();
+        $withCost = $request->user()->hasModule(\App\Domain\Enums\AccessModule::Rentals);
         $status = $request->status ?: 'active';
         if ($status === 'deleted' && ! $withCost) {
             $status = 'active';
@@ -65,7 +65,7 @@ class RentalItemController extends Controller
     {
         $this->authorize('view', $item);
 
-        $withCost = $request->user()->canManageRentals();
+        $withCost = $request->user()->hasModule(\App\Domain\Enums\AccessModule::Rentals);
 
         $upcoming = RentalOrderItem::where('rental_item_id', $item->id)
             ->whereHas('order', fn ($q) => $q

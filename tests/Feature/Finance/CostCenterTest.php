@@ -3,7 +3,7 @@
 namespace Tests\Feature\Finance;
 
 use App\Actions\Finance\SyncCardToFinance;
-use App\Domain\Enums\UserRole;
+use App\Domain\Enums\AccessModule;
 use App\Models\CostCenter;
 use App\Models\FinanceCostItem;
 use App\Services\Finance\FinanceExportService;
@@ -81,18 +81,22 @@ class CostCenterTest extends FinanceTestCase
         $this->assertSoftDeleted($free);
     }
 
-    public function test_usuario_comum_e_coordenador_restrito_por_evento_nao_gerenciam(): void
+    /** specs/28: o módulo do perfil decide; "Eventos visíveis" não esconde cadastro que não é de evento. */
+    public function test_gerenciar_depende_do_modulo_centros_de_custo(): void
     {
-        $this->actingAs($this->user(UserRole::Usuario))
+        $this->actingAs($this->user('usuario'))
             ->get(route('cost-centers.index'))->assertForbidden();
 
-        $scoped = $this->user(UserRole::Coordenador);
-        $scoped->events()->attach($this->event());
-
-        $this->actingAs($scoped->fresh())
+        $semModulo = $this->user('sem-acesso', modules: [AccessModule::BankAccounts]);
+        $this->actingAs($semModulo)
             ->post(route('cost-centers.store'), ['name' => 'Qualquer'])->assertForbidden();
 
-        $this->actingAs($this->user(UserRole::Coordenador))
+        $scoped = $this->user('sem-acesso', modules: [AccessModule::CostCenters]);
+        $scoped->events()->attach($this->event());
+        $this->actingAs($scoped->fresh())
+            ->get(route('cost-centers.index'))->assertOk();
+
+        $this->actingAs($this->user('coordenador'))
             ->get(route('cost-centers.index'))->assertOk();
     }
 

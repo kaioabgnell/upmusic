@@ -2,61 +2,61 @@
 
 namespace App\Policies;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\RentalOrder;
 use App\Models\User;
 
 /**
- * Acesso aos pedidos de locação (specs/24 §11). Admin é liberado antes daqui pelo `Gate::before`.
+ * Pedidos de locação (specs/24): módulo `rentals` do perfil de acesso (specs/28), que libera tudo —
+ * inclusive encerrar, reabrir, reativar e excluir. Admin via `Gate::before`.
  *
- * `update` cobre dados, linhas, desconto, custos, mover etapas (exceto Encerrar) e cancelar — tudo
- * que o `usuario` habilitado também pode fazer. Encerrar, reabrir, reativar e excluir são exclusivos
- * de quem gerencia o módulo. O travamento do pedido encerrado/cancelado é responsabilidade do
- * controller (`RentalController::authorizeWrite()`), não desta policy — igual ao Financeiro do Evento.
+ * O travamento do pedido encerrado/cancelado é responsabilidade do controller
+ * (`RentalController::authorizeWrite()`), não desta policy — igual ao Financeiro do Evento.
  */
 class RentalOrderPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->canAccessRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function view(User $user, RentalOrder $order): bool
     {
-        return $user->canAccessRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function create(User $user): bool
     {
-        return $user->canAccessRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function update(User $user, RentalOrder $order): bool
     {
-        return $user->canAccessRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function cancel(User $user, RentalOrder $order): bool
     {
-        return $user->canAccessRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function close(User $user, RentalOrder $order): bool
     {
-        return $user->canManageRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function reopen(User $user, RentalOrder $order): bool
     {
-        return $user->canManageRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function reactivate(User $user, RentalOrder $order): bool
     {
-        return $user->canManageRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 
     public function delete(User $user, RentalOrder $order): bool
     {
-        return $user->canManageRentals();
+        return $user->hasModule(AccessModule::Rentals);
     }
 }

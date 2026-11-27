@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Enums\AccessModule;
 use App\Models\Empresa;
 use App\Models\Event;
 use App\Models\Fornecedor;
@@ -40,7 +41,7 @@ class CardFormOptionsService
                     'unidade' => $f->categoria?->unidade?->label(),
                 ])
                 ->values(),
-            // Coordenador restrito por evento (specs/20) só vê/filtra/seleciona os eventos vinculados —
+            // Quem é restrito por evento (specs/28 §6) só vê/filtra/seleciona os eventos vinculados —
             // isso alimenta tanto o filtro "Eventos" do Kanban quanto o select de Evento no modal de card.
             'events' => Event::active()
                 ->when(
@@ -56,13 +57,12 @@ class CardFormOptionsService
 
     /**
      * Responsáveis possíveis num quadro de custos fixos (specs/27 §1.2): só quem enxerga o quadro —
-     * Admin e Coordenador sem eventos vinculados.
+     * Admin e quem tem o módulo Custos fixos no perfil de acesso (specs/28 §4).
      */
     public function fixedCostAssignees(): \Illuminate\Support\Collection
     {
         return User::where('active', true)
-            ->where(fn ($q) => $q->where('role', 'admin')
-                ->orWhere(fn ($c) => $c->where('role', 'coordenador')->whereDoesntHave('events')))
+            ->withModule(AccessModule::FixedCosts)
             ->orderBy('name')->get(['id', 'name', 'avatar_path'])
             ->map(fn ($u) => (object) ['id' => $u->id, 'name' => $u->name, 'avatar_url' => $u->avatar_url])
             ->values();
